@@ -1,0 +1,197 @@
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { QRCodeSVG } from "qrcode.react";
+import { Banknote, CheckCircle2, QrCode, RefreshCw, XCircle } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/client";
+import { formatIDR } from "@/lib/format";
+import type { Order, Payment } from "@/lib/types";
+import {
+  cancelQrisPayment,
+  markCashPaid,
+  startQrisPayment,
+} from "../actions";
+
+export function PaymentPanel({
+  order,
+  initialPayment,
+}: {
+  order: Order;
+  initialPayment: Payment | null;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [payment, setPayment] = useState<Payment | null>(initialPayment);
+  const [method, setMethod] = useState<"qris" | "cash" | null>(
+    initialPayment && initialPayment.provider === "xendit" ? "qris" : null,
+  );
+
+  const isPaid = order.payment_status === "paid";
+
+  useEffect(() => {
+    if (!payment || payment.status !== "pending") return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`pay-${payment.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "payments",
+          filter: `id=eq.${payment.id}`,
+        },
+        (p) => {
+          const next = p.new as Payment;
+          setPayment(next);
+          if (next.status === "paid") {
+            toast.success("Payment received!");
+            router.refresh();
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [payment, router]);
+
+  function beginQris() {
+    setMethod("qris");
+    start(async () => {
+      const res = await startQrisPayment(order.id);
+      if (!res.ok) {
+        toast.error(res.error);
+        setMethod(null);
+        return;
+      }
+      setPayment(res.payment);
+    });
+  }
+
+  function confirmCash() {
+    start(async () => {
+      const res = await markCashPaid(order.id);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Order marked as paid");
+      router.refresh();
+    });
+  }
+
+  function cancelQris() {
+    start(async () => {
+      const res = await cancelQrisPayment(order.id);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setPayment(null);
+      setMethod(null);
+      router.refresh();
+    });
+  }
+
+  if (isPaid) {
+    return (
+      <Card className="p-6 gap-3 text-center">
+        <div className="mx-auto h-14 w-14 rounded-full bg-emerald-100 text-emerald-700 grid place-items-center">
+          <CheckCircle2 className="h-8 w-8" />
+        </div>
+        <div className="text-lg font-semibold">Payment received</div>
+        <div className="text-sm text-muted-foreground">
+          {order.payment_method === "qris" ? "Paid via QRIS" : "Paid in cash"}
+        </div>
+        <div className="text-3xl font-semibold tabular-nums pt-2">
+          {formatIDR(order.total)}
+        </div>
+      </Card>
+    );
+  }
+
+  if (method === "qris" && payment) {
+    return (
+      <Card className="p-5 gap-4">
+        <div className="text-center space-y-1">
+          <div className="text-sm text-muted-foreground">Ask customer to scan</div>
+          <div className="text-2xl font-semibold tabular-nums">
+            {formatIDR(payment.amount)}
+          </div>
+        </div>
+        <div className="relative mx-auto bg-white p-4 rounded-lg border">
+          {payment.qr_string ? (
+            <QRCodeSVG
+              value={payment.qr_string}
+              size={256}
+              level="M"
+              marginSize={0}
+            />
+          ) : (
+            <div className="h-64 w-64 grid place-items-center text-muted-foreground">
+              QR not available
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          Waiting for payment...
+        </div>
+        <Separator />
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={cancelQris}
+            disabled={pending}
+          >
+            <XCircle className="h-4 w-4 mr-2" /> Cancel QRIS
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-5 gap-4">
+      <h3 className="font-semibold">Take payment</h3>
+      <div className="grid gap-3">
+        <Button
+          size="lg"
+          className="h-auto py-4 justify-start"
+          onClick={beginQris}
+          disabled={pending}
+        >
+          <QrCode className="h-5 w-5 mr-3" />
+          <div className="text-left">
+            <div className="font-semibold">QRIS</div>
+            <div className="text-xs opacity-90 font-normal">
+              Generate QR code via Xendit
+            </div>
+          </div>
+        </Button>
+        <Button
+          size="lg"
+          variant="outline"
+          className="h-auto py-4 justify-start"
+          onClick={confirmCash}
+          disabled={pending}
+        >
+          <Banknote className="h-5 w-5 mr-3" />
+          <div className="text-left">
+            <div className="font-semibold">Cash</div>
+            <div className="text-xs text-muted-foreground font-normal">
+              Mark as paid in cash
+            </div>
+          </div>
+        </Button>
+      </div>
+    </Card>
+  );
+}

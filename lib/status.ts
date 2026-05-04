@@ -1,0 +1,30 @@
+import type { OrderStatus, PaymentStatus } from "@/lib/types";
+
+export function statusColor(s: OrderStatus): string {
+  switch (s) {
+    case "pending":
+      return "bg-slate-200 text-slate-900 hover:bg-slate-200";
+    case "preparing":
+      return "bg-amber-500 text-white hover:bg-amber-500";
+    case "ready":
+      return "bg-emerald-500 text-white hover:bg-emerald-500";
+    case "completed":
+      return "bg-sky-600 text-white hover:bg-sky-600";
+    case "cancelled":
+      return "bg-red-600 text-white hover:bg-red-600";
+  }
+}
+
+export function paymentColor(s: PaymentStatus): string {
+  switch (s) {
+    case "unpaid":
+      return "bg-muted text-foreground hover:bg-muted";
+    case "pending":
+      return "bg-amber-100 text-amber-900 hover:bg-amber-100";
+    case "paid":
+      return "bg-emerald-100 text-emerald-900 hover:bg-emerald-100";
+    case "failed":
+    case "expired":
+      return "bg-red-100 text-red-900 hover:bg-red-100";
+  }
+}
