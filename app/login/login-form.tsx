@@ -6,6 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield, UtensilsCrossed, ChefHat, Receipt } from "lucide-react";
+import {
+  startRouteProgress,
+  endRouteProgress,
+} from "@/components/route-progress";
 import { signIn } from "./actions";
 import { toast } from "sonner";
 
@@ -30,9 +34,11 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
     fd.set("password", password);
     if (redirectTo) fd.set("redirect", redirectTo);
     startTransition(async () => {
+      startRouteProgress();
       const result = await signIn(fd);
       setPendingEmail(null);
       if (result?.error) {
+        endRouteProgress();
         setError(result.error);
         toast.error(result.error);
       }

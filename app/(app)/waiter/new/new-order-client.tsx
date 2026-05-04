@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatIDR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { MenuCategory, MenuItem } from "@/lib/types";
+import { startRouteProgress } from "@/components/route-progress";
 import { createOrder } from "../actions";
 
 type CartLine = {
@@ -111,6 +112,7 @@ export function NewOrderClient({
         return;
       }
       toast.success(`Order ${res.order.order_number} sent to kitchen`);
+      startRouteProgress();
       router.push(`/waiter/confirmation/${res.order.id}`);
     });
   }

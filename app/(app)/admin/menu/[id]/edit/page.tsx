@@ -1,14 +1,28 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 import { MenuItemForm } from "../../menu-item-form";
+import { MenuItemFormSkeleton } from "../../menu-item-form-skeleton";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function EditMenuItemPage({ params }: Props) {
   await requireRole(["admin"]);
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <PageHeader title="Edit menu item" />
+      <Suspense fallback={<MenuItemFormSkeleton />}>
+        <EditFormLoader params={params} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function EditFormLoader({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
@@ -23,12 +37,9 @@ export default async function EditMenuItemPage({ params }: Props) {
   if (!item) notFound();
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <PageHeader title="Edit menu item" description={(item as MenuItem).name} />
-      <MenuItemForm
-        categories={(categories ?? []) as MenuCategory[]}
-        item={item as MenuItem}
-      />
-    </div>
+    <MenuItemForm
+      categories={(categories ?? []) as MenuCategory[]}
+      item={item as MenuItem}
+    />
   );
 }

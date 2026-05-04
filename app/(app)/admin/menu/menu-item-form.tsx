@@ -21,6 +21,7 @@ import {
   createMenuItem,
   updateMenuItem,
 } from "@/app/(app)/admin/actions";
+import { startRouteProgress } from "@/components/route-progress";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 
 export function MenuItemForm({
@@ -58,6 +59,7 @@ export function MenuItemForm({
         return;
       }
       toast.success(item ? "Menu item updated" : "Menu item created");
+      startRouteProgress();
       router.push("/admin/menu");
       router.refresh();
     });

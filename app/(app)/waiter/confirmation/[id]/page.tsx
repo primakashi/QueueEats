@@ -16,19 +16,16 @@ export default async function ConfirmationPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: order } = await supabase
-    .from("orders")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data: order }, { data: items }] = await Promise.all([
+    supabase.from("orders").select("*").eq("id", id).maybeSingle(),
+    supabase
+      .from("order_items")
+      .select("*")
+      .eq("order_id", id)
+      .order("created_at", { ascending: true }),
+  ]);
 
   if (!order) notFound();
-
-  const { data: items } = await supabase
-    .from("order_items")
-    .select("*")
-    .eq("order_id", id)
-    .order("created_at", { ascending: true });
 
   const orderTyped = order as Order;
   const itemsTyped = (items ?? []) as OrderItem[];

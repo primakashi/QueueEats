@@ -3,6 +3,28 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
+// Module-scoped references set by the mounted RouteProgress component, so that
+// imperative navigations (e.g. router.push after a server action) can also
+// flip the top progress bar on/off without going through an anchor click.
+let externalStart: (() => void) | null = null;
+let externalEnd: (() => void) | null = null;
+
+/**
+ * Trigger the global top progress bar from anywhere in the app.
+ * Safe to call when no <RouteProgress /> is mounted (no-op).
+ */
+export function startRouteProgress() {
+  externalStart?.();
+}
+
+/**
+ * Force the global top progress bar off (e.g. when a server action errors out
+ * and we did not actually navigate). Safe to call as a no-op.
+ */
+export function endRouteProgress() {
+  externalEnd?.();
+}
+
 export function RouteProgress() {
   const pathname = usePathname();
   const [pending, setPending] = useState(false);
@@ -58,8 +80,13 @@ export function RouteProgress() {
     }
 
     document.addEventListener("click", onClick, { capture: true });
-    return () =>
+    externalStart = () => setPending(true);
+    externalEnd = () => setPending(false);
+    return () => {
       document.removeEventListener("click", onClick, { capture: true });
+      externalStart = null;
+      externalEnd = null;
+    };
   }, []);
 
   // Safety net: if a navigation never resolves (e.g. blocked), clear after a while.
