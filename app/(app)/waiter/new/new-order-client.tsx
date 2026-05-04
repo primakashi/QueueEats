@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Sheet,
   SheetContent,
@@ -427,9 +428,11 @@ function CartPanel(props: {
           className="w-full"
           size="lg"
           disabled={props.pending || props.cart.length === 0}
+          aria-busy={props.pending}
           onClick={props.onSubmit}
         >
-          {props.pending ? "Sending..." : "Send to kitchen"}
+          {props.pending && <Spinner className="mr-2" />}
+          {props.pending ? "Sending…" : "Send to kitchen"}
         </Button>
       </div>
     </>

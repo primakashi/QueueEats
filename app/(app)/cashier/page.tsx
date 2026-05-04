@@ -68,10 +68,14 @@ function Section({
           {emptyLabel}
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-4">
           {orders.map((o) => (
-            <Link key={o.id} href={`/cashier/${o.id}`}>
-              <Card className="p-4 gap-2 hover:border-primary transition-colors">
+            <Link
+              key={o.id}
+              href={`/cashier/${o.id}`}
+              className="block touch-manipulation"
+            >
+              <Card className="p-4 gap-2 hover:border-primary active:scale-[0.99] transition-all">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-semibold tabular-nums">

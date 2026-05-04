@@ -16,13 +16,15 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
 import { createRealtimeClient } from "@/lib/supabase/client";
 import { formatIDR } from "@/lib/format";
 import type { Order, Payment } from "@/lib/types";
 import {
   cancelQrisPayment,
-  markCashPaid,
+  simulateCashPayment,
   simulateMockPayment,
+  startCashPayment,
   startQrisPayment,
 } from "../actions";
 
@@ -35,10 +37,17 @@ export function PaymentPanel({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [action, setAction] = useState<
+    "begin-qris" | "begin-cash" | "simulate-cash" | "simulate-mock" | "cancel" | null
+  >(null);
   const [payment, setPayment] = useState<Payment | null>(initialPayment);
-  const [method, setMethod] = useState<"qris" | "cash" | null>(
-    initialPayment && initialPayment.provider === "xendit" ? "qris" : null,
-  );
+  const [method, setMethod] = useState<"qris" | "cash" | null>(() => {
+    if (!initialPayment || initialPayment.status !== "pending") return null;
+    if (initialPayment.provider === "cash") return "cash";
+    if (initialPayment.provider === "mock" || initialPayment.provider === "xendit")
+      return "qris";
+    return null;
+  });
 
   const isPaid = order.payment_status === "paid";
   const isMock = payment?.provider === "mock";
@@ -96,51 +105,77 @@ export function PaymentPanel({
 
   function beginQris() {
     setMethod("qris");
+    setAction("begin-qris");
     start(async () => {
       const res = await startQrisPayment(order.id);
       if (!res.ok) {
         toast.error(res.error);
         setMethod(null);
+        setAction(null);
         return;
       }
       setPayment(res.payment);
+      setAction(null);
     });
   }
 
-  function confirmCash() {
+  function beginCash() {
+    setMethod("cash");
+    setAction("begin-cash");
     start(async () => {
-      const res = await markCashPaid(order.id);
+      const res = await startCashPayment(order.id);
       if (!res.ok) {
         toast.error(res.error);
+        setMethod(null);
+        setAction(null);
         return;
       }
-      toast.success("Order marked as paid");
-      router.refresh();
+      setPayment(res.payment);
+      setAction(null);
+    });
+  }
+
+  function simulateCash() {
+    if (!payment) return;
+    setAction("simulate-cash");
+    start(async () => {
+      const res = await simulateCashPayment(payment.id);
+      if (!res.ok) {
+        toast.error(res.error);
+        setAction(null);
+        return;
+      }
+      toast.success("Cash payment recorded");
+      setAction(null);
     });
   }
 
   function simulateMock() {
     if (!payment) return;
+    setAction("simulate-mock");
     start(async () => {
       const res = await simulateMockPayment(payment.id);
       if (!res.ok) {
         toast.error(res.error);
+        setAction(null);
         return;
       }
-      // Realtime channel will flip the UI; this is a belt-and-suspenders.
-      toast.success("Mock payment completed");
+      setAction(null);
     });
   }
 
   function cancelQris() {
+    setAction("cancel");
     start(async () => {
       const res = await cancelQrisPayment(order.id);
       if (!res.ok) {
         toast.error(res.error);
+        setAction(null);
         return;
       }
       setPayment(null);
       setMethod(null);
+      setAction(null);
       router.refresh();
     });
   }
@@ -157,6 +192,63 @@ export function PaymentPanel({
         </div>
         <div className="text-3xl font-semibold tabular-nums pt-2">
           {formatIDR(order.total)}
+        </div>
+      </Card>
+    );
+  }
+
+  if (method === "cash" && payment) {
+    return (
+      <Card className="p-5 gap-4">
+        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <div className="font-medium">Mock cash flow</div>
+            <div className="text-amber-800/80">
+              Same pattern as mock QRIS: collect cash from the customer, then tap
+              “Simulate customer paid” to record it.
+            </div>
+          </div>
+        </div>
+        <div className="text-center space-y-1">
+          <div className="text-sm text-muted-foreground">Amount to collect</div>
+          <div className="text-2xl font-semibold tabular-nums">
+            {formatIDR(payment.amount)}
+          </div>
+        </div>
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-6">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          Waiting for cash…
+        </div>
+        <Separator />
+        <div className="grid gap-2">
+          <Button
+            className="w-full"
+            onClick={simulateCash}
+            disabled={pending}
+            aria-busy={action === "simulate-cash"}
+          >
+            {action === "simulate-cash" ? (
+              <Spinner className="mr-2" />
+            ) : (
+              <Sparkles className="h-4 w-4 mr-2" />
+            )}
+            {action === "simulate-cash" ? "Recording…" : "Simulate customer paid"}
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={cancelQris}
+            disabled={pending}
+            aria-busy={action === "cancel"}
+          >
+            {action === "cancel" ? (
+              <Spinner className="mr-2" />
+            ) : (
+              <XCircle className="h-4 w-4 mr-2" />
+            )}
+            {action === "cancel" ? "Cancelling…" : "Cancel cash"}
+          </Button>
         </div>
       </Card>
     );
@@ -207,8 +299,16 @@ export function PaymentPanel({
                 className="w-full"
                 onClick={simulateMock}
                 disabled={pending}
+                aria-busy={action === "simulate-mock"}
               >
-                <Sparkles className="h-4 w-4 mr-2" /> Simulate customer scan
+                {action === "simulate-mock" ? (
+                  <Spinner className="mr-2" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                {action === "simulate-mock"
+                  ? "Recording…"
+                  : "Simulate customer scan"}
               </Button>
               {mockPayUrl && (
                 <Button
@@ -228,8 +328,14 @@ export function PaymentPanel({
             className="w-full"
             onClick={cancelQris}
             disabled={pending}
+            aria-busy={action === "cancel"}
           >
-            <XCircle className="h-4 w-4 mr-2" /> Cancel QRIS
+            {action === "cancel" ? (
+              <Spinner className="mr-2" />
+            ) : (
+              <XCircle className="h-4 w-4 mr-2" />
+            )}
+            {action === "cancel" ? "Cancelling…" : "Cancel QRIS"}
           </Button>
         </div>
       </Card>
@@ -245,10 +351,17 @@ export function PaymentPanel({
           className="h-auto py-4 justify-start"
           onClick={beginQris}
           disabled={pending}
+          aria-busy={action === "begin-qris"}
         >
-          <QrCode className="h-5 w-5 mr-3" />
+          {action === "begin-qris" ? (
+            <Spinner className="mr-3 h-5 w-5" size="md" />
+          ) : (
+            <QrCode className="h-5 w-5 mr-3" />
+          )}
           <div className="text-left">
-            <div className="font-semibold">QRIS</div>
+            <div className="font-semibold">
+              {action === "begin-qris" ? "Generating QR…" : "QRIS"}
+            </div>
             <div className="text-xs opacity-90 font-normal">
               Generate QR code via Xendit
             </div>
@@ -258,14 +371,21 @@ export function PaymentPanel({
           size="lg"
           variant="outline"
           className="h-auto py-4 justify-start"
-          onClick={confirmCash}
+          onClick={beginCash}
           disabled={pending}
+          aria-busy={action === "begin-cash"}
         >
-          <Banknote className="h-5 w-5 mr-3" />
+          {action === "begin-cash" ? (
+            <Spinner className="mr-3 h-5 w-5" size="md" />
+          ) : (
+            <Banknote className="h-5 w-5 mr-3" />
+          )}
           <div className="text-left">
-            <div className="font-semibold">Cash</div>
+            <div className="font-semibold">
+              {action === "begin-cash" ? "Starting…" : "Cash"}
+            </div>
             <div className="text-xs text-muted-foreground font-normal">
-              Mark as paid in cash
+              Pending payment, then confirm (mock flow like QRIS)
             </div>
           </div>
         </Button>

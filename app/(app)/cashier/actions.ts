@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
 import { createPaymentQR } from "@/lib/payments";
 import type { Payment } from "@/lib/types";
@@ -79,45 +78,78 @@ export async function startQrisPayment(
   return { ok: true, payment: inserted as Payment };
 }
 
-export async function markCashPaid(
+export async function startCashPayment(
   orderId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; payment: Payment }
+  | { ok: false; error: string }
+> {
   await requireRole(["cashier", "admin"]);
-  // Use admin client to bypass RLS for a one-shot multi-table write
-  const admin = createAdminClient();
+  const supabase = await createClient();
 
-  const { data: order } = await admin
+  const { data: order } = await supabase
     .from("orders")
-    .select("id,total,payment_status")
+    .select("id,order_number,total,payment_status,payment_method,status")
     .eq("id", orderId)
     .maybeSingle();
+
   if (!order) return { ok: false, error: "Order not found" };
-  if (order.payment_status === "paid")
+  if (order.payment_status === "paid") {
     return { ok: false, error: "Order already paid" };
+  }
 
-  const paidAt = new Date().toISOString();
+  const { data: existing } = await supabase
+    .from("payments")
+    .select("*")
+    .eq("order_id", orderId)
+    .eq("provider", "cash")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  const { error: payErr } = await admin.from("payments").insert({
-    order_id: orderId,
-    provider: "cash",
-    amount: order.total,
-    status: "paid",
-    paid_at: paidAt,
-  });
-  if (payErr) return { ok: false, error: payErr.message };
+  if (existing) {
+    return { ok: true, payment: existing as Payment };
+  }
 
-  const { error: ordErr } = await admin
-    .from("orders")
-    .update({
-      payment_method: "cash",
-      payment_status: "paid",
-      status: "completed",
+  const { data: inserted, error: insertErr } = await supabase
+    .from("payments")
+    .insert({
+      order_id: orderId,
+      provider: "cash",
+      amount: order.total,
+      status: "pending",
+      raw_payload: { mock_flow: true, reference_id: `${order.order_number}-cash` },
     })
+    .select()
+    .single();
+
+  if (insertErr) return { ok: false, error: insertErr.message };
+
+  await supabase
+    .from("orders")
+    .update({ payment_method: "cash", payment_status: "pending" })
     .eq("id", orderId);
-  if (ordErr) return { ok: false, error: ordErr.message };
 
   revalidatePath(`/cashier/${orderId}`);
   revalidatePath("/cashier");
+
+  return { ok: true, payment: inserted as Payment };
+}
+
+export async function simulateCashPayment(
+  paymentId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireRole(["cashier", "admin"]);
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("complete_cash_payment", {
+    pid: paymentId,
+  });
+  if (error) return { ok: false, error: error.message };
+  const res = (data ?? {}) as { ok?: boolean; error?: string };
+  if (!res.ok) {
+    return { ok: false, error: res.error ?? "Failed to complete cash payment" };
+  }
   return { ok: true };
 }
 

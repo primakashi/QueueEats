@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
+import { useFormStatus } from "react-dom";
 import {
   ChefHat,
   CreditCard,
@@ -13,6 +14,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -153,11 +155,27 @@ function Nav({ items }: { items: NavItem[] }) {
             )}
           >
             <Icon className="h-4 w-4" />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            <NavLinkSpinner />
           </Link>
         );
       })}
     </nav>
+  );
+}
+
+function NavLinkSpinner() {
+  const { pending } = useLinkStatus();
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "inline-flex items-center transition-opacity duration-150",
+        pending ? "opacity-100" : "opacity-0",
+      )}
+    >
+      <Spinner size="xs" />
+    </span>
   );
 }
 
@@ -171,16 +189,39 @@ function UserFooter({ profile }: { profile: Profile }) {
         </div>
       </div>
       <form action={signOut}>
-        <Button
-          type="submit"
-          variant="ghost"
-          size="icon"
-          aria-label="Sign out"
-        >
-          <LogOut className="h-4 w-4" />
-        </Button>
+        <SignOutIconButton />
       </form>
     </div>
+  );
+}
+
+function SignOutIconButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      variant="ghost"
+      size="icon"
+      aria-label="Sign out"
+      disabled={pending}
+      aria-busy={pending}
+    >
+      {pending ? <Spinner /> : <LogOut className="h-4 w-4" />}
+    </Button>
+  );
+}
+
+function SignOutMenuItemContent() {
+  const { pending } = useFormStatus();
+  return (
+    <>
+      {pending ? (
+        <Spinner className="mr-2" />
+      ) : (
+        <LogOut className="h-4 w-4 mr-2" />
+      )}
+      {pending ? "Signing out…" : "Sign out"}
+    </>
   );
 }
 
@@ -199,7 +240,7 @@ function UserMenu({ profile }: { profile: Profile }) {
           <DropdownMenuItem
             render={<button type="submit" className="w-full text-left" />}
           >
-            <LogOut className="h-4 w-4 mr-2" /> Sign out
+            <SignOutMenuItemContent />
           </DropdownMenuItem>
         </form>
       </DropdownMenuContent>

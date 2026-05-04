@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ export function DeleteMenuItemButton({
           <Button
             variant="destructive"
             disabled={pending}
+            aria-busy={pending}
             onClick={() =>
               start(async () => {
                 const res = await deleteMenuItem(id);
@@ -56,7 +58,8 @@ export function DeleteMenuItemButton({
               })
             }
           >
-            Delete
+            {pending && <Spinner className="mr-2" />}
+            {pending ? "Deleting…" : "Delete"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Select,
   SelectContent,
@@ -170,8 +171,9 @@ export function MenuItemForm({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving..." : item ? "Save changes" : "Create item"}
+            <Button type="submit" disabled={pending} aria-busy={pending}>
+              {pending && <Spinner className="mr-2" />}
+              {pending ? "Saving…" : item ? "Save changes" : "Create item"}
             </Button>
           </div>
         </form>

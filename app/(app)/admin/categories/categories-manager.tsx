@@ -5,6 +5,7 @@ import { Plus, Trash2, Check, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import {
   createCategory,
   deleteCategory,
@@ -13,6 +14,11 @@ import {
 import { useRouter } from "next/navigation";
 import type { MenuCategory } from "@/lib/types";
 
+type Busy =
+  | { kind: "create" }
+  | { kind: "update"; id: string }
+  | { kind: "delete"; id: string };
+
 export function CategoriesManager({
   categories,
 }: {
@@ -20,6 +26,7 @@ export function CategoriesManager({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [busy, setBusy] = useState<Busy | null>(null);
   const [newName, setNewName] = useState("");
   const [newSort, setNewSort] = useState("0");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -29,6 +36,7 @@ export function CategoriesManager({
   function submitNew(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
+    setBusy({ kind: "create" });
     start(async () => {
       const fd = new FormData();
       fd.set("name", newName);
@@ -36,10 +44,12 @@ export function CategoriesManager({
       const res = await createCategory(fd);
       if (!res.ok) {
         toast.error(res.error);
+        setBusy(null);
         return;
       }
       setNewName("");
       setNewSort("0");
+      setBusy(null);
       router.refresh();
     });
   }
@@ -52,29 +62,36 @@ export function CategoriesManager({
 
   function saveEdit() {
     if (!editingId) return;
+    const id = editingId;
+    setBusy({ kind: "update", id });
     start(async () => {
       const fd = new FormData();
-      fd.set("id", editingId);
+      fd.set("id", id);
       fd.set("name", editName);
       fd.set("sort_order", editSort);
       const res = await updateCategory(fd);
       if (!res.ok) {
         toast.error(res.error);
+        setBusy(null);
         return;
       }
       setEditingId(null);
+      setBusy(null);
       router.refresh();
     });
   }
 
   function remove(id: string) {
     if (!confirm("Delete this category? Menu items will become uncategorized.")) return;
+    setBusy({ kind: "delete", id });
     start(async () => {
       const res = await deleteCategory(id);
       if (!res.ok) {
         toast.error(res.error);
+        setBusy(null);
         return;
       }
+      setBusy(null);
       router.refresh();
     });
   }
@@ -98,8 +115,17 @@ export function CategoriesManager({
             type="number"
           />
         </div>
-        <Button type="submit" disabled={pending}>
-          <Plus className="h-4 w-4 mr-1.5" /> Add
+        <Button
+          type="submit"
+          disabled={pending}
+          aria-busy={busy?.kind === "create"}
+        >
+          {busy?.kind === "create" ? (
+            <Spinner className="mr-1.5" />
+          ) : (
+            <Plus className="h-4 w-4 mr-1.5" />
+          )}
+          {busy?.kind === "create" ? "Adding…" : "Add"}
         </Button>
       </form>
 
@@ -123,13 +149,28 @@ export function CategoriesManager({
                   type="number"
                   className="w-20"
                 />
-                <Button size="icon" variant="ghost" onClick={saveEdit} disabled={pending}>
-                  <Check className="h-4 w-4" />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={saveEdit}
+                  disabled={pending}
+                  aria-busy={
+                    busy?.kind === "update" && busy.id === c.id
+                  }
+                  aria-label="Save"
+                >
+                  {busy?.kind === "update" && busy.id === c.id ? (
+                    <Spinner />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
                 </Button>
                 <Button
                   size="icon"
                   variant="ghost"
                   onClick={() => setEditingId(null)}
+                  disabled={pending}
+                  aria-label="Cancel"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -146,6 +187,7 @@ export function CategoriesManager({
                   size="icon"
                   variant="ghost"
                   onClick={() => beginEdit(c)}
+                  disabled={pending}
                   aria-label="Edit"
                 >
                   <Pencil className="h-4 w-4" />
@@ -155,9 +197,14 @@ export function CategoriesManager({
                   variant="ghost"
                   onClick={() => remove(c.id)}
                   disabled={pending}
+                  aria-busy={busy?.kind === "delete" && busy.id === c.id}
                   aria-label="Delete"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  {busy?.kind === "delete" && busy.id === c.id ? (
+                    <Spinner />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             ),
