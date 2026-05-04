@@ -142,14 +142,43 @@ export async function simulateCashPayment(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireRole(["cashier", "admin"]);
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("complete_cash_payment", {
-    pid: paymentId,
-  });
-  if (error) return { ok: false, error: error.message };
-  const res = (data ?? {}) as { ok?: boolean; error?: string };
-  if (!res.ok) {
-    return { ok: false, error: res.error ?? "Failed to complete cash payment" };
+
+  const { data: row, error: fetchErr } = await supabase
+    .from("payments")
+    .select("id,order_id,provider,status")
+    .eq("id", paymentId)
+    .maybeSingle();
+
+  if (fetchErr) return { ok: false, error: fetchErr.message };
+  if (!row) return { ok: false, error: "Payment not found" };
+  if (row.provider !== "cash") {
+    return { ok: false, error: "Not a cash payment" };
   }
+  if (row.status === "paid") return { ok: true };
+  if (row.status !== "pending") {
+    return { ok: false, error: "Cash payment is not pending" };
+  }
+
+  const paidAt = new Date().toISOString();
+  const { error: payErr } = await supabase
+    .from("payments")
+    .update({ status: "paid", paid_at: paidAt })
+    .eq("id", paymentId)
+    .eq("status", "pending");
+  if (payErr) return { ok: false, error: payErr.message };
+
+  const { error: ordErr } = await supabase
+    .from("orders")
+    .update({
+      payment_method: "cash",
+      payment_status: "paid",
+      status: "completed",
+    })
+    .eq("id", row.order_id);
+  if (ordErr) return { ok: false, error: ordErr.message };
+
+  revalidatePath(`/cashier/${row.order_id}`);
+  revalidatePath("/cashier");
   return { ok: true };
 }
 
