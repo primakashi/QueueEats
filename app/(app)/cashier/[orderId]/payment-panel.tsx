@@ -3,17 +3,26 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
-import { Banknote, CheckCircle2, QrCode, RefreshCw, XCircle } from "lucide-react";
+import {
+  Banknote,
+  CheckCircle2,
+  ExternalLink,
+  QrCode,
+  RefreshCw,
+  Sparkles,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/client";
+import { createRealtimeClient } from "@/lib/supabase/client";
 import { formatIDR } from "@/lib/format";
 import type { Order, Payment } from "@/lib/types";
 import {
   cancelQrisPayment,
   markCashPaid,
+  simulateMockPayment,
   startQrisPayment,
 } from "../actions";
 
@@ -32,32 +41,56 @@ export function PaymentPanel({
   );
 
   const isPaid = order.payment_status === "paid";
+  const isMock = payment?.provider === "mock";
+  const [origin, setOrigin] = useState<string>("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+  const mockPayUrl =
+    isMock && payment && origin ? `${origin}/pay/${payment.id}` : null;
 
   useEffect(() => {
     if (!payment || payment.status !== "pending") return;
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`pay-${payment.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "payments",
-          filter: `id=eq.${payment.id}`,
-        },
-        (p) => {
-          const next = p.new as Payment;
-          setPayment(next);
-          if (next.status === "paid") {
-            toast.success("Payment received!");
-            router.refresh();
+    let cancelled = false;
+    let cleanup: (() => void) | null = null;
+
+    (async () => {
+      const supabase = await createRealtimeClient();
+      if (cancelled) return;
+
+      const channel = supabase
+        .channel(`pay-${payment.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "payments",
+            filter: `id=eq.${payment.id}`,
+          },
+          (p) => {
+            const next = p.new as Payment;
+            setPayment(next);
+            if (next.status === "paid") {
+              toast.success("Payment received!");
+              router.refresh();
+            }
+          },
+        )
+        .subscribe((status) => {
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.warn("[payment realtime]", status);
           }
-        },
-      )
-      .subscribe();
+        });
+
+      cleanup = () => {
+        supabase.removeChannel(channel);
+      };
+    })();
+
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      cleanup?.();
     };
   }, [payment, router]);
 
@@ -83,6 +116,19 @@ export function PaymentPanel({
       }
       toast.success("Order marked as paid");
       router.refresh();
+    });
+  }
+
+  function simulateMock() {
+    if (!payment) return;
+    start(async () => {
+      const res = await simulateMockPayment(payment.id);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      // Realtime channel will flip the UI; this is a belt-and-suspenders.
+      toast.success("Mock payment completed");
     });
   }
 
@@ -117,8 +163,23 @@ export function PaymentPanel({
   }
 
   if (method === "qris" && payment) {
+    const qrValue = isMock
+      ? mockPayUrl ?? `queueeats:pending:${payment.id}`
+      : payment.qr_string ?? "";
     return (
       <Card className="p-5 gap-4">
+        {isMock && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-medium">Mock payment mode</div>
+              <div className="text-amber-800/80">
+                No Xendit key configured. Scan with your phone on the same Wi-Fi,
+                or tap “Simulate scan” below.
+              </div>
+            </div>
+          </div>
+        )}
         <div className="text-center space-y-1">
           <div className="text-sm text-muted-foreground">Ask customer to scan</div>
           <div className="text-2xl font-semibold tabular-nums">
@@ -126,13 +187,8 @@ export function PaymentPanel({
           </div>
         </div>
         <div className="relative mx-auto bg-white p-4 rounded-lg border">
-          {payment.qr_string ? (
-            <QRCodeSVG
-              value={payment.qr_string}
-              size={256}
-              level="M"
-              marginSize={0}
-            />
+          {qrValue ? (
+            <QRCodeSVG value={qrValue} size={256} level="M" marginSize={0} />
           ) : (
             <div className="h-64 w-64 grid place-items-center text-muted-foreground">
               QR not available
@@ -144,10 +200,32 @@ export function PaymentPanel({
           Waiting for payment...
         </div>
         <Separator />
-        <div className="flex gap-2">
+        <div className="grid gap-2">
+          {isMock && (
+            <>
+              <Button
+                className="w-full"
+                onClick={simulateMock}
+                disabled={pending}
+              >
+                <Sparkles className="h-4 w-4 mr-2" /> Simulate customer scan
+              </Button>
+              {mockPayUrl && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => window.open(mockPayUrl, "_blank")}
+                  disabled={pending}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" /> Open customer pay
+                  page
+                </Button>
+              )}
+            </>
+          )}
           <Button
             variant="outline"
-            className="flex-1"
+            className="w-full"
             onClick={cancelQris}
             disabled={pending}
           >

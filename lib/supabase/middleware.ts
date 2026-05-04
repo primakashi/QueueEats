@@ -35,6 +35,7 @@ export async function updateSession(request: NextRequest) {
     isAuthRoute ||
     pathname === "/menu" ||
     pathname.startsWith("/menu/") ||
+    pathname.startsWith("/pay/") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/xendit") ||
     pathname === "/favicon.ico";

@@ -2,27 +2,44 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createRealtimeClient } from "@/lib/supabase/client";
 
 export function CashierRealtimeRefresher() {
   const router = useRouter();
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel("cashier-orders")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        () => router.refresh(),
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "payments" },
-        () => router.refresh(),
-      )
-      .subscribe();
+    let cancelled = false;
+    let cleanup: (() => void) | null = null;
+
+    (async () => {
+      const supabase = await createRealtimeClient();
+      if (cancelled) return;
+
+      const channel = supabase
+        .channel("cashier-orders")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "orders" },
+          () => router.refresh(),
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "payments" },
+          () => router.refresh(),
+        )
+        .subscribe((status) => {
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.warn("[cashier realtime]", status);
+          }
+        });
+
+      cleanup = () => {
+        supabase.removeChannel(channel);
+      };
+    })();
+
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      cleanup?.();
     };
   }, [router]);
   return null;

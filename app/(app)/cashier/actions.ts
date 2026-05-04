@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
-import { createQRCode } from "@/lib/xendit";
+import { createPaymentQR } from "@/lib/payments";
 import type { Payment } from "@/lib/types";
 
 export async function startQrisPayment(
@@ -27,12 +27,12 @@ export async function startQrisPayment(
     return { ok: false, error: "Order already paid" };
   }
 
-  // Reuse an active (pending) QRIS payment if it exists
+  // Reuse an active (pending) QRIS/mock payment if it exists
   const { data: existing } = await supabase
     .from("payments")
     .select("*")
     .eq("order_id", orderId)
-    .eq("provider", "xendit")
+    .in("provider", ["xendit", "mock"])
     .eq("status", "pending")
     .order("created_at", { ascending: false })
     .limit(1)
@@ -44,7 +44,7 @@ export async function startQrisPayment(
 
   let qr;
   try {
-    qr = await createQRCode({
+    qr = await createPaymentQR({
       referenceId: `${order.order_number}-${Date.now()}`,
       amount: order.total,
     });
@@ -56,12 +56,12 @@ export async function startQrisPayment(
     .from("payments")
     .insert({
       order_id: orderId,
-      provider: "xendit",
+      provider: qr.provider,
       xendit_qr_id: qr.id,
       qr_string: qr.qr_string,
       amount: qr.amount,
       status: "pending",
-      raw_payload: qr as unknown as Record<string, unknown>,
+      raw_payload: qr.raw_payload,
     })
     .select()
     .single();
@@ -118,6 +118,22 @@ export async function markCashPaid(
 
   revalidatePath(`/cashier/${orderId}`);
   revalidatePath("/cashier");
+  return { ok: true };
+}
+
+export async function simulateMockPayment(
+  paymentId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireRole(["cashier", "admin"]);
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("complete_mock_payment", {
+    pid: paymentId,
+  });
+  if (error) return { ok: false, error: error.message };
+  const res = (data ?? {}) as { ok?: boolean; error?: string };
+  if (!res.ok) {
+    return { ok: false, error: res.error ?? "Failed to complete mock payment" };
+  }
   return { ok: true };
 }
 

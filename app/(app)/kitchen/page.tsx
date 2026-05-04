@@ -11,7 +11,7 @@ export default async function KitchenPage() {
   const { data } = await supabase
     .from("orders")
     .select("*, order_items(*)")
-    .in("status", ["pending", "preparing"])
+    .in("status", ["pending", "preparing", "ready"])
     .order("created_at", { ascending: true });
 
   const initialOrders = (data ?? []) as OrderWithItems[];
@@ -20,7 +20,7 @@ export default async function KitchenPage() {
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       <PageHeader
         title="Kitchen"
-        description="Queue of pending and in-progress orders"
+        description="Queue of pending, in-progress, and ready orders"
       />
       <KitchenBoard initialOrders={initialOrders} />
     </div>

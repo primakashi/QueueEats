@@ -3,8 +3,8 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
-  useSyncExternalStore,
   useTransition,
 } from "react";
 import { toast } from "sonner";
@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/lib/format";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, createRealtimeClient } from "@/lib/supabase/client";
 import type {
   Order,
   OrderItem,
@@ -23,17 +23,16 @@ import type {
 } from "@/lib/types";
 import { updateOrderStatus } from "./actions";
 
-function subscribeClock(cb: () => void) {
-  const id = setInterval(cb, 15000);
-  return () => clearInterval(id);
-}
+const KITCHEN_STATUSES: OrderStatus[] = ["pending", "preparing", "ready"];
 
 function useNow(): number {
-  return useSyncExternalStore(
-    subscribeClock,
-    () => Date.now(),
-    () => 0,
-  );
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
 }
 
 export function KitchenBoard({
@@ -43,6 +42,9 @@ export function KitchenBoard({
 }) {
   const [orders, setOrders] = useState<OrderWithItems[]>(initialOrders);
   const now = useNow();
+  const notifiedIds = useRef<Set<string>>(
+    new Set(initialOrders.map((o) => o.id)),
+  );
 
   const fetchFullOrder = useCallback(
     async (id: string): Promise<OrderWithItems | null> => {
@@ -58,74 +60,95 @@ export function KitchenBoard({
   );
 
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel("kitchen-orders")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "orders" },
-        async (payload) => {
-          const newOrder = payload.new as Order;
-          if (!["pending", "preparing"].includes(newOrder.status)) return;
-          const full = await fetchFullOrder(newOrder.id);
-          if (!full) return;
-          setOrders((prev) => {
-            if (prev.some((o) => o.id === full.id)) return prev;
-            toast.info(`New order ${full.order_number}`);
-            return [...prev, full].sort((a, b) =>
-              a.created_at.localeCompare(b.created_at),
+    let cancelled = false;
+    let cleanup: (() => void) | null = null;
+
+    (async () => {
+      const supabase = await createRealtimeClient();
+      if (cancelled) return;
+
+      const channel = supabase
+        .channel("kitchen-orders")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "orders" },
+          async (payload) => {
+            const newOrder = payload.new as Order;
+            if (!KITCHEN_STATUSES.includes(newOrder.status)) return;
+            if (notifiedIds.current.has(newOrder.id)) return;
+            notifiedIds.current.add(newOrder.id);
+            const full = await fetchFullOrder(newOrder.id);
+            if (!full) return;
+            toast.success(`New order ${full.order_number}`);
+            setOrders((prev) => {
+              if (prev.some((o) => o.id === full.id)) return prev;
+              return [...prev, full].sort((a, b) =>
+                a.created_at.localeCompare(b.created_at),
+              );
+            });
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "orders" },
+          async (payload) => {
+            const updated = payload.new as Order;
+            setOrders((prev) => {
+              if (!KITCHEN_STATUSES.includes(updated.status)) {
+                return prev.filter((o) => o.id !== updated.id);
+              }
+              const exists = prev.some((o) => o.id === updated.id);
+              if (!exists) return prev;
+              return prev.map((o) =>
+                o.id === updated.id
+                  ? { ...o, ...updated, order_items: o.order_items }
+                  : o,
+              );
+            });
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "order_items" },
+          (payload) => {
+            const item = payload.new as OrderItem;
+            setOrders((prev) =>
+              prev.map((o) =>
+                o.id === item.order_id
+                  ? {
+                      ...o,
+                      order_items: o.order_items.some((x) => x.id === item.id)
+                        ? o.order_items
+                        : [...o.order_items, item],
+                    }
+                  : o,
+              ),
             );
-          });
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders" },
-        async (payload) => {
-          const updated = payload.new as Order;
-          setOrders((prev) => {
-            if (!["pending", "preparing"].includes(updated.status)) {
-              return prev.filter((o) => o.id !== updated.id);
-            }
-            return prev.map((o) =>
-              o.id === updated.id
-                ? { ...o, ...updated, order_items: o.order_items }
-                : o,
-            );
-          });
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "order_items" },
-        (payload) => {
-          const item = payload.new as OrderItem;
-          setOrders((prev) =>
-            prev.map((o) =>
-              o.id === item.order_id
-                ? {
-                    ...o,
-                    order_items: o.order_items.some((x) => x.id === item.id)
-                      ? o.order_items
-                      : [...o.order_items, item],
-                  }
-                : o,
-            ),
-          );
-        },
-      )
-      .subscribe();
+          },
+        )
+        .subscribe((status, err) => {
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.warn("[kitchen realtime]", status, err ?? "");
+          }
+        });
+
+      cleanup = () => {
+        supabase.removeChannel(channel);
+      };
+    })();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      cleanup?.();
     };
   }, [fetchFullOrder]);
 
   const pending = orders.filter((o) => o.status === "pending");
   const preparing = orders.filter((o) => o.status === "preparing");
+  const ready = orders.filter((o) => o.status === "ready");
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <Column
         title="New orders"
         icon={<Clock className="h-4 w-4" />}
@@ -148,6 +171,18 @@ export function KitchenBoard({
           <EmptyColumn label="Nothing on the stove yet" />
         ) : (
           preparing.map((o) => <OrderCard key={o.id} order={o} now={now} />)
+        )}
+      </Column>
+      <Column
+        title="Ready"
+        icon={<CheckCircle2 className="h-4 w-4" />}
+        count={ready.length}
+        accent="bg-emerald-600 text-white"
+      >
+        {ready.length === 0 ? (
+          <EmptyColumn label="Nothing ready yet" />
+        ) : (
+          ready.map((o) => <OrderCard key={o.id} order={o} now={now} />)
         )}
       </Column>
     </div>
@@ -203,7 +238,7 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
           0,
           Math.floor((now - new Date(order.created_at).getTime()) / 60000),
         );
-  const overdue = mins >= 15;
+  const overdue = mins >= 15 && order.status !== "ready";
 
   function transition(next: OrderStatus) {
     start(async () => {
@@ -216,7 +251,8 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
     <Card
       className={cn(
         "p-4 gap-3",
-        overdue && order.status !== "ready" && "border-red-500",
+        overdue && "border-red-500",
+        order.status === "ready" && "border-emerald-200 bg-emerald-50/40",
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -265,8 +301,8 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
         </div>
       )}
 
-      <div className="flex gap-2 pt-1">
-        {order.status === "pending" && (
+      {order.status === "pending" && (
+        <div className="flex gap-2 pt-1">
           <Button
             className="flex-1 h-12 text-base touch-manipulation"
             disabled={pending}
@@ -275,8 +311,10 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
             <ChefHat className="h-4 w-4 mr-2" />
             Start preparing
           </Button>
-        )}
-        {order.status === "preparing" && (
+        </div>
+      )}
+      {order.status === "preparing" && (
+        <div className="flex gap-2 pt-1">
           <Button
             className="flex-1 h-12 text-base bg-emerald-600 hover:bg-emerald-600/90 touch-manipulation"
             disabled={pending}
@@ -285,8 +323,14 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
             <CheckCircle2 className="h-4 w-4 mr-2" />
             Mark ready
           </Button>
-        )}
-      </div>
+        </div>
+      )}
+      {order.status === "ready" && (
+        <div className="flex items-center justify-center gap-2 pt-1 text-sm font-medium text-emerald-700">
+          <CheckCircle2 className="h-4 w-4" />
+          Ready for pickup
+        </div>
+      )}
     </Card>
   );
 }
