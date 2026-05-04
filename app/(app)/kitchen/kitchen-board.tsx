@@ -8,7 +8,7 @@ import {
   useTransition,
 } from "react";
 import { toast } from "sonner";
-import { Clock, ChefHat, CheckCircle2 } from "lucide-react";
+import { Clock, ChefHat, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -249,10 +249,12 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
 
   return (
     <Card
+      aria-busy={pending}
       className={cn(
-        "p-4 gap-3",
+        "relative p-4 gap-3",
         overdue && "border-red-500",
         order.status === "ready" && "border-emerald-200 bg-emerald-50/40",
+        pending && "opacity-90",
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -308,8 +310,12 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
             disabled={pending}
             onClick={() => transition("preparing")}
           >
-            <ChefHat className="h-4 w-4 mr-2" />
-            Start preparing
+            {pending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <ChefHat className="h-4 w-4 mr-2" />
+            )}
+            {pending ? "Updating…" : "Start preparing"}
           </Button>
         </div>
       )}
@@ -320,8 +326,12 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
             disabled={pending}
             onClick={() => transition("ready")}
           >
-            <CheckCircle2 className="h-4 w-4 mr-2" />
-            Mark ready
+            {pending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+            )}
+            {pending ? "Updating…" : "Mark ready"}
           </Button>
         </div>
       )}
