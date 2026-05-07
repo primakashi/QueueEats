@@ -191,5 +191,8 @@ export async function updateStaffRole(
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/users");
+  // Note: the affected user's cached profile lives in their `qe_profile`
+  // cookie and won't reflect this change until they sign out and back in.
+  // Acceptable for an internal POS where role changes are rare.
   return { ok: true };
 }
