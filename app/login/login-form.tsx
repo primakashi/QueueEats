@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Shield, UtensilsCrossed, ChefHat, Receipt } from "lucide-react";
+import { Loader2, Shield, UtensilsCrossed, ChefHat, Receipt } from "lucide-react";
 import {
   startRouteProgress,
   endRouteProgress,
@@ -16,7 +16,7 @@ import { toast } from "sonner";
 const DEMO_PASSWORD = "Passw0rd";
 const DEMO_ACCOUNTS = [
   { role: "Admin",   email: "admin@google.com",   Icon: Shield           },
-  { role: "Pelayan",  email: "waiter@google.com",  Icon: UtensilsCrossed  },
+  { role: "Waiters/Host",  email: "waiter@google.com",  Icon: UtensilsCrossed  },
   { role: "Dapur", email: "kitchen@google.com", Icon: ChefHat          },
   { role: "Kasir", email: "cashier@google.com", Icon: Receipt          },
 ] as const;
@@ -54,6 +54,25 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
 
   return (
     <Card>
+      {isPending && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-[2px]"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <Loader2
+            className="h-10 w-10 animate-spin text-primary"
+            aria-hidden
+          />
+          <p className="text-sm font-medium px-4 text-center">
+            Sedang masuk…
+          </p>
+          <p className="text-xs text-muted-foreground px-6 text-center max-w-sm">
+            Mohon tunggu, jangan tutup halaman ini.
+          </p>
+        </div>
+      )}
       <CardContent className="pt-6 space-y-5">
         <div className="grid grid-cols-2 gap-2">
           {DEMO_ACCOUNTS.map(({ role, email, Icon }) => {
@@ -93,7 +112,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           </div>
         </div>
 
-        <form action={onSubmit} className="space-y-4">
+        <form action={onSubmit} className="space-y-4" aria-busy={isPending}>
           {redirectTo && (
             <input type="hidden" name="redirect" value={redirectTo} />
           )}
@@ -123,14 +142,8 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
               {error}
             </p>
           )}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isPending && pendingEmail === null}
-          >
-            {isPending && pendingEmail === null
-              ? "Masuk..."
-              : "Masuk"}
+          <Button type="submit" className="w-full" disabled={isPending}>
+            {isPending ? "Masuk..." : "Masuk"}
           </Button>
         </form>
       </CardContent>

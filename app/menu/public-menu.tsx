@@ -21,6 +21,9 @@ type Section = {
 
 const UNCATEGORIZED_ID = "__uncat__";
 
+/** First grid images in the first section: eager load for LCP (next/image defaults to lazy). */
+const ABOVE_FOLD_MENU_CARD_COUNT = 6;
+
 export function PublicMenu({
   items,
   categories,
@@ -181,11 +184,17 @@ export function PublicMenu({
               {s.name}
             </h2>
             <div className="grid gap-3 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {s.items.map((item) => (
+              {s.items.map((item, itemIndex) => (
                 <MenuCard
                   key={item.id}
                   item={item}
                   onClick={() => setSelected(item)}
+                  imageLoading={
+                    s.id === sections[0]?.id &&
+                    itemIndex < ABOVE_FOLD_MENU_CARD_COUNT
+                      ? "eager"
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -258,9 +267,11 @@ export function PublicMenu({
 function MenuCard({
   item,
   onClick,
+  imageLoading,
 }: {
   item: MenuItem;
   onClick: () => void;
+  imageLoading?: "eager" | "lazy";
 }) {
   return (
     <button
@@ -276,6 +287,7 @@ function MenuCard({
               src={item.image_url}
               alt={item.name}
               sizes="(max-width: 640px) 112px, (max-width: 1024px) 50vw, 33vw"
+              loading={imageLoading}
             />
           ) : (
             <div className="absolute inset-0 grid place-items-center text-muted-foreground">
@@ -308,11 +320,13 @@ function SmartImage({
   alt,
   sizes,
   priority,
+  loading,
 }: {
   src: string;
   alt: string;
   sizes: string;
   priority?: boolean;
+  loading?: "eager" | "lazy";
 }) {
   const [loaded, setLoaded] = useState(false);
   return (
@@ -330,6 +344,7 @@ function SmartImage({
         fill
         sizes={sizes}
         priority={priority}
+        loading={loading}
         className={cn(
           "object-cover transition-opacity duration-500",
           loaded ? "opacity-100" : "opacity-0",
