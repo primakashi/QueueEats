@@ -27,6 +27,7 @@ import {
   startCashPayment,
   startQrisPayment,
 } from "../actions";
+import { FullScreenLoading } from "@/components/full-screen-loading";
 
 export function PaymentPanel({
   order,
@@ -180,6 +181,10 @@ export function PaymentPanel({
     });
   }
 
+  const loadingOverlay = pending ? (
+    <FullScreenLoading title="Memproses pembayaran…" />
+  ) : null;
+
   if (isPaid) {
     return (
       <Card className="p-6 gap-3 text-center">
@@ -200,6 +205,7 @@ export function PaymentPanel({
   if (method === "cash" && payment) {
     return (
       <Card className="p-5 gap-4">
+        {loadingOverlay}
         <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
           <div>
@@ -260,6 +266,7 @@ export function PaymentPanel({
       : payment.qr_string ?? "";
     return (
       <Card className="p-5 gap-4">
+        {loadingOverlay}
         {isMock && (
           <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
@@ -344,6 +351,7 @@ export function PaymentPanel({
 
   return (
     <Card className="p-5 gap-4">
+      {loadingOverlay}
       <h3 className="font-semibold">Terima pembayaran</h3>
       <div className="grid gap-3">
         <Button

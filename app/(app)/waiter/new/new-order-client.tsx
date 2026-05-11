@@ -23,6 +23,7 @@ import { formatIDR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 import { startRouteProgress } from "@/components/route-progress";
+import { FullScreenLoading } from "@/components/full-screen-loading";
 import { createOrder } from "../actions";
 
 type CartLine = {
@@ -121,6 +122,9 @@ export function NewOrderClient({
 
   return (
     <div className="grid gap-6 md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_380px]">
+      {pending && (
+        <FullScreenLoading title="Mengirim pesanan ke dapur…" />
+      )}
       <div className="space-y-4 min-w-0">
         <CategoryTabs
           categories={categories}

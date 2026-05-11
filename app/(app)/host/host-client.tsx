@@ -7,7 +7,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +23,7 @@ import {
 } from "@/lib/types";
 import { minutesAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { FullScreenLoading } from "@/components/full-screen-loading";
 import { FloorPlan, type FloorTableState } from "./floor-plan";
 import { FLOOR_TABLES, type FloorTable } from "@/lib/floor-plan";
 
@@ -111,13 +111,12 @@ export function HostClient({
     window.scrollTo({ top: targetY, behavior: "smooth" });
 
     let finished = false;
-    let fallbackId: number | undefined;
     let spotlightClearId: number | undefined;
 
     const finish = () => {
       if (finished) return;
       finished = true;
-      if (fallbackId !== undefined) window.clearTimeout(fallbackId);
+      window.clearTimeout(fallbackId);
 
       toast.dismiss(toastId);
       requestAnimationFrame(() => {
@@ -136,7 +135,7 @@ export function HostClient({
     document.documentElement.addEventListener("scrollend", onScrollEnd, {
       once: true,
     });
-    fallbackId = window.setTimeout(finish, 1200);
+    const fallbackId = window.setTimeout(finish, 1200);
   }, []);
 
   const calledEntries = useMemo(
@@ -335,6 +334,9 @@ export function HostClient({
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 p-6 pb-10 sm:pb-12">
+      {submitting && (
+        <FullScreenLoading title="Menambahkan walk-in ke antrian…" />
+      )}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Panel host</h1>
         <p className="text-sm text-muted-foreground">

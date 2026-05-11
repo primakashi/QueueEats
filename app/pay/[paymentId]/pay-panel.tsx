@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { formatIDR } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import { completeMockPaymentPublic } from "../actions";
+import { FullScreenLoading } from "@/components/full-screen-loading";
 
 export type MockPaymentSummary = {
   payment_id: string;
@@ -84,6 +85,9 @@ export function PayPanel({ summary }: { summary: MockPaymentSummary }) {
 
   return (
     <Card className="m-5 w-full max-w-md p-5 gap-4">
+      {pending && (
+        <FullScreenLoading title="Memproses pembayaran…" />
+      )}
       <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
         <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
         <div>

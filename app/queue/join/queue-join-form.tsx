@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { FullScreenLoading } from "@/components/full-screen-loading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,21 +63,9 @@ export function QueueJoinForm() {
   }
 
   return (
-    <Card className="relative overflow-hidden p-6 sm:p-7">
+    <Card className="p-6 sm:p-7">
       {loading && (
-        <div
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/75 backdrop-blur-[2px]"
-          aria-live="polite"
-          aria-busy="true"
-        >
-          <Loader2 className="h-10 w-10 animate-spin text-primary" aria-hidden />
-          <p className="text-sm font-medium px-4 text-center">
-            Memproses pendaftaran antrian…
-          </p>
-          <p className="text-xs text-muted-foreground px-6 text-center">
-            Mohon tunggu, jangan tutup halaman ini.
-          </p>
-        </div>
+        <FullScreenLoading title="Memproses pendaftaran antrian…" />
       )}
       <form className="space-y-5" onSubmit={onSubmit} aria-busy={loading}>
         <div className="space-y-2">

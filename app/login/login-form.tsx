@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Shield, UtensilsCrossed, ChefHat, Receipt } from "lucide-react";
+import { Shield, UtensilsCrossed, ChefHat, Receipt } from "lucide-react";
+import { FullScreenLoading } from "@/components/full-screen-loading";
 import {
   startRouteProgress,
   endRouteProgress,
@@ -55,23 +56,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   return (
     <Card>
       {isPending && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-[2px]"
-          role="status"
-          aria-live="polite"
-          aria-busy="true"
-        >
-          <Loader2
-            className="h-10 w-10 animate-spin text-primary"
-            aria-hidden
-          />
-          <p className="text-sm font-medium px-4 text-center">
-            Sedang masuk…
-          </p>
-          <p className="text-xs text-muted-foreground px-6 text-center max-w-sm">
-            Mohon tunggu, jangan tutup halaman ini.
-          </p>
-        </div>
+        <FullScreenLoading title="Sedang masuk…" />
       )}
       <CardContent className="pt-6 space-y-5">
         <div className="grid grid-cols-2 gap-2">

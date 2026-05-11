@@ -22,6 +22,7 @@ import {
   updateMenuItem,
 } from "@/app/(app)/admin/actions";
 import { startRouteProgress } from "@/components/route-progress";
+import { FullScreenLoading } from "@/components/full-screen-loading";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 
 export function MenuItemForm({
@@ -67,6 +68,13 @@ export function MenuItemForm({
 
   return (
     <Card>
+      {pending && (
+        <FullScreenLoading
+          title={
+            item ? "Menyimpan perubahan item menu…" : "Membuat item menu…"
+          }
+        />
+      )}
       <CardContent className="pt-6">
         <form action={onSubmit} className="space-y-5">
           <div className="grid gap-5 md:grid-cols-[1fr_200px]">

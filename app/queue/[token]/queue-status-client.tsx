@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { queueStatusColor } from "@/lib/status";
 import { QUEUE_STATUS_LABEL_ID, type QueueEntryStatus } from "@/lib/types";
 import { estimateWaitLabel } from "@/lib/queue/eta";
+import { FullScreenLoading } from "@/components/full-screen-loading";
 
 type QueueState = {
   token: string;
@@ -133,6 +134,12 @@ export function QueueStatusClient({
 
   return (
     <Card className="p-6 space-y-4">
+      {cancelling && (
+        <FullScreenLoading title="Membatalkan antrian…" />
+      )}
+      {presenceBusy && !cancelling && (
+        <FullScreenLoading title="Menyimpan status kehadiran…" />
+      )}
       <div className="space-y-1">
         <div className="text-sm text-muted-foreground">Nomor antrian</div>
         <div className="text-3xl font-semibold tabular-nums">
