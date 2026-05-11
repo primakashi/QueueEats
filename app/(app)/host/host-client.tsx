@@ -21,6 +21,8 @@ import {
   type QueueNotificationState,
 } from "@/lib/types";
 import { minutesAgo } from "@/lib/format";
+import { FloorPlan, type FloorTableState } from "./floor-plan";
+import { FLOOR_TABLES, type FloorTable } from "@/lib/floor-plan";
 
 type HostQueueEntry = {
   id: string;
@@ -35,6 +37,7 @@ type HostQueueEntry = {
   party_has_infant: boolean;
   party_has_elderly: boolean;
   party_has_child: boolean;
+  assigned_table: string | null;
   created_at: string;
   queue_number: number;
   position: number;
@@ -43,16 +46,22 @@ type HostQueueEntry = {
 type QueueListResponse = {
   entries: HostQueueEntry[];
   restaurant_name: string;
+  tables_needing_cleanup: string[];
 };
 
 export function HostClient({
   restaurantName,
   initialEntries,
+  initialTablesNeedingCleanup,
 }: {
   restaurantName: string;
   initialEntries: HostQueueEntry[];
+  initialTablesNeedingCleanup: string[];
 }) {
   const [entries, setEntries] = useState<HostQueueEntry[]>(initialEntries);
+  const [tablesNeedingCleanup, setTablesNeedingCleanup] = useState<string[]>(
+    initialTablesNeedingCleanup,
+  );
   const [name, setName] = useState("");
   const [partySize, setPartySize] = useState(2);
   const [partyHasInfant, setPartyHasInfant] = useState(false);
@@ -63,20 +72,72 @@ export function HostClient({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [seatDialogOpen, setSeatDialogOpen] = useState(false);
-  const [seatTarget, setSeatTarget] = useState<{ id: string; name: string } | null>(
-    null,
+  const [busyTableId, setBusyTableId] = useState<string | null>(null);
+
+  // Click-free-table flow: pick which called party to seat (if multiple).
+  const [pickPartyOpen, setPickPartyOpen] = useState(false);
+  const [pickPartyTable, setPickPartyTable] = useState<FloorTable | null>(null);
+
+  // Click-occupied-table flow: confirm freeing the table.
+  const [freeTableOpen, setFreeTableOpen] = useState(false);
+  const [freeTableTarget, setFreeTableTarget] = useState<{
+    table: FloorTable;
+    entryId: string;
+    name: string;
+    needsCleanup: boolean;
+  } | null>(null);
+
+  const calledEntries = useMemo(
+    () => entries.filter((e) => e.status === "called"),
+    [entries],
   );
-  const [tableNumber, setTableNumber] = useState("");
+
+  const queueEntries = useMemo(
+    () => entries.filter((e) => e.status === "waiting" || e.status === "called"),
+    [entries],
+  );
+
+  const seatedEntries = useMemo(
+    () => entries.filter((e) => e.status === "seated"),
+    [entries],
+  );
 
   const topWaitingId = useMemo(
     () => entries.find((entry) => entry.status === "waiting")?.id ?? null,
     [entries],
   );
 
+  const tableState = useMemo<Record<string, FloorTableState>>(() => {
+    const cleanupSet = new Set(tablesNeedingCleanup);
+    const state: Record<string, FloorTableState> = {};
+    for (const table of FLOOR_TABLES) {
+      state[table.id] = { kind: "free" };
+    }
+    for (const entry of seatedEntries) {
+      const tableId = entry.assigned_table;
+      if (!tableId) continue;
+      state[tableId] = {
+        kind: "occupied",
+        entryId: entry.id,
+        name: entry.name,
+        partySize: entry.party_size,
+        needsCleanup: cleanupSet.has(tableId),
+      };
+    }
+    return state;
+  }, [seatedEntries, tablesNeedingCleanup]);
+
+  // The party that the floor plan should highlight tables for.
+  const pendingCalledParty = useMemo(() => {
+    if (calledEntries.length === 0) return null;
+    // Hint the smallest party_size so the user sees which seat-counts fit.
+    const min = Math.min(...calledEntries.map((e) => e.party_size));
+    return { partySize: min };
+  }, [calledEntries]);
+
   const load = useCallback(async () => {
     setRefreshing(true);
-    const res = await fetch("/api/queue/list", { cache: "no-store" });
+    const res = await fetch("/api/queue/host-list", { cache: "no-store" });
     const json = (await res.json()) as QueueListResponse & { error?: string };
     if (!res.ok) {
       setError(json.error ?? "Gagal memuat antrian");
@@ -85,6 +146,7 @@ export function HostClient({
     }
     setError(null);
     setEntries(json.entries);
+    setTablesNeedingCleanup(json.tables_needing_cleanup ?? []);
     setRefreshing(false);
   }, []);
 
@@ -149,25 +211,74 @@ export function HostClient({
     }
   }
 
-  function openSeatDialog(entry: HostQueueEntry) {
-    setSeatTarget({ id: entry.id, name: entry.name });
-    setTableNumber("");
+  async function seatAtTable(entryId: string, table: FloorTable) {
+    setBusyTableId(table.id);
     setError(null);
-    setSeatDialogOpen(true);
+    try {
+      const res = await fetch(`/api/queue/${entryId}/seat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table_number: table.id }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(json.error ?? `Gagal mendudukkan di ${table.label}`);
+        return false;
+      }
+      await load();
+      return true;
+    } finally {
+      setBusyTableId(null);
+    }
   }
 
-  async function confirmSeat() {
-    if (!seatTarget) return;
-    const table = tableNumber.trim();
-    if (!table) {
-      setError("Nomor meja wajib diisi");
+  async function completeAtTable(entryId: string, table: FloorTable) {
+    setBusyTableId(table.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/queue/${entryId}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(json.error ?? `Gagal mengosongkan ${table.label}`);
+        return false;
+      }
+      await load();
+      return true;
+    } finally {
+      setBusyTableId(null);
+    }
+  }
+
+  function handleTableClick(table: FloorTable, state: FloorTableState) {
+    setError(null);
+    if (state.kind === "occupied") {
+      setFreeTableTarget({
+        table,
+        entryId: state.entryId,
+        name: state.name,
+        needsCleanup: state.needsCleanup,
+      });
+      setFreeTableOpen(true);
       return;
     }
-    const ok = await runAction(seatTarget.id, "seat", { table_number: table });
-    if (!ok) return;
-    setSeatDialogOpen(false);
-    setSeatTarget(null);
-    setTableNumber("");
+
+    if (calledEntries.length === 0) {
+      setError(
+        "Belum ada tamu yang dipanggil. Klik “Panggil berikutnya” pada antrian dulu.",
+      );
+      return;
+    }
+
+    if (calledEntries.length === 1) {
+      void seatAtTable(calledEntries[0].id, table);
+      return;
+    }
+
+    setPickPartyTable(table);
+    setPickPartyOpen(true);
   }
 
   return (
@@ -181,6 +292,23 @@ export function HostClient({
           <p className="text-xs text-muted-foreground mt-1">Memperbarui antrian...</p>
         )}
       </div>
+
+      {error && (
+        <Card className="p-3 text-sm text-red-700 bg-red-50 border-red-200">
+          {error}
+        </Card>
+      )}
+
+      <Card className="p-5 sm:p-6">
+        <h2 className="font-medium mb-4">Denah meja</h2>
+        <FloorPlan
+          tableState={tableState}
+          selectedTableId={null}
+          pendingCalledParty={pendingCalledParty}
+          busyTableId={busyTableId}
+          onTableClick={handleTableClick}
+        />
+      </Card>
 
       <Card className="p-5 sm:p-6">
         <h2 className="font-medium mb-6">Tambah walk-in</h2>
@@ -241,6 +369,16 @@ export function HostClient({
               />
               Lansia
             </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={partyHasChild}
+                onChange={(e) => setPartyHasChild(e.target.checked)}
+                disabled={submitting}
+                className="size-4 rounded border-input"
+              />
+              Anak
+            </label>
           </div>
           <div className="sm:col-span-4 pt-1">
             <Button type="submit" disabled={submitting}>
@@ -250,13 +388,10 @@ export function HostClient({
         </form>
       </Card>
 
-      {error && (
-        <Card className="p-3 text-sm text-red-700 bg-red-50 border-red-200">
-          {error}
-        </Card>
-      )}
-
       <Card className="p-0 overflow-hidden">
+        <div className="px-4 py-3 border-b">
+          <h2 className="font-medium">Antrian aktif</h2>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
@@ -273,7 +408,7 @@ export function HostClient({
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry) => (
+              {queueEntries.map((entry) => (
                 <tr key={entry.id} className="border-b align-top">
                   <td className="px-3 py-2 tabular-nums">#{entry.queue_number}</td>
                   <td className="px-3 py-2 font-medium">{entry.name}</td>
@@ -332,14 +467,9 @@ export function HostClient({
                         </Button>
                       )}
                       {entry.status === "called" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busyId === entry.id + "seat"}
-                          onClick={() => openSeatDialog(entry)}
-                        >
-                          {busyId === entry.id + "seat" ? "Mencatat..." : "Sudah duduk"}
-                        </Button>
+                        <span className="text-xs text-muted-foreground italic">
+                          Klik meja kosong di denah
+                        </span>
                       )}
                       {entry.status === "called" && (
                         <Button
@@ -378,7 +508,7 @@ export function HostClient({
                   </td>
                 </tr>
               ))}
-              {entries.length === 0 && (
+              {queueEntries.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
                     Tidak ada antrian aktif.
@@ -390,43 +520,119 @@ export function HostClient({
         </div>
       </Card>
 
-      <Dialog open={seatDialogOpen} onOpenChange={setSeatDialogOpen}>
+      {/* Pick which called party to seat at the chosen table */}
+      <Dialog open={pickPartyOpen} onOpenChange={setPickPartyOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Tandai sudah duduk</DialogTitle>
+            <DialogTitle>Pilih tamu untuk meja {pickPartyTable?.label}</DialogTitle>
             <DialogDescription>
-              Masukkan nomor meja untuk{" "}
-              <span className="font-medium text-foreground">
-                {seatTarget?.name ?? "tamu ini"}
-              </span>
-              .
+              Beberapa tamu sedang dipanggil. Pilih siapa yang akan didudukkan.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1.5">
-            <Label htmlFor="seat-table-number">Nomor meja</Label>
-            <Input
-              id="seat-table-number"
-              value={tableNumber}
-              onChange={(e) => setTableNumber(e.target.value)}
-              placeholder="mis. 5"
-              disabled={!!(seatTarget && busyId === seatTarget.id + "seat")}
-            />
+          <div className="grid gap-2">
+            {calledEntries.map((entry) => {
+              const tooBig =
+                pickPartyTable !== null && entry.party_size > pickPartyTable.seats;
+              return (
+                <Button
+                  key={entry.id}
+                  variant="outline"
+                  className="justify-between h-auto py-3"
+                  disabled={!pickPartyTable || busyTableId === pickPartyTable.id}
+                  onClick={async () => {
+                    if (!pickPartyTable) return;
+                    const ok = await seatAtTable(entry.id, pickPartyTable);
+                    if (ok) {
+                      setPickPartyOpen(false);
+                      setPickPartyTable(null);
+                    }
+                  }}
+                >
+                  <span className="text-left">
+                    <div className="font-medium">{entry.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {entry.party_size} orang
+                      {tooBig && (
+                        <span className="ml-2 text-amber-700">
+                          (lebih besar dari kapasitas meja)
+                        </span>
+                      )}
+                    </div>
+                  </span>
+                  <span className="text-xs text-muted-foreground">#{entry.queue_number}</span>
+                </Button>
+              );
+            })}
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setSeatDialogOpen(false)}
-              disabled={!!(seatTarget && busyId === seatTarget.id + "seat")}
+              onClick={() => {
+                setPickPartyOpen(false);
+                setPickPartyTable(null);
+              }}
+            >
+              Batal
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm freeing an occupied table */}
+      <Dialog open={freeTableOpen} onOpenChange={setFreeTableOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Kosongkan meja {freeTableTarget?.table.label}?
+            </DialogTitle>
+            <DialogDescription>
+              {freeTableTarget?.needsCleanup ? (
+                <>
+                  Pesanan untuk meja ini sudah dibayar. Tandai{" "}
+                  <span className="font-medium text-foreground">
+                    {freeTableTarget?.name}
+                  </span>{" "}
+                  selesai dan kosongkan meja?
+                </>
+              ) : (
+                <>
+                  Tandai{" "}
+                  <span className="font-medium text-foreground">
+                    {freeTableTarget?.name}
+                  </span>{" "}
+                  selesai dan kosongkan meja?
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFreeTableOpen(false);
+                setFreeTableTarget(null);
+              }}
+              disabled={!!(freeTableTarget && busyTableId === freeTableTarget.table.id)}
             >
               Batal
             </Button>
             <Button
-              onClick={() => void confirmSeat()}
-              disabled={!!(seatTarget && busyId === seatTarget.id + "seat")}
+              onClick={async () => {
+                if (!freeTableTarget) return;
+                const ok = await completeAtTable(
+                  freeTableTarget.entryId,
+                  freeTableTarget.table,
+                );
+                if (ok) {
+                  setFreeTableOpen(false);
+                  setFreeTableTarget(null);
+                }
+              }}
+              disabled={!!(freeTableTarget && busyTableId === freeTableTarget.table.id)}
             >
-              {seatTarget && busyId === seatTarget.id + "seat"
-                ? "Mencatat..."
-                : "Konfirmasi duduk"}
+              {freeTableTarget && busyTableId === freeTableTarget.table.id
+                ? "Mengosongkan..."
+                : "Kosongkan meja"}
             </Button>
           </DialogFooter>
         </DialogContent>

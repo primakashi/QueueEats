@@ -43,6 +43,7 @@ export type QueueCreateInput = {
 };
 
 const STATUS_ACTIVE: QueueEntryStatus[] = ["waiting", "called"];
+const STATUS_ON_FLOOR: QueueEntryStatus[] = ["waiting", "called", "seated"];
 const INDONESIA_PHONE_RE = /^(62|0)\d+$/;
 
 function rowDefaults(row: QueueEntryRow): QueueEntryRow {
@@ -178,9 +179,12 @@ function listWithPosition(entries: QueueEntryRow[]): QueueListItem[] {
     waiting.map((entry, idx) => [entry.id, idx + 1]),
   );
 
+  const active = entries.filter((entry) => STATUS_ACTIVE.includes(entry.status));
+  const queueNumberById = new Map(active.map((entry, idx) => [entry.id, idx + 1]));
+
   return entries.map((entry, idx) => ({
     ...entry,
-    queue_number: idx + 1,
+    queue_number: queueNumberById.get(entry.id) ?? idx + 1,
     position: waitingPositionById.get(entry.id) ?? 0,
   }));
 }
@@ -288,6 +292,54 @@ export async function listQueueEntries(): Promise<{
   return {
     restaurant_name: restaurant.name,
     entries: listWithPosition((data ?? []).map((r) => rowDefaults(r as QueueEntryRow))),
+  };
+}
+
+// Host floor-plan view: includes seated rows so the host can see who's at
+// which table, plus a list of tables whose order has already been paid
+// (tables_needing_cleanup) so they can be highlighted as "siap dibersihkan".
+export async function listHostFloorState(): Promise<{
+  restaurant_name: string;
+  entries: QueueListItem[];
+  tables_needing_cleanup: string[];
+}> {
+  const restaurant = await getOrCreateRestaurant();
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("queue_entries")
+    .select("*")
+    .eq("restaurant_id", restaurant.id)
+    .in("status", STATUS_ON_FLOOR)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+
+  const rows = (data ?? []).map((r) => rowDefaults(r as QueueEntryRow));
+  const seatedTables = rows
+    .filter((r) => r.status === "seated" && r.assigned_table)
+    .map((r) => r.assigned_table as string);
+
+  let needingCleanup: string[] = [];
+  if (seatedTables.length > 0) {
+    const { data: paidOrders, error: ordErr } = await admin
+      .from("orders")
+      .select("table_number")
+      .eq("payment_status", "paid")
+      .in("table_number", seatedTables);
+    if (ordErr) throw new Error(ordErr.message);
+    needingCleanup = Array.from(
+      new Set(
+        (paidOrders ?? [])
+          .map((r) => (r as { table_number: string | null }).table_number)
+          .filter((t): t is string => Boolean(t)),
+      ),
+    );
+  }
+
+  return {
+    restaurant_name: restaurant.name,
+    entries: listWithPosition(rows),
+    tables_needing_cleanup: needingCleanup,
   };
 }
 
@@ -548,6 +600,35 @@ export async function cancelByHost(id: string): Promise<TransitionResult> {
     return { ok: false, code: 400, error: "Gagal membatalkan entri antrian" };
   }
   return { ok: true, entry: data as QueueEntryRow };
+}
+
+export async function completeSeatedById(id: string): Promise<TransitionResult> {
+  const entry = await getQueueById(id);
+  if (!entry) return { ok: false, code: 404, error: "Entri antrian tidak ditemukan" };
+  if (entry.status === "completed") return { ok: true, entry };
+  if (entry.status !== "seated") {
+    return {
+      ok: false,
+      code: 400,
+      error: "Hanya tamu yang sudah duduk yang bisa ditandai selesai",
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("queue_entries")
+    .update({ status: "completed", pending_wa_url: null })
+    .eq("id", id)
+    .eq("status", "seated")
+    .select("*")
+    .maybeSingle();
+  if (error) return { ok: false, code: 400, error: error.message };
+  if (!data) {
+    const retry = await getQueueById(id);
+    if (retry?.status === "completed") return { ok: true, entry: retry };
+    return { ok: false, code: 400, error: "Gagal menandai entri selesai" };
+  }
+  return { ok: true, entry: rowDefaults(data as QueueEntryRow) };
 }
 
 export async function markWhatsAppDelivered(id: string): Promise<TransitionResult> {

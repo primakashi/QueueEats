@@ -37,6 +37,8 @@ export function queueStatusColor(s: QueueEntryStatus): string {
       return "bg-amber-500 text-white hover:bg-amber-500";
     case "seated":
       return "bg-emerald-500 text-white hover:bg-emerald-500";
+    case "completed":
+      return "bg-sky-600 text-white hover:bg-sky-600";
     case "no_show":
       return "bg-red-600 text-white hover:bg-red-600";
     case "cancelled":

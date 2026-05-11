@@ -25,6 +25,7 @@ const STATUS_COPY: Record<QueueEntryStatus, (position: number) => string> = {
   waiting: (position) => `Anda saat ini urutan #${position} dalam antrian`,
   called: () => "Meja Anda siap. Silakan datang dalam 10 menit",
   seated: () => "Anda sudah duduk — selamat menikmati",
+  completed: () => "Terima kasih sudah berkunjung",
   no_show: () =>
     "Anda ditandai tidak hadir. Silakan daftar antrian lagi jika masih di dekat sini",
   cancelled: () => "Antrian dibatalkan",

@@ -13,6 +13,7 @@ export type QueueEntryStatus =
   | "waiting"
   | "called"
   | "seated"
+  | "completed"
   | "no_show"
   | "cancelled";
 export type QueueNotificationState =
@@ -140,6 +141,7 @@ export const QUEUE_STATUS_LABEL_ID: Record<QueueEntryStatus, string> = {
   waiting: "Menunggu",
   called: "Dipanggil",
   seated: "Sudah duduk",
+  completed: "Selesai",
   no_show: "Tidak hadir",
   cancelled: "Dibatalkan",
 };
