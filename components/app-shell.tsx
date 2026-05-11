@@ -40,6 +40,9 @@ type NavItem = {
   roles: UserRole[];
 };
 
+/** Nav targets that use `loading.tsx` in-page instead of a sidebar link spinner. */
+const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales"]);
+
 const NAV_ITEMS: NavItem[] = [
   {
     href: "/waiter",
@@ -227,6 +230,8 @@ function Nav({
         const active =
           pathname === item.href || pathname.startsWith(item.href + "/");
         const Icon = item.icon;
+        const showNavSpinner =
+          !collapsed && !NAV_IN_PAGE_LOADING_HREFS.has(item.href);
         return (
           <Link
             key={item.href}
@@ -244,7 +249,7 @@ function Nav({
           >
             <Icon className="h-4 w-4 shrink-0" />
             {!collapsed && <span className="flex-1">{item.label}</span>}
-            {!collapsed && <NavLinkSpinner />}
+            {showNavSpinner && <NavLinkSpinner />}
           </Link>
         );
       })}
