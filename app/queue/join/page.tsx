@@ -3,7 +3,7 @@ import { getOrCreateRestaurant } from "@/lib/queue/service";
 import { QueueJoinForm } from "./queue-join-form";
 
 export const metadata = {
-  title: "Gabung antrean · QueueEats",
+  title: "Gabung antrian · Ayam Seruni",
 };
 export const dynamic = "force-dynamic";
 

@@ -4,6 +4,7 @@ import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import {
+  BarChart3,
   ChefHat,
   CreditCard,
   LogOut,
@@ -39,7 +40,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   {
     href: "/waiter",
-    label: "Pelayan",
+    label: "Waiters/Host",
     icon: ClipboardList,
     roles: ["waiter", "admin"],
   },
@@ -77,6 +78,12 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/users",
     label: "Staf",
     icon: Users,
+    roles: ["admin"],
+  },
+  {
+    href: "/admin/sales",
+    label: "Penjualan",
+    icon: BarChart3,
     roles: ["admin"],
   },
 ];
@@ -117,7 +124,7 @@ export function AppShell({
               <UserFooter profile={profile} />
             </SheetContent>
           </Sheet>
-          <span className="font-semibold">QueueEats</span>
+          <span className="font-semibold">Ayam Seruni</span>
           <UserMenu profile={profile} />
         </header>
 
@@ -134,7 +141,7 @@ function BrandHeader() {
         <UtensilsCrossed className="h-4 w-4" />
       </div>
       <div className="leading-tight">
-        <div className="font-semibold">QueueEats</div>
+        <div className="font-semibold">Ayam Seruni</div>
         <div className="text-xs text-muted-foreground">Titik penjualan</div>
       </div>
     </div>

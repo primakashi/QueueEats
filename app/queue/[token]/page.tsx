@@ -12,7 +12,7 @@ export default async function QueueTokenPage({ params }: Props) {
     <main className="min-h-screen bg-muted/20 px-4 py-8 sm:py-12">
       <div className="max-w-md mx-auto space-y-4">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Status antrean Anda</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Status antrian Anda</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Halaman ini memperbarui otomatis setiap 10 detik.
           </p>
@@ -28,10 +28,14 @@ export default async function QueueTokenPage({ params }: Props) {
                   status: initialData.status,
                   queue_number: initialData.queue_number,
                   position: initialData.position,
+                  waiting_in_store: initialData.waiting_in_store,
+                  party_has_infant: initialData.party_has_infant,
+                  party_has_elderly: initialData.party_has_elderly,
+                  party_has_child: initialData.party_has_child,
                 }
               : null
           }
-          initialError={initialData ? null : "Entri antrean tidak ditemukan."}
+          initialError={initialData ? null : "Entri antrian tidak ditemukan."}
         />
       </div>
     </main>

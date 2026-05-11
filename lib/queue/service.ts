@@ -13,6 +13,10 @@ export type QueueListItem = {
   notification_state: QueueNotificationState;
   pending_wa_url: string | null;
   assigned_table: string | null;
+  waiting_in_store: boolean;
+  party_has_infant: boolean;
+  party_has_elderly: boolean;
+  party_has_child: boolean;
   created_at: string;
   called_at: string | null;
   seated_at: string | null;
@@ -28,21 +32,35 @@ type TransitionResult =
   | { ok: true; entry: QueueEntryRow }
   | { ok: false; code: 404 | 400 | 409; error: string };
 
-type QueueCreateInput = {
+export type QueueCreateInput = {
   name: string;
   party_size: number;
   phone?: string | null;
+  waiting_in_store?: boolean;
+  party_has_infant?: boolean;
+  party_has_elderly?: boolean;
+  party_has_child?: boolean;
 };
 
 const STATUS_ACTIVE: QueueEntryStatus[] = ["waiting", "called"];
 const INDONESIA_PHONE_RE = /^(62|0)\d+$/;
+
+function rowDefaults(row: QueueEntryRow): QueueEntryRow {
+  return {
+    ...row,
+    waiting_in_store: row.waiting_in_store ?? false,
+    party_has_infant: row.party_has_infant ?? false,
+    party_has_elderly: row.party_has_elderly ?? false,
+    party_has_child: row.party_has_child ?? false,
+  };
+}
 
 function getBaseUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 }
 
 function getRestaurantFallbackName(): string {
-  return process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "QueueEats";
+  return process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "Ayam Seruni";
 }
 
 function toErrorMessage(error: unknown): string {
@@ -120,15 +138,15 @@ function buildJoinMessage(
   position: number,
   restaurantName: string,
 ): string {
-  return `Hai ${entry.name}, Anda saat ini urutan #${position} di antrean ${restaurantName}. Cek status di: ${getBaseUrl()}/queue/${entry.token}. Kami akan kirim WhatsApp lagi saat giliran Anda hampir tiba.`;
+  return `Hai ${entry.name}, Anda saat ini urutan #${position} di antrian ${restaurantName}. Cek status di: ${getBaseUrl()}/queue/${entry.token}. Kami akan kirim WhatsApp lagi saat giliran Anda hampir tiba.`;
 }
 
 function buildCalledMessage(entry: Pick<QueueEntryRow, "name">, restaurantName: string): string {
-  return `Hai ${entry.name}, meja Anda siap di ${restaurantName}. Silakan datang dalam 10 menit. Setelah itu nomor antrean Anda akan kedaluwarsa otomatis.`;
+  return `Hai ${entry.name}, meja Anda siap di ${restaurantName}. Silakan datang dalam 10 menit. Setelah itu nomor antrian Anda akan kedaluwarsa otomatis.`;
 }
 
 function buildNoShowMessage(entry: Pick<QueueEntryRow, "name">): string {
-  return `Hai ${entry.name}, kami menunggu tetapi tidak menemukan Anda. Nomor antrean Anda telah kedaluwarsa. Silakan daftar antrean lagi jika masih di dekat sini.`;
+  return `Hai ${entry.name}, kami menunggu tetapi tidak menemukan Anda. Nomor antrian Anda telah kedaluwarsa. Silakan daftar antrian lagi jika masih di dekat sini.`;
 }
 
 async function updateNotification(
@@ -180,6 +198,11 @@ export async function createQueueEntry(
   const restaurant = await getOrCreateRestaurant();
   const admin = createAdminClient();
 
+  const waitingInStore = input.waiting_in_store ?? false;
+  const partyHasInfant = input.party_has_infant ?? false;
+  const partyHasElderly = input.party_has_elderly ?? false;
+  const partyHasChild = input.party_has_child ?? false;
+
   let inserted: QueueEntryRow | null = null;
   for (let attempt = 0; attempt < 5 && !inserted; attempt += 1) {
     const token = generateQueueToken(12);
@@ -193,18 +216,22 @@ export async function createQueueEntry(
         token,
         status: "waiting",
         notification_state: "none",
+        waiting_in_store: waitingInStore,
+        party_has_infant: partyHasInfant,
+        party_has_elderly: partyHasElderly,
+        party_has_child: partyHasChild,
       })
       .select("*")
       .single();
     if (!error) {
-      inserted = data as QueueEntryRow;
+      inserted = rowDefaults(data as QueueEntryRow);
       break;
     }
     if (!error.message.toLowerCase().includes("token")) {
       throw new Error(error.message);
     }
   }
-  if (!inserted) throw new Error("Gagal membuat token antrean unik");
+  if (!inserted) throw new Error("Gagal membuat token antrian unik");
 
   const position = await computeWaitingPosition(
     inserted.restaurant_id,
@@ -232,7 +259,7 @@ export async function getQueueEntryByToken(token: string): Promise<QueueListItem
   if (error) throw new Error(error.message);
   if (!data) return null;
 
-  const entry = data as QueueEntryRow;
+  const entry = rowDefaults(data as QueueEntryRow);
   const position = await computeWaitingPosition(entry.restaurant_id, entry.created_at);
   const queueNumber = await computeActiveQueueNumber(entry.restaurant_id, entry.created_at);
 
@@ -260,7 +287,7 @@ export async function listQueueEntries(): Promise<{
 
   return {
     restaurant_name: restaurant.name,
-    entries: listWithPosition((data ?? []) as QueueEntryRow[]),
+    entries: listWithPosition((data ?? []).map((r) => rowDefaults(r as QueueEntryRow))),
   };
 }
 
@@ -272,7 +299,66 @@ async function getQueueById(id: string): Promise<QueueEntryRow | null> {
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return (data as QueueEntryRow | null) ?? null;
+  const row = data as QueueEntryRow | null;
+  return row ? rowDefaults(row) : null;
+}
+
+const PRESENCE_ALLOWED: QueueEntryStatus[] = ["waiting", "called"];
+
+export async function setWaitingInStoreByToken(
+  token: string,
+  waitingInStore: boolean,
+): Promise<TransitionResult> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("queue_entries")
+    .select("*")
+    .eq("token", token)
+    .maybeSingle();
+  if (error) return { ok: false, code: 400, error: error.message };
+  if (!data) return { ok: false, code: 404, error: "Entri antrian tidak ditemukan" };
+  const entry = rowDefaults(data as QueueEntryRow);
+  if (!PRESENCE_ALLOWED.includes(entry.status)) {
+    return {
+      ok: false,
+      code: 400,
+      error: "Status kehadiran hanya bisa diubah saat masih menunggu atau dipanggil",
+    };
+  }
+
+  const { data: updated, error: updateErr } = await admin
+    .from("queue_entries")
+    .update({ waiting_in_store: waitingInStore })
+    .eq("id", entry.id)
+    .select("*")
+    .single();
+  if (updateErr) return { ok: false, code: 400, error: updateErr.message };
+  return { ok: true, entry: rowDefaults(updated as QueueEntryRow) };
+}
+
+export async function setWaitingInStoreById(
+  id: string,
+  waitingInStore: boolean,
+): Promise<TransitionResult> {
+  const entry = await getQueueById(id);
+  if (!entry) return { ok: false, code: 404, error: "Entri antrian tidak ditemukan" };
+  if (!PRESENCE_ALLOWED.includes(entry.status)) {
+    return {
+      ok: false,
+      code: 400,
+      error: "Status kehadiran hanya bisa diubah saat masih menunggu atau dipanggil",
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: updated, error: updateErr } = await admin
+    .from("queue_entries")
+    .update({ waiting_in_store: waitingInStore })
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (updateErr) return { ok: false, code: 400, error: updateErr.message };
+  return { ok: true, entry: rowDefaults(updated as QueueEntryRow) };
 }
 
 async function ensureTopWaiting(entry: QueueEntryRow): Promise<TransitionResult> {
@@ -292,7 +378,7 @@ async function ensureTopWaiting(entry: QueueEntryRow): Promise<TransitionResult>
     return {
       ok: false,
       code: 409,
-      error: "Hanya antrean pertama yang menunggu yang bisa dipanggil",
+      error: "Hanya antrian pertama yang menunggu yang bisa dipanggil",
     };
   }
   return { ok: true, entry };
@@ -306,7 +392,7 @@ export async function cancelByToken(token: string): Promise<TransitionResult> {
     .eq("token", token)
     .maybeSingle();
   if (error) return { ok: false, code: 400, error: error.message };
-  if (!data) return { ok: false, code: 404, error: "Entri antrean tidak ditemukan" };
+  if (!data) return { ok: false, code: 404, error: "Entri antrian tidak ditemukan" };
   const entry = data as QueueEntryRow;
   if (entry.status === "cancelled") return { ok: true, entry };
   if (entry.status !== "waiting") {
@@ -325,7 +411,7 @@ export async function cancelByToken(token: string): Promise<TransitionResult> {
 
 export async function callNextById(id: string): Promise<TransitionResult> {
   const entry = await getQueueById(id);
-  if (!entry) return { ok: false, code: 404, error: "Entri antrean tidak ditemukan" };
+  if (!entry) return { ok: false, code: 404, error: "Entri antrian tidak ditemukan" };
   if (entry.status === "called") return { ok: true, entry };
   if (entry.status !== "waiting") {
     return { ok: false, code: 400, error: "Hanya yang menunggu yang bisa dipanggil" };
@@ -345,7 +431,7 @@ export async function callNextById(id: string): Promise<TransitionResult> {
   if (error) return { ok: false, code: 400, error: error.message };
   if (!data) {
     const retry = await getQueueById(id);
-    if (!retry) return { ok: false, code: 404, error: "Entri antrean tidak ditemukan" };
+    if (!retry) return { ok: false, code: 404, error: "Entri antrian tidak ditemukan" };
     if (retry.status === "called") return { ok: true, entry: retry };
     return { ok: false, code: 400, error: "Gagal mengubah status menjadi dipanggil" };
   }
@@ -371,7 +457,7 @@ export async function seatById(id: string, tableNumber: string): Promise<Transit
   }
 
   const entry = await getQueueById(id);
-  if (!entry) return { ok: false, code: 404, error: "Entri antrean tidak ditemukan" };
+  if (!entry) return { ok: false, code: 404, error: "Entri antrian tidak ditemukan" };
   if (entry.status === "seated") return { ok: true, entry };
   if (entry.status !== "called") {
     return { ok: false, code: 400, error: "Hanya yang sudah dipanggil yang bisa didaftarkan duduk" };
@@ -401,7 +487,7 @@ export async function seatById(id: string, tableNumber: string): Promise<Transit
 
 async function markNoShow(id: string): Promise<TransitionResult> {
   const entry = await getQueueById(id);
-  if (!entry) return { ok: false, code: 404, error: "Entri antrean tidak ditemukan" };
+  if (!entry) return { ok: false, code: 404, error: "Entri antrian tidak ditemukan" };
   if (entry.status === "no_show") return { ok: true, entry };
   if (entry.status !== "called") {
     return { ok: false, code: 400, error: "Hanya yang sudah dipanggil yang bisa ditandai tidak hadir" };
@@ -441,7 +527,7 @@ export async function noShowById(id: string): Promise<TransitionResult> {
 
 export async function cancelByHost(id: string): Promise<TransitionResult> {
   const entry = await getQueueById(id);
-  if (!entry) return { ok: false, code: 404, error: "Entri antrean tidak ditemukan" };
+  if (!entry) return { ok: false, code: 404, error: "Entri antrian tidak ditemukan" };
   if (entry.status === "cancelled") return { ok: true, entry };
   if (entry.status !== "waiting") {
     return { ok: false, code: 400, error: "Hanya yang masih menunggu yang bisa dibatalkan" };
@@ -459,14 +545,14 @@ export async function cancelByHost(id: string): Promise<TransitionResult> {
   if (!data) {
     const retry = await getQueueById(id);
     if (retry?.status === "cancelled") return { ok: true, entry: retry };
-    return { ok: false, code: 400, error: "Gagal membatalkan entri antrean" };
+    return { ok: false, code: 400, error: "Gagal membatalkan entri antrian" };
   }
   return { ok: true, entry: data as QueueEntryRow };
 }
 
 export async function markWhatsAppDelivered(id: string): Promise<TransitionResult> {
   const entry = await getQueueById(id);
-  if (!entry) return { ok: false, code: 404, error: "Entri antrean tidak ditemukan" };
+  if (!entry) return { ok: false, code: 404, error: "Entri antrian tidak ditemukan" };
   if (!entry.pending_wa_url) return { ok: true, entry };
 
   const admin = createAdminClient();

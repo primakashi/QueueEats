@@ -20,7 +20,7 @@ export default async function KitchenPage() {
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       <PageHeader
         title="Dapur"
-        description="Antrean pesanan menunggu, sedang dimasak, dan siap diambil"
+        description="Antrian pesanan menunggu, sedang dimasak, dan siap diambil"
       />
       <KitchenBoard initialOrders={initialOrders} />
     </div>

@@ -3,7 +3,7 @@
 //   node scripts/create-user.mjs <email> <password> <full_name> <role>
 //
 // Example:
-//   node scripts/create-user.mjs admin@queueeats.local Admin123! "Admin" admin
+//   node scripts/create-user.mjs admin@ayamseruni.local Admin123! "Admin" admin
 //
 // role must be one of: waiter | kitchen | cashier | admin
 

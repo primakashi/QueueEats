@@ -7,7 +7,7 @@ export async function GET() {
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Gagal memuat daftar antrean" },
+      { error: error instanceof Error ? error.message : "Gagal memuat daftar antrian" },
       { status: 400 },
     );
   }

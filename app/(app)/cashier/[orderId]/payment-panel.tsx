@@ -256,7 +256,7 @@ export function PaymentPanel({
 
   if (method === "qris" && payment) {
     const qrValue = isMock
-      ? mockPayUrl ?? `queueeats:pending:${payment.id}`
+      ? mockPayUrl ?? `ayamseruni:pending:${payment.id}`
       : payment.qr_string ?? "";
     return (
       <Card className="p-5 gap-4">

@@ -31,6 +31,10 @@ type HostQueueEntry = {
   status: QueueEntryStatus;
   notification_state: QueueNotificationState;
   pending_wa_url: string | null;
+  waiting_in_store: boolean;
+  party_has_infant: boolean;
+  party_has_elderly: boolean;
+  party_has_child: boolean;
   created_at: string;
   queue_number: number;
   position: number;
@@ -51,6 +55,9 @@ export function HostClient({
   const [entries, setEntries] = useState<HostQueueEntry[]>(initialEntries);
   const [name, setName] = useState("");
   const [partySize, setPartySize] = useState(2);
+  const [partyHasInfant, setPartyHasInfant] = useState(false);
+  const [partyHasElderly, setPartyHasElderly] = useState(false);
+  const [partyHasChild, setPartyHasChild] = useState(false);
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,7 +79,7 @@ export function HostClient({
     const res = await fetch("/api/queue/list", { cache: "no-store" });
     const json = (await res.json()) as QueueListResponse & { error?: string };
     if (!res.ok) {
-      setError(json.error ?? "Gagal memuat antrean");
+      setError(json.error ?? "Gagal memuat antrian");
       setRefreshing(false);
       return;
     }
@@ -98,15 +105,22 @@ export function HostClient({
           name,
           party_size: partySize,
           phone: phone.trim() || null,
+          waiting_in_store: true,
+          party_has_infant: partyHasInfant,
+          party_has_elderly: partyHasElderly,
+          party_has_child: partyHasChild,
         }),
       });
       const json = (await res.json()) as { error?: string };
       if (!res.ok) {
-        setError(json.error ?? "Gagal menambah antrean");
+        setError(json.error ?? "Gagal menambah antrian");
         return;
       }
       setName("");
       setPartySize(2);
+      setPartyHasInfant(false);
+      setPartyHasElderly(false);
+      setPartyHasChild(false);
       setPhone("");
       await load();
     } finally {
@@ -161,10 +175,10 @@ export function HostClient({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Panel host</h1>
         <p className="text-sm text-muted-foreground">
-          Kelola antrean pelanggan untuk {restaurantName}
+          Kelola antrian pelanggan untuk {restaurantName}
         </p>
         {refreshing && (
-          <p className="text-xs text-muted-foreground mt-1">Memperbarui antrean...</p>
+          <p className="text-xs text-muted-foreground mt-1">Memperbarui antrian...</p>
         )}
       </div>
 
@@ -206,9 +220,31 @@ export function HostClient({
               disabled={submitting}
             />
           </div>
+          <div className="sm:col-span-4 grid gap-3 sm:grid-cols-3 rounded-lg border border-border/60 px-3 py-3">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={partyHasInfant}
+                onChange={(e) => setPartyHasInfant(e.target.checked)}
+                disabled={submitting}
+                className="size-4 rounded border-input"
+              />
+              Bayi / balita
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={partyHasElderly}
+                onChange={(e) => setPartyHasElderly(e.target.checked)}
+                disabled={submitting}
+                className="size-4 rounded border-input"
+              />
+              Lansia
+            </label>
+          </div>
           <div className="sm:col-span-4 pt-1">
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Menambahkan..." : "Tambah ke antrean"}
+              {submitting ? "Menambahkan..." : "Tambah ke antrian"}
             </Button>
           </div>
         </form>
@@ -228,6 +264,7 @@ export function HostClient({
                 <th className="text-left px-3 py-2">No</th>
                 <th className="text-left px-3 py-2">Nama</th>
                 <th className="text-left px-3 py-2">Orang</th>
+                <th className="text-left px-3 py-2">Di lokasi</th>
                 <th className="text-left px-3 py-2">WA</th>
                 <th className="text-left px-3 py-2">Status</th>
                 <th className="text-left px-3 py-2">Gabung</th>
@@ -240,7 +277,39 @@ export function HostClient({
                 <tr key={entry.id} className="border-b align-top">
                   <td className="px-3 py-2 tabular-nums">#{entry.queue_number}</td>
                   <td className="px-3 py-2 font-medium">{entry.name}</td>
-                  <td className="px-3 py-2">{entry.party_size}</td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium tabular-nums">{entry.party_size}</div>
+                    <PartyHints entry={entry} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-col gap-2 rounded-lg border px-2 py-2 sm:px-2.5">
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                        Status terbaru
+                      </div>
+                      <div className="text-sm font-bold">
+                        {entry.waiting_in_store ? "Di lokasi" : "Belum di lokasi"}
+                      </div>
+                      {(entry.status === "waiting" || entry.status === "called") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs font-medium"
+                          disabled={busyId === entry.id + "waiting-in-store"}
+                          onClick={() =>
+                            void runAction(entry.id, "waiting-in-store", {
+                              waiting_in_store: !entry.waiting_in_store,
+                            })
+                          }
+                        >
+                          {busyId === entry.id + "waiting-in-store"
+                            ? "Menyimpan..."
+                            : entry.waiting_in_store
+                              ? "Tandai belum di lokasi"
+                              : "Tandai di lokasi"}
+                        </Button>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-3 py-2">{entry.phone ?? "-"}</td>
                   <td className="px-3 py-2">
                     <Badge className={queueStatusColor(entry.status)}>
@@ -311,8 +380,8 @@ export function HostClient({
               ))}
               {entries.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
-                    Tidak ada antrean aktif.
+                  <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
+                    Tidak ada antrian aktif.
                   </td>
                 </tr>
               )}
@@ -364,4 +433,13 @@ export function HostClient({
       </Dialog>
     </div>
   );
+}
+
+function PartyHints({ entry }: { entry: HostQueueEntry }) {
+  const bits: string[] = [];
+  if (entry.party_has_infant) bits.push("Bayi");
+  if (entry.party_has_elderly) bits.push("Lansia");
+  if (entry.party_has_child) bits.push("Anak");
+  if (bits.length === 0) return null;
+  return <div className="text-xs text-muted-foreground mt-0.5">{bits.join(" · ")}</div>;
 }

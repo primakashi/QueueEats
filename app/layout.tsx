@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "QueueEats POS",
-  description: "POS berbasis web dengan antrean dapur dan pembayaran QRIS",
+  title: "Ayam Seruni POS",
+  description: "POS berbasis web dengan antrian dapur dan pembayaran QRIS",
 };
 
 export const viewport: Viewport = {

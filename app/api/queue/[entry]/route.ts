@@ -8,12 +8,12 @@ export async function GET(_: Request, { params }: Props) {
   try {
     const queueEntry = await getQueueEntryByToken(entry);
     if (!queueEntry) {
-      return NextResponse.json({ error: "Entri antrean tidak ditemukan" }, { status: 404 });
+      return NextResponse.json({ error: "Entri antrian tidak ditemukan" }, { status: 404 });
     }
     return NextResponse.json(queueEntry);
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Gagal memuat entri antrean" },
+      { error: error instanceof Error ? error.message : "Gagal memuat entri antrian" },
       { status: 400 },
     );
   }

@@ -104,13 +104,17 @@ export type QueueEntry = {
   notification_state: QueueNotificationState;
   assigned_table: string | null;
   pending_wa_url: string | null;
+  waiting_in_store: boolean;
+  party_has_infant: boolean;
+  party_has_elderly: boolean;
+  party_has_child: boolean;
   created_at: string;
   called_at: string | null;
   seated_at: string | null;
 };
 
 export const ROLE_LABEL: Record<UserRole, string> = {
-  waiter: "Pelayan",
+  waiter: "Waiters/Host",
   kitchen: "Dapur",
   cashier: "Kasir",
   admin: "Admin",

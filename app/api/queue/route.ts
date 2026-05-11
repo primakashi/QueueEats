@@ -5,6 +5,10 @@ type CreateBody = {
   name?: string;
   party_size?: number;
   phone?: string | null;
+  waiting_in_store?: boolean;
+  party_has_infant?: boolean;
+  party_has_elderly?: boolean;
+  party_has_child?: boolean;
 };
 
 export async function POST(req: NextRequest) {
@@ -27,12 +31,16 @@ export async function POST(req: NextRequest) {
       name: body.name,
       party_size: body.party_size,
       phone: body.phone ?? null,
+      waiting_in_store: body.waiting_in_store,
+      party_has_infant: body.party_has_infant,
+      party_has_elderly: body.party_has_elderly,
+      party_has_child: body.party_has_child,
     });
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Gagal membuat entri antrean",
+        error: error instanceof Error ? error.message : "Gagal membuat entri antrian",
       },
       { status: 400 },
     );

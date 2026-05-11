@@ -14,6 +14,7 @@ type QueueBoardEntry = {
   status: QueueEntryStatus;
   queue_number: number;
   position: number;
+  waiting_in_store: boolean;
 };
 
 type QueueBoardResponse = {
@@ -42,13 +43,13 @@ export function QueueBoardClient({
       const res = await fetch("/api/queue/list", { cache: "no-store" });
       const json = (await res.json()) as QueueBoardResponse & { error?: string };
       if (!res.ok) {
-        setError(json.error ?? "Gagal memuat antrean");
+        setError(json.error ?? "Gagal memuat antrian");
         return;
       }
       setError(null);
       setData(json);
     } catch {
-      setError("Gagal memuat antrean");
+      setError("Gagal memuat antrian");
     } finally {
       setRefreshing(false);
     }
@@ -64,7 +65,7 @@ export function QueueBoardClient({
       <div className="max-w-5xl mx-auto">
         <header className="mb-6 text-center">
           <h1 className="text-3xl sm:text-5xl font-semibold tracking-tight">
-            Papan antrean — {data?.restaurant_name ?? "QueueEats"}
+            Papan antrian — {data?.restaurant_name ?? "Ayam Seruni"}
           </h1>
           {/* <p className="text-sm sm:text-base text-muted-foreground mt-2">
             Auto-refresh every 10 seconds
@@ -94,10 +95,15 @@ export function QueueBoardClient({
                   <div className="text-xl sm:text-3xl font-medium">
                     {firstName(entry.name)}
                   </div>
-                  <div className="text-right">
+                  <div className="text-right space-y-1">
                     <div className="text-base sm:text-2xl text-muted-foreground">
                       {entry.party_size} orang
                     </div>
+                    {entry.waiting_in_store && (
+                      <div className="text-xs sm:text-sm font-medium text-emerald-700">
+                        Sudah di lokasi
+                      </div>
+                    )}
                     <div className="text-xs sm:text-sm text-muted-foreground">
                       {estimateWaitLabel(entry.status, entry.position)}
                     </div>
@@ -110,7 +116,7 @@ export function QueueBoardClient({
             ))}
             {data && data.entries.length === 0 && (
               <Card className="p-10 text-center text-lg text-muted-foreground">
-                Tidak ada antrean aktif.
+                Tidak ada antrian aktif.
               </Card>
             )}
           </div>

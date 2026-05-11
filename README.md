@@ -1,4 +1,4 @@
-# QueueEats POS
+# Ayam Seruni POS
 
 A web-based Point of Sale system with role-based workflows for restaurants:
 
