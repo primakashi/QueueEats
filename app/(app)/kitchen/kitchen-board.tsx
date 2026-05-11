@@ -79,7 +79,7 @@ export function KitchenBoard({
             notifiedIds.current.add(newOrder.id);
             const full = await fetchFullOrder(newOrder.id);
             if (!full) return;
-            toast.success(`New order ${full.order_number}`);
+            toast.success(`Pesanan baru ${full.order_number}`);
             setOrders((prev) => {
               if (prev.some((o) => o.id === full.id)) return prev;
               return [...prev, full].sort((a, b) =>
@@ -150,37 +150,37 @@ export function KitchenBoard({
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <Column
-        title="New orders"
+        title="Pesanan baru"
         icon={<Clock className="h-4 w-4" />}
         count={pending.length}
         accent="bg-slate-200 text-slate-900"
       >
         {pending.length === 0 ? (
-          <EmptyColumn label="No new orders" />
+          <EmptyColumn label="Belum ada pesanan baru" />
         ) : (
           pending.map((o) => <OrderCard key={o.id} order={o} now={now} />)
         )}
       </Column>
       <Column
-        title="Preparing"
+        title="Dimasak"
         icon={<ChefHat className="h-4 w-4" />}
         count={preparing.length}
         accent="bg-amber-500 text-white"
       >
         {preparing.length === 0 ? (
-          <EmptyColumn label="Nothing on the stove yet" />
+          <EmptyColumn label="Belum ada yang dimasak" />
         ) : (
           preparing.map((o) => <OrderCard key={o.id} order={o} now={now} />)
         )}
       </Column>
       <Column
-        title="Ready"
+        title="Siap"
         icon={<CheckCircle2 className="h-4 w-4" />}
         count={ready.length}
         accent="bg-emerald-600 text-white"
       >
         {ready.length === 0 ? (
-          <EmptyColumn label="Nothing ready yet" />
+          <EmptyColumn label="Belum ada yang siap" />
         ) : (
           ready.map((o) => <OrderCard key={o.id} order={o} now={now} />)
         )}
@@ -264,7 +264,7 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
           </div>
           <div className="text-xs text-muted-foreground">
             {formatTime(order.created_at)}
-            {order.table_number ? ` · Table ${order.table_number}` : ""}
+            {order.table_number ? ` · Meja ${order.table_number}` : ""}
             {order.customer_name ? ` · ${order.customer_name}` : ""}
           </div>
         </div>
@@ -299,7 +299,7 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
 
       {order.notes && (
         <div className="text-xs text-muted-foreground italic border-t pt-2">
-          Order note: {order.notes}
+          Catatan pesanan: {order.notes}
         </div>
       )}
 
@@ -315,7 +315,7 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
             ) : (
               <ChefHat className="h-4 w-4 mr-2" />
             )}
-            {pending ? "Updating…" : "Start preparing"}
+            {pending ? "Memperbarui…" : "Mulai masak"}
           </Button>
         </div>
       )}
@@ -331,14 +331,14 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
             ) : (
               <CheckCircle2 className="h-4 w-4 mr-2" />
             )}
-            {pending ? "Updating…" : "Mark ready"}
+            {pending ? "Memperbarui…" : "Tandai siap"}
           </Button>
         </div>
       )}
       {order.status === "ready" && (
         <div className="flex items-center justify-center gap-2 pt-1 text-sm font-medium text-emerald-700">
           <CheckCircle2 className="h-4 w-4" />
-          Ready for pickup
+          Siap diambil
         </div>
       )}
     </Card>

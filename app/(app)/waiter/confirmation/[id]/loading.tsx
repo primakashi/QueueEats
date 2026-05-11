@@ -13,7 +13,7 @@ export default function ConfirmationLoading() {
           <CheckCircle2 className="h-10 w-10" />
         </div>
         <div className="space-y-2">
-          <div className="text-sm text-muted-foreground">Order sent</div>
+          <div className="text-sm text-muted-foreground">Pesanan terkirim</div>
           <Skeleton className="h-9 w-32 mx-auto" />
           <Skeleton className="h-4 w-44 mx-auto" />
         </div>
@@ -42,10 +42,10 @@ export default function ConfirmationLoading() {
             className="flex-1"
             render={<Link href="/waiter" />}
           >
-            <ListOrdered className="h-4 w-4 mr-2" /> Orders
+            <ListOrdered className="h-4 w-4 mr-2" /> Pesanan
           </Button>
           <Button className="flex-1" render={<Link href="/waiter/new" />}>
-            <Plus className="h-4 w-4 mr-2" /> New order
+            <Plus className="h-4 w-4 mr-2" /> Pesanan baru
           </Button>
         </div>
       </Card>

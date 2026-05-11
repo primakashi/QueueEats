@@ -14,7 +14,7 @@ export default async function EditMenuItemPage({ params }: Props) {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <PageHeader title="Edit menu item" />
+      <PageHeader title="Ubah item menu" />
       <Suspense fallback={<MenuItemFormSkeleton />}>
         <EditFormLoader params={params} />
       </Suspense>

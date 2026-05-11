@@ -16,8 +16,8 @@ export default async function CategoriesPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <PageHeader
-        title="Categories"
-        description="Organize menu items into categories"
+        title="Kategori"
+        description="Kelompokkan item menu ke dalam kategori"
       />
       <Card className="p-5">
         <CategoriesManager categories={(data ?? []) as MenuCategory[]} />

@@ -71,9 +71,9 @@ export function PayPanel({ summary }: { summary: MockPaymentSummary }) {
         <div className="mx-auto h-16 w-16 rounded-full bg-emerald-100 text-emerald-700 grid place-items-center">
           <CheckCircle2 className="h-10 w-10" />
         </div>
-        <div className="text-xl font-semibold">Payment successful</div>
+        <div className="text-xl font-semibold">Pembayaran berhasil</div>
         <div className="text-sm text-muted-foreground">
-          Order {summary.order_number} is being prepared. Thank you!
+          Pesanan {summary.order_number} sedang disiapkan. Terima kasih!
         </div>
         <div className="text-3xl font-semibold tabular-nums pt-2">
           {formatIDR(summary.amount)}
@@ -87,17 +87,17 @@ export function PayPanel({ summary }: { summary: MockPaymentSummary }) {
       <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
         <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
         <div>
-          <div className="font-medium">Demo / mock payment</div>
+          <div className="font-medium">Pembayaran demo / mock</div>
           <div className="text-amber-800/80">
-            This is a simulated QRIS flow — tapping Pay instantly marks the
-            order as paid.
+            Ini simulasi QRIS — ketuk Bayar untuk langsung menandai pesanan
+            sebagai lunas.
           </div>
         </div>
       </div>
 
       <div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground">
-          Amount
+          Jumlah
         </div>
         <div className="text-3xl font-semibold tabular-nums">
           {formatIDR(summary.amount)}
@@ -106,7 +106,7 @@ export function PayPanel({ summary }: { summary: MockPaymentSummary }) {
 
       <div className="space-y-1.5 rounded-md border p-3">
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-          Order details
+          Detail pesanan
         </div>
         {summary.items.map((it, i) => (
           <div key={i} className="flex justify-between text-sm">
@@ -124,10 +124,10 @@ export function PayPanel({ summary }: { summary: MockPaymentSummary }) {
       <Button size="lg" className="w-full h-12 text-base" onClick={pay} disabled={pending}>
         {pending ? (
           <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Memproses...
           </>
         ) : (
-          <>Pay {formatIDR(summary.amount)}</>
+          <>Bayar {formatIDR(summary.amount)}</>
         )}
       </Button>
     </Card>

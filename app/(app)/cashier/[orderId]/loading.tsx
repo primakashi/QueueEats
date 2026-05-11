@@ -14,7 +14,7 @@ export default function CashierOrderLoading() {
           size="sm"
           render={<Link href="/cashier" />}
         >
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back to cashier
+          <ArrowLeft className="h-4 w-4 mr-1" /> Kembali ke kasir
         </Button>
       </div>
 

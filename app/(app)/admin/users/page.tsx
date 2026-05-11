@@ -16,8 +16,8 @@ export default async function StaffPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <PageHeader
-        title="Staff"
-        description="Change roles for staff accounts. Users sign up via the Supabase dashboard or invites."
+        title="Staf"
+        description="Ubah peran akun staf. Pengguna mendaftar lewat dashboard Supabase atau undangan."
       />
       <Card className="p-0 overflow-hidden">
         <StaffTable profiles={(data ?? []) as Profile[]} />

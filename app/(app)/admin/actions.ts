@@ -15,7 +15,7 @@ export async function createCategory(formData: FormData): Promise<Result> {
   await requireRole(["admin"]);
   const name = String(formData.get("name") ?? "").trim();
   const sortOrder = Number(formData.get("sort_order") ?? 0);
-  if (!name) return { ok: false, error: "Name is required" };
+  if (!name) return { ok: false, error: "Nama wajib diisi" };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -33,7 +33,7 @@ export async function updateCategory(formData: FormData): Promise<Result> {
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const sortOrder = Number(formData.get("sort_order") ?? 0);
-  if (!id || !name) return { ok: false, error: "Missing fields" };
+  if (!id || !name) return { ok: false, error: "Data tidak lengkap" };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -82,9 +82,9 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
   const is_available = formData.get("is_available") === "on";
   const imageFile = formData.get("image") as File | null;
 
-  if (!name) return { ok: false, error: "Name is required" };
+  if (!name) return { ok: false, error: "Nama wajib diisi" };
   if (!Number.isFinite(price) || price < 0)
-    return { ok: false, error: "Price must be a non-negative number" };
+    return { ok: false, error: "Harga harus angka tidak negatif" };
 
   let image_url: string | null = null;
   try {
@@ -118,10 +118,10 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
   const is_available = formData.get("is_available") === "on";
   const imageFile = formData.get("image") as File | null;
 
-  if (!id) return { ok: false, error: "Missing id" };
-  if (!name) return { ok: false, error: "Name is required" };
+  if (!id) return { ok: false, error: "ID tidak ada" };
+  if (!name) return { ok: false, error: "Nama wajib diisi" };
   if (!Number.isFinite(price) || price < 0)
-    return { ok: false, error: "Price must be a non-negative number" };
+    return { ok: false, error: "Harga harus angka tidak negatif" };
 
   const update: Record<string, unknown> = {
     name,

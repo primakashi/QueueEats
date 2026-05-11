@@ -16,7 +16,7 @@ export default async function LoginPage({ searchParams }: Props) {
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">QueueEats POS</h1>
           <p className="text-sm text-muted-foreground">
-            Sign in to your staff account
+            Masuk ke akun staf Anda
           </p>
         </div>
         <LoginForm redirectTo={redirect} />

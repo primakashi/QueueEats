@@ -5,7 +5,7 @@ export default function AppLoading() {
     <div className="flex flex-1 items-center justify-center p-12 text-muted-foreground">
       <div className="flex items-center gap-2 text-sm">
         <Spinner size="sm" />
-        <span>Loading…</span>
+        <span>Memuat…</span>
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ export async function completeMockPaymentPublic(
   if (error) return { ok: false, error: error.message };
   const res = (data ?? {}) as { ok?: boolean; error?: string };
   if (!res.ok) {
-    return { ok: false, error: res.error ?? "Failed to complete payment" };
+    return { ok: false, error: res.error ?? "Gagal menyelesaikan pembayaran" };
   }
   return { ok: true };
 }

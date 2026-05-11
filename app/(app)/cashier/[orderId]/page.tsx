@@ -56,12 +56,12 @@ export default async function CashierOrderPage({ params }: Props) {
           size="sm"
           render={<Link href="/cashier" />}
         >
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back to cashier
+          <ArrowLeft className="h-4 w-4 mr-1" /> Kembali ke kasir
         </Button>
       </div>
       <PageHeader
         title={typed.order_number}
-        description={`Created ${formatDateTime(typed.created_at)}`}
+        description={`Dibuat ${formatDateTime(typed.created_at)}`}
         actions={
           <div className="flex gap-2">
             <Badge className={statusColor(typed.status)}>
@@ -81,11 +81,11 @@ export default async function CashierOrderPage({ params }: Props) {
         <Card className="p-5 gap-0">
           <div className="grid grid-cols-2 gap-3 pb-4">
             <Field
-              label="Table"
+              label="Meja"
               value={typed.table_number ?? "—"}
             />
             <Field
-              label="Customer"
+              label="Pelanggan"
               value={typed.customer_name ?? "—"}
             />
           </div>
@@ -116,7 +116,7 @@ export default async function CashierOrderPage({ params }: Props) {
             <>
               <Separator />
               <div className="py-3 text-sm text-muted-foreground italic">
-                Note: {typed.notes}
+                Catatan: {typed.notes}
               </div>
             </>
           )}

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import type { OrderStatus } from "@/lib/types";
+import { ORDER_STATUS_LABEL } from "@/lib/types";
 
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending: ["preparing", "cancelled"],
@@ -26,12 +27,12 @@ export async function updateOrderStatus(
     .eq("id", id)
     .maybeSingle();
   if (readErr) return { ok: false, error: readErr.message };
-  if (!current) return { ok: false, error: "Order not found" };
+  if (!current) return { ok: false, error: "Pesanan tidak ditemukan" };
 
   if (!ALLOWED_TRANSITIONS[current.status as OrderStatus]?.includes(next)) {
     return {
       ok: false,
-      error: `Cannot transition from ${current.status} to ${next}`,
+      error: `Tidak dapat mengubah dari ${ORDER_STATUS_LABEL[current.status as OrderStatus]} ke ${ORDER_STATUS_LABEL[next]}`,
     };
   }
 

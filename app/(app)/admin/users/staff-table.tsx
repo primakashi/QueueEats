@@ -21,6 +21,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { updateStaffRole } from "@/app/(app)/admin/actions";
 import type { Profile, UserRole } from "@/lib/types";
+import { ROLE_LABEL } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 
 const ROLES: UserRole[] = ["waiter", "kitchen", "cashier", "admin"];
@@ -39,7 +40,7 @@ export function StaffTable({ profiles }: { profiles: Profile[] }) {
         setBusyId(null);
         return;
       }
-      toast.success("Role updated");
+      toast.success("Peran diperbarui");
       setBusyId(null);
       router.refresh();
     });
@@ -48,7 +49,7 @@ export function StaffTable({ profiles }: { profiles: Profile[] }) {
   if (profiles.length === 0) {
     return (
       <div className="p-8 text-center text-sm text-muted-foreground">
-        No staff accounts yet.
+        Belum ada akun staf.
       </div>
     );
   }
@@ -57,9 +58,9 @@ export function StaffTable({ profiles }: { profiles: Profile[] }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Role</TableHead>
-          <TableHead className="hidden sm:table-cell">Joined</TableHead>
+          <TableHead>Nama</TableHead>
+          <TableHead>Peran</TableHead>
+          <TableHead className="hidden sm:table-cell">Bergabung</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -79,7 +80,7 @@ export function StaffTable({ profiles }: { profiles: Profile[] }) {
                   <SelectContent>
                     {ROLES.map((r) => (
                       <SelectItem key={r} value={r}>
-                        {r}
+                        {ROLE_LABEL[r]}
                       </SelectItem>
                     ))}
                   </SelectContent>

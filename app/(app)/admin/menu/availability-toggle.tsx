@@ -28,7 +28,7 @@ export function AvailabilityToggle({
         })
       }
       className="disabled:opacity-80"
-      aria-label={available ? "Mark as unavailable" : "Mark as available"}
+      aria-label={available ? "Tandai tidak tersedia" : "Tandai tersedia"}
     >
       <Badge
         className={cn(
@@ -39,7 +39,7 @@ export function AvailabilityToggle({
         )}
       >
         {pending && <Spinner size="xs" />}
-        {available ? "Available" : "Hidden"}
+        {available ? "Tersedia" : "Disembunyikan"}
       </Badge>
     </button>
   );

@@ -30,23 +30,23 @@ export default async function WaiterHome() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <PageHeader
-        title="Your orders"
-        description="Recent orders you've created today"
+        title="Pesanan Anda"
+        description="Pesanan terbaru yang Anda buat hari ini"
         actions={
           <Button size="lg" render={<Link href="/waiter/new" />}>
-            <Plus className="h-4 w-4 mr-2" /> New order
+            <Plus className="h-4 w-4 mr-2" /> Pesanan baru
           </Button>
         }
       />
 
       {orders.length === 0 ? (
         <Card className="p-12 text-center">
-          <h2 className="text-lg font-medium mb-2">No orders yet</h2>
+          <h2 className="text-lg font-medium mb-2">Belum ada pesanan</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Create your first order to get started.
+            Buat pesanan pertama untuk memulai.
           </p>
           <Button render={<Link href="/waiter/new" />}>
-            <Plus className="h-4 w-4 mr-2" /> New order
+            <Plus className="h-4 w-4 mr-2" /> Pesanan baru
           </Button>
         </Card>
       ) : (
@@ -60,7 +60,7 @@ export default async function WaiterHome() {
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {formatTime(o.created_at)}
-                    {o.table_number ? ` · Table ${o.table_number}` : ""}
+                    {o.table_number ? ` · Meja ${o.table_number}` : ""}
                     {o.customer_name ? ` · ${o.customer_name}` : ""}
                   </div>
                 </div>

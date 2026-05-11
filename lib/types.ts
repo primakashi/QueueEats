@@ -9,6 +9,18 @@ export type OrderStatus =
 
 export type PaymentStatus = "unpaid" | "pending" | "paid" | "failed" | "expired";
 export type PaymentMethod = "qris" | "cash";
+export type QueueEntryStatus =
+  | "waiting"
+  | "called"
+  | "seated"
+  | "no_show"
+  | "cancelled";
+export type QueueNotificationState =
+  | "none"
+  | "joined"
+  | "almost"
+  | "called"
+  | "no_show";
 
 export type Profile = {
   id: string;
@@ -81,25 +93,49 @@ export type OrderWithItems = Order & {
   order_items: OrderItem[];
 };
 
+export type QueueEntry = {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  party_size: number;
+  phone: string | null;
+  token: string;
+  status: QueueEntryStatus;
+  notification_state: QueueNotificationState;
+  assigned_table: string | null;
+  pending_wa_url: string | null;
+  created_at: string;
+  called_at: string | null;
+  seated_at: string | null;
+};
+
 export const ROLE_LABEL: Record<UserRole, string> = {
-  waiter: "Waiter",
-  kitchen: "Kitchen",
-  cashier: "Cashier",
+  waiter: "Pelayan",
+  kitchen: "Dapur",
+  cashier: "Kasir",
   admin: "Admin",
 };
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: "Pending",
-  preparing: "Preparing",
-  ready: "Ready",
-  completed: "Completed",
-  cancelled: "Cancelled",
+  pending: "Menunggu",
+  preparing: "Dimasak",
+  ready: "Siap",
+  completed: "Selesai",
+  cancelled: "Dibatalkan",
 };
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
-  unpaid: "Unpaid",
-  pending: "Awaiting payment",
-  paid: "Paid",
-  failed: "Failed",
-  expired: "Expired",
+  unpaid: "Belum dibayar",
+  pending: "Menunggu pembayaran",
+  paid: "Lunas",
+  failed: "Gagal",
+  expired: "Kedaluwarsa",
+};
+
+export const QUEUE_STATUS_LABEL_ID: Record<QueueEntryStatus, string> = {
+  waiting: "Menunggu",
+  called: "Dipanggil",
+  seated: "Sudah duduk",
+  no_show: "Tidak hadir",
+  cancelled: "Dibatalkan",
 };

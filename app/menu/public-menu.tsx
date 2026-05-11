@@ -45,7 +45,7 @@ export function PublicMenu({
     }
     const uncat = byCat.get(UNCATEGORIZED_ID);
     if (uncat && uncat.length) {
-      result.push({ id: UNCATEGORIZED_ID, name: "Other", items: uncat });
+      result.push({ id: UNCATEGORIZED_ID, name: "Lainnya", items: uncat });
     }
     return result;
   }, [items, categories]);
@@ -132,7 +132,7 @@ export function PublicMenu({
     return (
       <div className="max-w-5xl mx-auto px-5 py-12">
         <div className="rounded-xl border border-dashed p-12 text-center text-sm text-muted-foreground">
-          Menu is being prepared. Please check back soon.
+          Menu sedang disiapkan. Silakan cek lagi nanti.
         </div>
       </div>
     );
@@ -141,7 +141,7 @@ export function PublicMenu({
   return (
     <>
       <nav
-        aria-label="Menu sections"
+        aria-label="Bagian menu"
         className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b"
       >
         <div className="max-w-5xl mx-auto">
@@ -222,7 +222,7 @@ export function PublicMenu({
                   variant="secondary"
                   size="icon"
                   className="absolute top-3 right-3 rounded-full shadow-md h-10 w-10 bg-white/95 hover:bg-white text-foreground"
-                  aria-label="Close"
+                  aria-label="Tutup"
                   onClick={() => setSelected(null)}
                 >
                   <X className="h-4 w-4" />
@@ -243,7 +243,7 @@ export function PublicMenu({
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">
-                    No description provided.
+                    Tidak ada deskripsi.
                   </p>
                 )}
               </div>

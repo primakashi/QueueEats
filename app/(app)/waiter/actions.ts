@@ -23,7 +23,7 @@ export async function createOrder(
 > {
   await requireRole(["waiter", "admin"]);
   if (!input.items || input.items.length === 0) {
-    return { ok: false, error: "Cart is empty" };
+    return { ok: false, error: "Keranjang kosong" };
   }
 
   const supabase = await createClient();

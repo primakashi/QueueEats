@@ -37,13 +37,13 @@ export default async function ConfirmationPage({ params }: Props) {
           <CheckCircle2 className="h-10 w-10" />
         </div>
         <div>
-          <div className="text-sm text-muted-foreground">Order sent</div>
+          <div className="text-sm text-muted-foreground">Pesanan terkirim</div>
           <div className="text-3xl font-semibold tabular-nums tracking-tight">
             {orderTyped.order_number}
           </div>
           {orderTyped.table_number && (
             <div className="text-sm text-muted-foreground mt-1">
-              Table {orderTyped.table_number}
+              Meja {orderTyped.table_number}
               {orderTyped.customer_name ? ` · ${orderTyped.customer_name}` : ""}
             </div>
           )}
@@ -87,10 +87,10 @@ export default async function ConfirmationPage({ params }: Props) {
             className="flex-1"
             render={<Link href="/waiter" />}
           >
-            <ListOrdered className="h-4 w-4 mr-2" /> Orders
+            <ListOrdered className="h-4 w-4 mr-2" /> Pesanan
           </Button>
           <Button className="flex-1" render={<Link href="/waiter/new" />}>
-            <Plus className="h-4 w-4 mr-2" /> New order
+            <Plus className="h-4 w-4 mr-2" /> Pesanan baru
           </Button>
         </div>
       </Card>

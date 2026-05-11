@@ -93,7 +93,7 @@ export function NewOrderClient({
 
   function submit() {
     if (cart.length === 0) {
-      toast.error("Cart is empty");
+      toast.error("Keranjang kosong");
       return;
     }
     start(async () => {
@@ -111,7 +111,7 @@ export function NewOrderClient({
         toast.error(res.error);
         return;
       }
-      toast.success(`Order ${res.order.order_number} sent to kitchen`);
+      toast.success(`Pesanan ${res.order.order_number} dikirim ke dapur`);
       startRouteProgress();
       router.push(`/waiter/confirmation/${res.order.id}`);
     });
@@ -130,7 +130,7 @@ export function NewOrderClient({
 
         {filteredItems.length === 0 ? (
           <Card className="p-12 text-center text-sm text-muted-foreground">
-            No items in this category.
+            Tidak ada item di kategori ini.
           </Card>
         ) : (
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -158,7 +158,7 @@ export function NewOrderClient({
                       />
                     ) : (
                       <div className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">
-                        No image
+                        Tanpa gambar
                       </div>
                     )}
                     {qty > 0 && (
@@ -221,13 +221,13 @@ export function NewOrderClient({
                 {totalItems} · {formatIDR(total)}
               </>
             ) : (
-              "Cart"
+              "Keranjang"
             )}
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[92vh] p-0 flex flex-col">
             <SheetHeader className="px-4 py-3 border-b">
               <SheetTitle>
-                Cart {cartCount > 0 && `(${cartCount})`}
+                Keranjang {cartCount > 0 && `(${cartCount})`}
               </SheetTitle>
             </SheetHeader>
             <div className="flex-1 overflow-y-auto p-4">
@@ -269,9 +269,9 @@ function CategoryTabs({
   onChange: (v: string) => void;
 }) {
   const tabs = [
-    { id: "all", name: "All" },
+    { id: "all", name: "Semua" },
     ...categories.map((c) => ({ id: c.id, name: c.name })),
-    { id: "uncategorized", name: "Other" },
+    { id: "uncategorized", name: "Lainnya" },
   ];
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
@@ -316,19 +316,19 @@ function CartPanel(props: {
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <Label htmlFor="table">Table</Label>
+            <Label htmlFor="table">Meja</Label>
             <Input
               id="table"
-              placeholder="e.g. 12"
+              placeholder="mis. 12"
               value={props.tableNumber}
               onChange={(e) => props.setTableNumber(e.target.value)}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="cust">Customer</Label>
+            <Label htmlFor="cust">Pelanggan</Label>
             <Input
               id="cust"
-              placeholder="Optional"
+              placeholder="Opsional"
               value={props.customerName}
               onChange={(e) => props.setCustomerName(e.target.value)}
             />
@@ -339,7 +339,7 @@ function CartPanel(props: {
       <div className="space-y-2">
         {props.cart.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
-            No items yet — tap menu items to add.
+            Belum ada item — ketuk menu untuk menambah.
           </p>
         ) : (
           props.cart.map((line) => {
@@ -358,7 +358,7 @@ function CartPanel(props: {
                     size="icon"
                     variant="ghost"
                     onClick={() => props.removeLine(line.itemId)}
-                    aria-label="Remove"
+                    aria-label="Hapus"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -396,7 +396,7 @@ function CartPanel(props: {
                   </div>
                 </div>
                 <Input
-                  placeholder="Notes (e.g. no spicy)"
+                  placeholder="Catatan (mis. tidak pedas)"
                   value={line.notes}
                   onChange={(e) =>
                     props.setLineNotes(line.itemId, e.target.value)
@@ -409,11 +409,11 @@ function CartPanel(props: {
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="order-notes">Order notes</Label>
+        <Label htmlFor="order-notes">Catatan pesanan</Label>
         <Textarea
           id="order-notes"
           rows={2}
-          placeholder="Optional general notes"
+          placeholder="Catatan umum (opsional)"
           value={props.orderNotes}
           onChange={(e) => props.setOrderNotes(e.target.value)}
         />
@@ -434,7 +434,7 @@ function CartPanel(props: {
           onClick={props.onSubmit}
         >
           {props.pending && <Spinner className="mr-2" />}
-          {props.pending ? "Sending…" : "Send to kitchen"}
+          {props.pending ? "Mengirim…" : "Kirim ke dapur"}
         </Button>
       </div>
     </>

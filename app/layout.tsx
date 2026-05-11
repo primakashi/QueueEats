@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { RouteProgress } from "@/components/route-progress";
+import { startQueueNoShowScheduler } from "@/lib/queue/no-show-scheduler";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "QueueEats POS",
-  description: "Web-based POS with kitchen queue and QRIS payments",
+  description: "POS berbasis web dengan antrean dapur dan pembayaran QRIS",
 };
 
 export const viewport: Viewport = {
@@ -32,9 +33,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  startQueueNoShowScheduler();
+
   return (
     <html
-      lang="en"
+      lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >

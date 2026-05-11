@@ -81,7 +81,7 @@ export function PaymentPanel({
             const next = p.new as Payment;
             setPayment(next);
             if (next.status === "paid") {
-              toast.success("Payment received!");
+              toast.success("Pembayaran diterima!");
               router.refresh();
             }
           },
@@ -145,7 +145,7 @@ export function PaymentPanel({
         setAction(null);
         return;
       }
-      toast.success("Cash payment recorded");
+      toast.success("Pembayaran tunai tercatat");
       setAction(null);
     });
   }
@@ -186,9 +186,9 @@ export function PaymentPanel({
         <div className="mx-auto h-14 w-14 rounded-full bg-emerald-100 text-emerald-700 grid place-items-center">
           <CheckCircle2 className="h-8 w-8" />
         </div>
-        <div className="text-lg font-semibold">Payment received</div>
+        <div className="text-lg font-semibold">Pembayaran diterima</div>
         <div className="text-sm text-muted-foreground">
-          {order.payment_method === "qris" ? "Paid via QRIS" : "Paid in cash"}
+          {order.payment_method === "qris" ? "Dibayar via QRIS" : "Dibayar tunai"}
         </div>
         <div className="text-3xl font-semibold tabular-nums pt-2">
           {formatIDR(order.total)}
@@ -203,22 +203,22 @@ export function PaymentPanel({
         <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
           <div>
-            <div className="font-medium">Mock cash flow</div>
+            <div className="font-medium">Alur tunai mock</div>
             <div className="text-amber-800/80">
-              Same pattern as mock QRIS: collect cash from the customer, then tap
-              “Simulate customer paid” to record it.
+              Sama seperti QRIS mock: terima tunai dari pelanggan, lalu ketuk
+              “Simulasi pelanggan bayar” untuk mencatatnya.
             </div>
           </div>
         </div>
         <div className="text-center space-y-1">
-          <div className="text-sm text-muted-foreground">Amount to collect</div>
+          <div className="text-sm text-muted-foreground">Jumlah yang ditagih</div>
           <div className="text-2xl font-semibold tabular-nums">
             {formatIDR(payment.amount)}
           </div>
         </div>
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-6">
           <RefreshCw className="h-4 w-4 animate-spin" />
-          Waiting for cash…
+          Menunggu tunai…
         </div>
         <Separator />
         <div className="grid gap-2">
@@ -233,7 +233,7 @@ export function PaymentPanel({
             ) : (
               <Sparkles className="h-4 w-4 mr-2" />
             )}
-            {action === "simulate-cash" ? "Recording…" : "Simulate customer paid"}
+            {action === "simulate-cash" ? "Mencatat…" : "Simulasi pelanggan bayar"}
           </Button>
           <Button
             variant="outline"
@@ -247,7 +247,7 @@ export function PaymentPanel({
             ) : (
               <XCircle className="h-4 w-4 mr-2" />
             )}
-            {action === "cancel" ? "Cancelling…" : "Cancel cash"}
+            {action === "cancel" ? "Membatalkan…" : "Batalkan tunai"}
           </Button>
         </div>
       </Card>
@@ -264,16 +264,16 @@ export function PaymentPanel({
           <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
             <div>
-              <div className="font-medium">Mock payment mode</div>
+              <div className="font-medium">Mode pembayaran mock</div>
               <div className="text-amber-800/80">
-                No Xendit key configured. Scan with your phone on the same Wi-Fi,
-                or tap “Simulate scan” below.
+                Kunci Xendit belum dikonfigurasi. Pindai dengan ponsel di Wi-Fi yang sama,
+                atau ketuk “Simulasi pindai” di bawah.
               </div>
             </div>
           </div>
         )}
         <div className="text-center space-y-1">
-          <div className="text-sm text-muted-foreground">Ask customer to scan</div>
+          <div className="text-sm text-muted-foreground">Minta pelanggan memindai</div>
           <div className="text-2xl font-semibold tabular-nums">
             {formatIDR(payment.amount)}
           </div>
@@ -283,13 +283,13 @@ export function PaymentPanel({
             <QRCodeSVG value={qrValue} size={256} level="M" marginSize={0} />
           ) : (
             <div className="h-64 w-64 grid place-items-center text-muted-foreground">
-              QR not available
+              QR tidak tersedia
             </div>
           )}
         </div>
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <RefreshCw className="h-4 w-4 animate-spin" />
-          Waiting for payment...
+          Menunggu pembayaran...
         </div>
         <Separator />
         <div className="grid gap-2">
@@ -307,8 +307,8 @@ export function PaymentPanel({
                   <Sparkles className="h-4 w-4 mr-2" />
                 )}
                 {action === "simulate-mock"
-                  ? "Recording…"
-                  : "Simulate customer scan"}
+                  ? "Mencatat…"
+                  : "Simulasi pindai pelanggan"}
               </Button>
               {mockPayUrl && (
                 <Button
@@ -317,8 +317,8 @@ export function PaymentPanel({
                   onClick={() => window.open(mockPayUrl, "_blank")}
                   disabled={pending}
                 >
-                  <ExternalLink className="h-4 w-4 mr-2" /> Open customer pay
-                  page
+                  <ExternalLink className="h-4 w-4 mr-2" /> Buka halaman bayar
+                  pelanggan
                 </Button>
               )}
             </>
@@ -335,7 +335,7 @@ export function PaymentPanel({
             ) : (
               <XCircle className="h-4 w-4 mr-2" />
             )}
-            {action === "cancel" ? "Cancelling…" : "Cancel QRIS"}
+            {action === "cancel" ? "Membatalkan…" : "Batalkan QRIS"}
           </Button>
         </div>
       </Card>
@@ -344,7 +344,7 @@ export function PaymentPanel({
 
   return (
     <Card className="p-5 gap-4">
-      <h3 className="font-semibold">Take payment</h3>
+      <h3 className="font-semibold">Terima pembayaran</h3>
       <div className="grid gap-3">
         <Button
           size="lg"
@@ -360,10 +360,10 @@ export function PaymentPanel({
           )}
           <div className="text-left">
             <div className="font-semibold">
-              {action === "begin-qris" ? "Generating QR…" : "QRIS"}
+              {action === "begin-qris" ? "Membuat QR…" : "QRIS"}
             </div>
             <div className="text-xs opacity-90 font-normal">
-              Generate QR code via Xendit
+              Buat kode QR via Xendit
             </div>
           </div>
         </Button>
@@ -382,10 +382,10 @@ export function PaymentPanel({
           )}
           <div className="text-left">
             <div className="font-semibold">
-              {action === "begin-cash" ? "Starting…" : "Cash"}
+              {action === "begin-cash" ? "Memulai…" : "Tunai"}
             </div>
             <div className="text-xs text-muted-foreground font-normal">
-              Pending payment, then confirm (mock flow like QRIS)
+              Menunggu pembayaran lalu konfirmasi (alur mock seperti QRIS)
             </div>
           </div>
         </Button>

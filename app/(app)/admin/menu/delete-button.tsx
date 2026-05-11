@@ -32,15 +32,15 @@ export function DeleteMenuItemButton({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete &ldquo;{name}&rdquo;?</DialogTitle>
+          <DialogTitle>Hapus &ldquo;{name}&rdquo;?</DialogTitle>
           <DialogDescription>
-            This cannot be undone. Existing orders that reference this item will
-            keep their snapshot.
+            Tindakan ini tidak bisa dibatalkan. Pesanan lama yang memakai item ini
+            tetap menyimpan salinan data.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
+            Batal
           </Button>
           <Button
             variant="destructive"
@@ -52,14 +52,14 @@ export function DeleteMenuItemButton({
                 if (!res.ok) {
                   toast.error(res.error);
                 } else {
-                  toast.success("Menu item deleted");
+                  toast.success("Item menu dihapus");
                   setOpen(false);
                 }
               })
             }
           >
             {pending && <Spinner className="mr-2" />}
-            {pending ? "Deleting…" : "Delete"}
+            {pending ? "Menghapus…" : "Hapus"}
           </Button>
         </DialogFooter>
       </DialogContent>

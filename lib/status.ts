@@ -1,4 +1,4 @@
-import type { OrderStatus, PaymentStatus } from "@/lib/types";
+import type { OrderStatus, PaymentStatus, QueueEntryStatus } from "@/lib/types";
 
 export function statusColor(s: OrderStatus): string {
   switch (s) {
@@ -26,5 +26,20 @@ export function paymentColor(s: PaymentStatus): string {
     case "failed":
     case "expired":
       return "bg-red-100 text-red-900 hover:bg-red-100";
+  }
+}
+
+export function queueStatusColor(s: QueueEntryStatus): string {
+  switch (s) {
+    case "waiting":
+      return "bg-slate-200 text-slate-900 hover:bg-slate-200";
+    case "called":
+      return "bg-amber-500 text-white hover:bg-amber-500";
+    case "seated":
+      return "bg-emerald-500 text-white hover:bg-emerald-500";
+    case "no_show":
+      return "bg-red-600 text-white hover:bg-red-600";
+    case "cancelled":
+      return "bg-zinc-400 text-white hover:bg-zinc-400";
   }
 }

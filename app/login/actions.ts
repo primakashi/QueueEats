@@ -15,7 +15,7 @@ export async function signIn(formData: FormData) {
   const redirectTo = String(formData.get("redirect") ?? "");
 
   if (!email || !password) {
-    return { error: "Email and password are required" };
+    return { error: "Email dan kata sandi wajib diisi" };
   }
 
   const supabase = await createClient();
@@ -26,7 +26,7 @@ export async function signIn(formData: FormData) {
   if (error) return { error: error.message };
 
   const userId = signInData.user?.id;
-  if (!userId) return { error: "Sign-in succeeded but no user was returned" };
+  if (!userId) return { error: "Masuk berhasil tetapi tidak ada data pengguna" };
 
   // Fetch the profile once and stash it in a cookie. From here on, every
   // server render reads the role from the cookie instead of doing another
@@ -39,7 +39,7 @@ export async function signIn(formData: FormData) {
 
   if (!profileRow) {
     await supabase.auth.signOut();
-    return { error: "No profile found for this account" };
+    return { error: "Tidak ada profil untuk akun ini" };
   }
 
   const profile = profileRow as Profile;

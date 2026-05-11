@@ -82,7 +82,7 @@ export function CategoriesManager({
   }
 
   function remove(id: string) {
-    if (!confirm("Delete this category? Menu items will become uncategorized.")) return;
+    if (!confirm("Hapus kategori ini? Item menu akan jadi tanpa kategori.")) return;
     setBusy({ kind: "delete", id });
     start(async () => {
       const res = await deleteCategory(id);
@@ -100,15 +100,15 @@ export function CategoriesManager({
     <div className="space-y-5">
       <form onSubmit={submitNew} className="flex gap-2 items-end">
         <div className="flex-1 space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">Name</label>
+          <label className="text-xs font-medium text-muted-foreground">Nama</label>
           <Input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="e.g. Drinks"
+            placeholder="mis. Minuman"
           />
         </div>
         <div className="w-24 space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">Sort</label>
+          <label className="text-xs font-medium text-muted-foreground">Urut</label>
           <Input
             value={newSort}
             onChange={(e) => setNewSort(e.target.value)}
@@ -125,14 +125,14 @@ export function CategoriesManager({
           ) : (
             <Plus className="h-4 w-4 mr-1.5" />
           )}
-          {busy?.kind === "create" ? "Adding…" : "Add"}
+          {busy?.kind === "create" ? "Menambahkan…" : "Tambah"}
         </Button>
       </form>
 
       <div className="border rounded-md divide-y">
         {categories.length === 0 ? (
           <div className="p-6 text-sm text-muted-foreground text-center">
-            No categories yet
+            Belum ada kategori
           </div>
         ) : (
           categories.map((c) =>
@@ -157,7 +157,7 @@ export function CategoriesManager({
                   aria-busy={
                     busy?.kind === "update" && busy.id === c.id
                   }
-                  aria-label="Save"
+                  aria-label="Simpan"
                 >
                   {busy?.kind === "update" && busy.id === c.id ? (
                     <Spinner />
@@ -170,7 +170,7 @@ export function CategoriesManager({
                   variant="ghost"
                   onClick={() => setEditingId(null)}
                   disabled={pending}
-                  aria-label="Cancel"
+                  aria-label="Batal"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -180,7 +180,7 @@ export function CategoriesManager({
                 <div className="flex-1">
                   <div className="font-medium">{c.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    Sort order: {c.sort_order}
+                    Urutan: {c.sort_order}
                   </div>
                 </div>
                 <Button
@@ -188,7 +188,7 @@ export function CategoriesManager({
                   variant="ghost"
                   onClick={() => beginEdit(c)}
                   disabled={pending}
-                  aria-label="Edit"
+                  aria-label="Ubah"
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -198,7 +198,7 @@ export function CategoriesManager({
                   onClick={() => remove(c.id)}
                   disabled={pending}
                   aria-busy={busy?.kind === "delete" && busy.id === c.id}
-                  aria-label="Delete"
+                  aria-label="Hapus"
                 >
                   {busy?.kind === "delete" && busy.id === c.id ? (
                     <Spinner />

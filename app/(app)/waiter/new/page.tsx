@@ -23,8 +23,8 @@ export default async function NewOrderPage() {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       <PageHeader
-        title="New order"
-        description="Pick items, review cart, and send to kitchen"
+        title="Pesanan baru"
+        description="Pilih item, tinjau keranjang, dan kirim ke dapur"
       />
       <NewOrderClient
         items={(items ?? []) as MenuItem[]}

@@ -39,19 +39,25 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   {
     href: "/waiter",
-    label: "Waiter",
+    label: "Pelayan",
     icon: ClipboardList,
     roles: ["waiter", "admin"],
   },
   {
+    href: "/host",
+    label: "Host",
+    icon: Users,
+    roles: ["waiter", "admin"],
+  },
+  {
     href: "/kitchen",
-    label: "Kitchen",
+    label: "Dapur",
     icon: ChefHat,
     roles: ["kitchen", "admin"],
   },
   {
     href: "/cashier",
-    label: "Cashier",
+    label: "Kasir",
     icon: CreditCard,
     roles: ["cashier", "admin"],
   },
@@ -63,13 +69,13 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/admin/categories",
-    label: "Categories",
+    label: "Kategori",
     icon: Settings,
     roles: ["admin"],
   },
   {
     href: "/admin/users",
-    label: "Staff",
+    label: "Staf",
     icon: Users,
     roles: ["admin"],
   },
@@ -99,7 +105,7 @@ export function AppShell({
                 <Button
                   variant="ghost"
                   size="icon-lg"
-                  aria-label="Open menu"
+                  aria-label="Buka menu"
                 />
               }
             >
@@ -129,7 +135,7 @@ function BrandHeader() {
       </div>
       <div className="leading-tight">
         <div className="font-semibold">QueueEats</div>
-        <div className="text-xs text-muted-foreground">Point of Sale</div>
+        <div className="text-xs text-muted-foreground">Titik penjualan</div>
       </div>
     </div>
   );
@@ -202,7 +208,7 @@ function SignOutIconButton() {
       type="submit"
       variant="ghost"
       size="icon"
-      aria-label="Sign out"
+      aria-label="Keluar"
       disabled={pending}
       aria-busy={pending}
     >
@@ -220,7 +226,7 @@ function SignOutMenuItemContent() {
       ) : (
         <LogOut className="h-4 w-4 mr-2" />
       )}
-      {pending ? "Signing out…" : "Sign out"}
+      {pending ? "Keluar…" : "Keluar"}
     </>
   );
 }

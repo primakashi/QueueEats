@@ -11,7 +11,7 @@ export default async function NewMenuItemPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <PageHeader title="New menu item" description="Add a new item to the menu" />
+      <PageHeader title="Item menu baru" description="Tambahkan item baru ke menu" />
       <Suspense fallback={<MenuItemFormSkeleton />}>
         <NewFormLoader />
       </Suspense>

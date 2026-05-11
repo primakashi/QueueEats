@@ -38,12 +38,12 @@ export default async function CashierPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <CashierRealtimeRefresher />
       <PageHeader
-        title="Cashier"
-        description="Today's orders ready for payment"
+        title="Kasir"
+        description="Pesanan hari ini yang menunggu pembayaran"
       />
       <div className="grid gap-6 md:grid-cols-2">
-        <Section title="Awaiting payment" orders={awaiting} emptyLabel="Caught up!" />
-        <Section title="Paid" orders={done} emptyLabel="No paid orders yet today" />
+        <Section title="Menunggu pembayaran" orders={awaiting} emptyLabel="Semua sudah tertangani!" />
+        <Section title="Lunas" orders={done} emptyLabel="Belum ada pesanan lunas hari ini" />
       </div>
     </div>
   );
@@ -83,7 +83,7 @@ function Section({
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
                       {formatTime(o.created_at)}
-                      {o.table_number ? ` · Table ${o.table_number}` : ""}
+                      {o.table_number ? ` · Meja ${o.table_number}` : ""}
                       {o.customer_name ? ` · ${o.customer_name}` : ""}
                     </div>
                   </div>

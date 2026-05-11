@@ -31,11 +31,22 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname.startsWith("/login");
+  const isQueuePublicPage =
+    pathname === "/queue" ||
+    pathname === "/queue/join" ||
+    /^\/queue\/[^/]+$/.test(pathname);
+  const isQueuePublicApi =
+    pathname === "/api/queue" ||
+    pathname === "/api/queue/list" ||
+    /^\/api\/queue\/[^/]+$/.test(pathname) ||
+    /^\/api\/queue\/[^/]+\/cancel$/.test(pathname);
   const isPublicRoute =
     isAuthRoute ||
     pathname === "/menu" ||
     pathname.startsWith("/menu/") ||
     pathname.startsWith("/pay/") ||
+    isQueuePublicPage ||
+    isQueuePublicApi ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/xendit") ||
     pathname === "/favicon.ico";

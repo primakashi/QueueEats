@@ -7,7 +7,7 @@ export const revalidate = 60;
 
 export const metadata = {
   title: "Menu · QueueEats",
-  description: "Browse our menu",
+  description: "Jelajahi menu kami",
 };
 
 export default async function MenuPage() {
@@ -39,7 +39,7 @@ export default async function MenuPage() {
             QueueEats
           </h1>
           <p className="text-xs sm:text-base text-muted-foreground mt-1 sm:mt-2">
-            Our menu
+            Menu kami
           </p>
         </div>
       </header>
@@ -48,7 +48,7 @@ export default async function MenuPage() {
 
       <footer className="border-t mt-16">
         <div className="max-w-5xl mx-auto px-5 py-6 text-center text-xs text-muted-foreground">
-          Place your order with our waiter at the counter.
+          Pesan melalui pelayan kami di kasir.
         </div>
       </footer>
     </main>

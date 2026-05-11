@@ -6,7 +6,7 @@ export default function EditMenuItemLoading() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <PageHeader
-        title="Edit menu item"
+        title="Ubah item menu"
         description={undefined}
       />
       <div className="-mt-4 mb-6">

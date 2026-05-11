@@ -36,10 +36,10 @@ export default async function AdminMenuPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <PageHeader
         title="Menu"
-        description="Create, edit, and manage menu items"
+        description="Buat, ubah, dan kelola item menu"
         actions={
           <Button render={<Link href="/admin/menu/new" />}>
-            <Plus className="h-4 w-4 mr-2" /> New item
+            <Plus className="h-4 w-4 mr-2" /> Item baru
           </Button>
         }
       />
@@ -61,7 +61,7 @@ export default async function AdminMenuPage() {
                   />
                 ) : (
                   <div className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">
-                    No image
+                    Tanpa gambar
                   </div>
                 )}
                 <div className="absolute top-2 right-2">
@@ -75,8 +75,8 @@ export default async function AdminMenuPage() {
                     <div className="text-xs text-muted-foreground">
                       {item.category_id
                         ? (categoryMap.get(item.category_id)?.name ??
-                          "Uncategorized")
-                        : "Uncategorized"}
+                          "Tanpa kategori")
+                        : "Tanpa kategori"}
                     </div>
                   </div>
                   <Badge variant="secondary">{formatIDR(item.price)}</Badge>
@@ -93,7 +93,7 @@ export default async function AdminMenuPage() {
                     variant="outline"
                     className="flex-1"
                   >
-                    <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" /> Ubah
                   </Button>
                   <DeleteMenuItemButton id={item.id} name={item.name} />
                 </div>
@@ -109,12 +109,12 @@ export default async function AdminMenuPage() {
 function EmptyState() {
   return (
     <Card className="p-12 text-center">
-      <h2 className="text-lg font-medium mb-2">No menu items yet</h2>
+      <h2 className="text-lg font-medium mb-2">Belum ada item menu</h2>
       <p className="text-sm text-muted-foreground mb-4">
-        Add your first menu item to get started.
+        Tambahkan item pertama untuk memulai.
       </p>
       <Button render={<Link href="/admin/menu/new" />}>
-        <Plus className="h-4 w-4 mr-2" /> New item
+        <Plus className="h-4 w-4 mr-2" /> Item baru
       </Button>
     </Card>
   );

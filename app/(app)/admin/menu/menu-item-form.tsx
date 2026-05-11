@@ -58,7 +58,7 @@ export function MenuItemForm({
         toast.error(res.error);
         return;
       }
-      toast.success(item ? "Menu item updated" : "Menu item created");
+      toast.success(item ? "Item menu diperbarui" : "Item menu dibuat");
       startRouteProgress();
       router.push("/admin/menu");
       router.refresh();
@@ -72,30 +72,30 @@ export function MenuItemForm({
           <div className="grid gap-5 md:grid-cols-[1fr_200px]">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">Nama</Label>
                 <Input
                   id="name"
                   name="name"
                   required
                   defaultValue={item?.name ?? ""}
-                  placeholder="e.g. Nasi Goreng Special"
+                  placeholder="mis. Nasi Goreng Spesial"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">Deskripsi</Label>
                 <Textarea
                   id="description"
                   name="description"
                   rows={3}
                   defaultValue={item?.description ?? ""}
-                  placeholder="Optional description"
+                  placeholder="Deskripsi (opsional)"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price (IDR)</Label>
+                  <Label htmlFor="price">Harga (IDR)</Label>
                   <Input
                     id="price"
                     name="price"
@@ -108,13 +108,13 @@ export function MenuItemForm({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category">Kategori</Label>
                   <Select
                     value={categoryId}
                     onValueChange={(v) => setCategoryId(v ?? "")}
                   >
                     <SelectTrigger id="category">
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Pilih kategori" />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((c) => (
@@ -134,24 +134,24 @@ export function MenuItemForm({
                   onChange={(e) => setAvailable(e.target.checked)}
                   className="h-4 w-4 accent-primary"
                 />
-                <span className="text-sm">Available for ordering</span>
+                <span className="text-sm">Tersedia untuk dipesan</span>
               </label>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="image">Image</Label>
+              <Label htmlFor="image">Gambar</Label>
               <div className="relative aspect-square rounded-md border border-dashed bg-muted overflow-hidden">
                 {preview ? (
                   <Image
                     src={preview}
-                    alt="Preview"
+                    alt="Pratinjau"
                     fill
                     sizes="200px"
                     className="object-cover"
                   />
                 ) : (
                   <div className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">
-                    No image
+                    Tanpa gambar
                   </div>
                 )}
               </div>
@@ -171,11 +171,11 @@ export function MenuItemForm({
               variant="outline"
               onClick={() => router.push("/admin/menu")}
             >
-              Cancel
+              Batal
             </Button>
             <Button type="submit" disabled={pending} aria-busy={pending}>
               {pending && <Spinner className="mr-2" />}
-              {pending ? "Saving…" : item ? "Save changes" : "Create item"}
+              {pending ? "Menyimpan…" : item ? "Simpan perubahan" : "Buat item"}
             </Button>
           </div>
         </form>

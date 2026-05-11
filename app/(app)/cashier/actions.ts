@@ -21,9 +21,9 @@ export async function startQrisPayment(
     .eq("id", orderId)
     .maybeSingle();
 
-  if (!order) return { ok: false, error: "Order not found" };
+  if (!order) return { ok: false, error: "Pesanan tidak ditemukan" };
   if (order.payment_status === "paid") {
-    return { ok: false, error: "Order already paid" };
+    return { ok: false, error: "Pesanan sudah dibayar" };
   }
 
   // Reuse an active (pending) QRIS/mock payment if it exists
@@ -93,9 +93,9 @@ export async function startCashPayment(
     .eq("id", orderId)
     .maybeSingle();
 
-  if (!order) return { ok: false, error: "Order not found" };
+  if (!order) return { ok: false, error: "Pesanan tidak ditemukan" };
   if (order.payment_status === "paid") {
-    return { ok: false, error: "Order already paid" };
+    return { ok: false, error: "Pesanan sudah dibayar" };
   }
 
   const { data: existing } = await supabase
@@ -150,13 +150,13 @@ export async function simulateCashPayment(
     .maybeSingle();
 
   if (fetchErr) return { ok: false, error: fetchErr.message };
-  if (!row) return { ok: false, error: "Payment not found" };
+  if (!row) return { ok: false, error: "Pembayaran tidak ditemukan" };
   if (row.provider !== "cash") {
-    return { ok: false, error: "Not a cash payment" };
+    return { ok: false, error: "Bukan pembayaran tunai" };
   }
   if (row.status === "paid") return { ok: true };
   if (row.status !== "pending") {
-    return { ok: false, error: "Cash payment is not pending" };
+    return { ok: false, error: "Pembayaran tunai tidak dalam status menunggu" };
   }
 
   const paidAt = new Date().toISOString();
@@ -193,7 +193,7 @@ export async function simulateMockPayment(
   if (error) return { ok: false, error: error.message };
   const res = (data ?? {}) as { ok?: boolean; error?: string };
   if (!res.ok) {
-    return { ok: false, error: res.error ?? "Failed to complete mock payment" };
+    return { ok: false, error: res.error ?? "Gagal menyelesaikan pembayaran mock" };
   }
   return { ok: true };
 }

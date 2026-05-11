@@ -16,9 +16,9 @@ import { toast } from "sonner";
 const DEMO_PASSWORD = "Passw0rd";
 const DEMO_ACCOUNTS = [
   { role: "Admin",   email: "admin@google.com",   Icon: Shield           },
-  { role: "Waiter",  email: "waiter@google.com",  Icon: UtensilsCrossed  },
-  { role: "Kitchen", email: "kitchen@google.com", Icon: ChefHat          },
-  { role: "Cashier", email: "cashier@google.com", Icon: Receipt          },
+  { role: "Pelayan",  email: "waiter@google.com",  Icon: UtensilsCrossed  },
+  { role: "Dapur", email: "kitchen@google.com", Icon: ChefHat          },
+  { role: "Kasir", email: "cashier@google.com", Icon: Receipt          },
 ] as const;
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
@@ -71,7 +71,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium leading-tight">
-                    {busy ? "Signing in..." : role}
+                    {busy ? "Masuk..." : role}
                   </span>
                   <span className="block text-[11px] text-muted-foreground truncate">
                     {email}
@@ -88,7 +88,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           </div>
           <div className="relative flex justify-center text-xs uppercase tracking-wider">
             <span className="bg-card px-2 text-muted-foreground">
-              or sign in manually
+              atau masuk manual
             </span>
           </div>
         </div>
@@ -105,11 +105,11 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
               type="email"
               autoComplete="email"
               required
-              placeholder="staff@restaurant.com"
+              placeholder="staf@restoran.com"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Kata sandi</Label>
             <Input
               id="password"
               name="password"
@@ -129,8 +129,8 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
             disabled={isPending && pendingEmail === null}
           >
             {isPending && pendingEmail === null
-              ? "Signing in..."
-              : "Sign in"}
+              ? "Masuk..."
+              : "Masuk"}
           </Button>
         </form>
       </CardContent>
