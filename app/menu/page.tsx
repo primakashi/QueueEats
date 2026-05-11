@@ -29,7 +29,7 @@ export default async function MenuPage() {
   const itemsTyped = (items ?? []) as MenuItem[];
 
   return (
-    <main className="flex-1 bg-background">
+    <main className="min-h-0 flex-1 overflow-y-auto bg-background [-webkit-overflow-scrolling:touch]">
       <header className="border-b bg-gradient-to-b from-muted/40 to-transparent">
         <div className="max-w-5xl mx-auto px-5 py-6 sm:py-12 text-center">
           <div className="inline-flex h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl bg-primary text-primary-foreground items-center justify-center mb-2.5 sm:mb-4">

@@ -8,7 +8,7 @@ type Props = {
 export default async function LoginPage({ searchParams }: Props) {
   const { redirect } = await searchParams;
   return (
-    <main className="flex-1 grid place-items-center p-6 bg-muted/30">
+    <main className="grid min-h-0 flex-1 place-items-center overflow-y-auto p-6 bg-muted/30 [-webkit-overflow-scrolling:touch]">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="h-12 w-12 rounded-xl bg-primary text-primary-foreground grid place-items-center">

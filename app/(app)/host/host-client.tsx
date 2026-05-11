@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,7 @@ import {
   type QueueNotificationState,
 } from "@/lib/types";
 import { minutesAgo } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { FloorPlan, type FloorTableState } from "./floor-plan";
 import { FLOOR_TABLES, type FloorTable } from "@/lib/floor-plan";
 
@@ -86,6 +89,55 @@ export function HostClient({
     name: string;
     needsCleanup: boolean;
   } | null>(null);
+
+  const floorPlanSectionRef = useRef<HTMLDivElement>(null);
+  const floorPlanScrollBusyRef = useRef(false);
+  const [floorPlanScrollPending, setFloorPlanScrollPending] = useState(false);
+  const [floorPlanSpotlight, setFloorPlanSpotlight] = useState(false);
+
+  const scrollToFloorPlan = useCallback(() => {
+    if (floorPlanScrollBusyRef.current) return;
+    const el = floorPlanSectionRef.current;
+    if (!el) return;
+
+    floorPlanScrollBusyRef.current = true;
+    setFloorPlanScrollPending(true);
+    const toastId = toast.loading("Menuju denah meja…");
+
+    const marginTopPx = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+    const rect = el.getBoundingClientRect();
+    const docScrollY = window.scrollY ?? document.documentElement.scrollTop;
+    const targetY = Math.max(0, rect.top + docScrollY - marginTopPx);
+    window.scrollTo({ top: targetY, behavior: "smooth" });
+
+    let finished = false;
+    let fallbackId: number | undefined;
+    let spotlightClearId: number | undefined;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (fallbackId !== undefined) window.clearTimeout(fallbackId);
+
+      toast.dismiss(toastId);
+      requestAnimationFrame(() => {
+        el.focus({ preventScroll: true });
+        setFloorPlanSpotlight(true);
+        if (spotlightClearId !== undefined) window.clearTimeout(spotlightClearId);
+        spotlightClearId = window.setTimeout(() => setFloorPlanSpotlight(false), 2200);
+      });
+      floorPlanScrollBusyRef.current = false;
+      setFloorPlanScrollPending(false);
+    };
+
+    const onScrollEnd = () => finish();
+
+    window.addEventListener("scrollend", onScrollEnd, { once: true });
+    document.documentElement.addEventListener("scrollend", onScrollEnd, {
+      once: true,
+    });
+    fallbackId = window.setTimeout(finish, 1200);
+  }, []);
 
   const calledEntries = useMemo(
     () => entries.filter((e) => e.status === "called"),
@@ -282,7 +334,7 @@ export function HostClient({
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 p-6 pb-10 sm:pb-12">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Panel host</h1>
         <p className="text-sm text-muted-foreground">
@@ -299,16 +351,30 @@ export function HostClient({
         </Card>
       )}
 
-      <Card className="p-5 sm:p-6">
-        <h2 className="font-medium mb-4">Denah meja</h2>
-        <FloorPlan
-          tableState={tableState}
-          selectedTableId={null}
-          pendingCalledParty={pendingCalledParty}
-          busyTableId={busyTableId}
-          onTableClick={handleTableClick}
-        />
-      </Card>
+      <div
+        ref={floorPlanSectionRef}
+        id="host-floor-plan-anchor"
+        tabIndex={-1}
+        role="region"
+        aria-label="Denah meja"
+        className={cn(
+          "scroll-mt-20 rounded-xl outline-none transition-shadow duration-300 lg:scroll-mt-6",
+          "focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
+          floorPlanSpotlight &&
+            "ring-2 ring-primary ring-offset-2 ring-offset-background shadow-sm",
+        )}
+      >
+        <Card className="p-5 sm:p-6">
+          <h2 className="font-medium mb-4">Denah meja</h2>
+          <FloorPlan
+            tableState={tableState}
+            selectedTableId={null}
+            pendingCalledParty={pendingCalledParty}
+            busyTableId={busyTableId}
+            onTableClick={handleTableClick}
+          />
+        </Card>
+      </div>
 
       <Card className="p-5 sm:p-6">
         <h2 className="font-medium mb-6">Tambah walk-in</h2>

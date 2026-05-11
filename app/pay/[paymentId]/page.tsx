@@ -23,8 +23,8 @@ export default async function PayPage({
   const summary = data as MockPaymentSummary;
 
   return (
-    <main className="min-h-dvh bg-muted/40 flex flex-col">
-      <header className="border-b bg-background">
+    <main className="flex min-h-dvh flex-col overflow-y-auto bg-muted/40 [-webkit-overflow-scrolling:touch]">
+      <header className="shrink-0 border-b bg-background">
         <div className="max-w-md mx-auto px-5 py-4 flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground grid place-items-center font-semibold">
             Q
@@ -37,7 +37,7 @@ export default async function PayPage({
           </div>
         </div>
       </header>
-      <div className="flex-1 flex items-start justify-center">
+      <div className="flex min-h-0 flex-1 flex-col items-start justify-center">
         <PayPanel summary={summary} />
       </div>
     </main>
