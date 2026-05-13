@@ -1,4 +1,4 @@
-const WA_TEST_NUMBER = "6281380550020";
+const WA_TEST_NUMBER = "6281933221195";
 
 export function generateWhatsAppUrl(phone: string, message: string): string {
   void phone;
