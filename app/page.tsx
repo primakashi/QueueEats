@@ -33,7 +33,7 @@ export default function LandingPage() {
         <div className="container">
           <a href="#" className="logo">
             <MarkA size={30} className="logo-mark" />
-            <span className="logo-wordmark">solusi<span className="saji"> saji</span></span>
+            <span className="logo-wordmark">solusisaji</span>
           </a>
           <div className="nav-meta">
             <span>
@@ -48,13 +48,6 @@ export default function LandingPage() {
       {/* ── HERO ── */}
       <header className="hero">
         <div className="container">
-          <div className="hero-meta">
-            <span>v0.1 — early access</span>
-            <span className="sep">/</span>
-            <span>For multi-location restaurants</span>
-            <span className="sep">/</span>
-            <span>Jakarta · Bandung · Surabaya</span>
-          </div>
           <h1>
             A POS we&apos;d rather <span className="italic">build with you</span> than sell to you.
           </h1>
@@ -75,17 +68,12 @@ export default function LandingPage() {
       {/* ── FIELD NOTES ── */}
       <section className="section-pad">
         <div className="container">
-          <div className="sec-head reveal">
-            <div className="sec-tag">
-              <span className="num">§ 01</span>
-              <span className="label">Field notes</span>
-            </div>
+          <div className="sec-head sec-head--solo reveal">
             <h2>
               A few things we noticed, <span className="italic">standing in real restaurant.</span>
             </h2>
           </div>
-          <div className="notes">
-            <div className="notes-spacer" />
+          <div className="notes notes--solo">
             <div>
               <div className="note-row reveal">
                 <span className="idx">obs.01</span>
@@ -123,11 +111,7 @@ export default function LandingPage() {
       {/* ── WHAT WE BUILT ── */}
       <section className="section-pad alt-bg" id="what">
         <div className="container">
-          <div className="sec-head reveal">
-            <div className="sec-tag">
-              <span className="num">§ 02</span>
-              <span className="label">What we built</span>
-            </div>
+          <div className="sec-head sec-head--solo reveal">
             <h2>
               One system. <span className="italic">From the door to the receipt.</span>
             </h2>

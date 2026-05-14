@@ -254,6 +254,12 @@
 
 /* ── FIELD NOTES ── */
 .ss .notes { display: grid; grid-template-columns: 200px 1fr; gap: 48px; }
+.ss .notes--solo {
+  grid-template-columns: 1fr;
+}
+.ss .notes--solo .notes-spacer {
+  display: none;
+}
 
 .ss .note-row {
   display: grid;
