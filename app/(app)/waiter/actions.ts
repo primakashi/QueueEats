@@ -2,10 +2,11 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
-import type { Order } from "@/lib/types";
+import type { Order, OrderServiceType } from "@/lib/types";
 
 export type CreateOrderInput = {
-  table_number?: string;
+  service_type?: OrderServiceType;
+  table_number?: string | null;
   customer_name?: string;
   notes?: string;
   items: Array<{
@@ -27,8 +28,32 @@ export async function createOrder(
   }
 
   const supabase = await createClient();
+
+  const serviceType: OrderServiceType = input.service_type ?? "takeaway";
+  const tableTrimmed =
+    typeof input.table_number === "string"
+      ? input.table_number.trim()
+      : "";
+  const payload = {
+    service_type: serviceType,
+    table_number: tableTrimmed.length > 0 ? tableTrimmed : null,
+    customer_name:
+      input.customer_name && input.customer_name.trim().length > 0
+        ? input.customer_name.trim()
+        : null,
+    notes:
+      input.notes && input.notes.trim().length > 0 ? input.notes.trim() : null,
+    items: input.items.map((i) => ({
+      menu_item_id: i.menu_item_id,
+      quantity: i.quantity,
+      ...(i.notes && i.notes.trim().length > 0
+        ? { notes: i.notes.trim() }
+        : {}),
+    })),
+  };
+
   const { data, error } = await supabase.rpc("create_order", {
-    payload: input,
+    payload,
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true, order: data as Order };

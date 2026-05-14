@@ -273,8 +273,7 @@ export function PaymentPanel({
             <div>
               <div className="font-medium">Mode pembayaran mock</div>
               <div className="text-amber-800/80">
-                Kunci Xendit belum dikonfigurasi. Pindai dengan ponsel di Wi-Fi yang sama,
-                atau ketuk “Simulasi pindai” di bawah.
+                Ketuk “Simulasi pindai” di bawah.
               </div>
             </div>
           </div>
@@ -353,24 +352,25 @@ export function PaymentPanel({
     <Card className="p-5 gap-4">
       {loadingOverlay}
       <h3 className="font-semibold">Terima pembayaran</h3>
-      <div className="grid gap-3">
+      <div className="grid w-full min-w-0 gap-3">
         <Button
           size="lg"
-          className="h-auto py-4 justify-start"
+          variant="outline"
+          className="h-auto w-full min-w-0 shrink items-start gap-3 py-4 whitespace-normal text-left"
           onClick={beginQris}
           disabled={pending}
           aria-busy={action === "begin-qris"}
         >
           {action === "begin-qris" ? (
-            <Spinner className="mr-3 h-5 w-5" size="md" />
+            <Spinner className="mt-0.5 h-5 w-5 shrink-0" size="md" />
           ) : (
-            <QrCode className="h-5 w-5 mr-3" />
+            <QrCode className="mt-0.5 h-5 w-5 shrink-0" />
           )}
-          <div className="text-left">
+          <div className="min-w-0 flex-1">
             <div className="font-semibold">
               {action === "begin-qris" ? "Membuat QR…" : "QRIS"}
             </div>
-            <div className="text-xs opacity-90 font-normal">
+            <div className="text-xs text-muted-foreground font-normal break-words">
               Buat kode QR via Xendit
             </div>
           </div>
@@ -378,22 +378,22 @@ export function PaymentPanel({
         <Button
           size="lg"
           variant="outline"
-          className="h-auto py-4 justify-start"
+          className="h-auto w-full min-w-0 shrink items-start gap-3 py-4 whitespace-normal text-left"
           onClick={beginCash}
           disabled={pending}
           aria-busy={action === "begin-cash"}
         >
           {action === "begin-cash" ? (
-            <Spinner className="mr-3 h-5 w-5" size="md" />
+            <Spinner className="mt-0.5 h-5 w-5 shrink-0" size="md" />
           ) : (
-            <Banknote className="h-5 w-5 mr-3" />
+            <Banknote className="mt-0.5 h-5 w-5 shrink-0" />
           )}
-          <div className="text-left">
+          <div className="min-w-0 flex-1">
             <div className="font-semibold">
               {action === "begin-cash" ? "Memulai…" : "Tunai"}
             </div>
-            <div className="text-xs text-muted-foreground font-normal">
-              Menunggu pembayaran lalu konfirmasi (alur mock seperti QRIS)
+            <div className="text-xs text-muted-foreground font-normal break-words">
+              Menunggu pembayaran lalu konfirmasi
             </div>
           </div>
         </Button>

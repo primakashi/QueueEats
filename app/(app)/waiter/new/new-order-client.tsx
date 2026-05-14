@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
@@ -24,7 +24,23 @@ import { cn } from "@/lib/utils";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 import { startRouteProgress } from "@/components/route-progress";
 import { FullScreenLoading } from "@/components/full-screen-loading";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  FLOOR_SECTIONS,
+  FLOOR_TABLES,
+  findFloorTable,
+} from "@/lib/floor-plan";
 import { createOrder } from "../actions";
+
+const TABLE_NONE = "__none__";
 
 type CartLine = {
   itemId: string;
@@ -43,10 +59,17 @@ export function NewOrderClient({
   const [pending, start] = useTransition();
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [tableNumber, setTableNumber] = useState("");
+  const [serviceType, setServiceType] = useState<"dine_in" | "takeaway">(
+    "dine_in",
+  );
+  const [selectedTableId, setSelectedTableId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
+
+  useEffect(() => {
+    setSelectedTableId("");
+  }, [serviceType]);
 
   const itemMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const filteredItems = useMemo(() => {
@@ -97,9 +120,16 @@ export function NewOrderClient({
       toast.error("Keranjang kosong");
       return;
     }
+    if (serviceType === "dine_in" && !selectedTableId.trim()) {
+      toast.error("Pilih meja untuk makan di tempat.");
+      return;
+    }
     start(async () => {
+      const table =
+        serviceType === "dine_in" ? selectedTableId.trim() : "";
       const res = await createOrder({
-        table_number: tableNumber.trim() || undefined,
+        service_type: serviceType,
+        table_number: table.length > 0 ? table : null,
         customer_name: customerName.trim() || undefined,
         notes: orderNotes.trim() || undefined,
         items: cart.map((l) => ({
@@ -193,8 +223,10 @@ export function NewOrderClient({
             cart={cart}
             itemMap={itemMap}
             total={total}
-            tableNumber={tableNumber}
-            setTableNumber={setTableNumber}
+            serviceType={serviceType}
+            setServiceType={setServiceType}
+            selectedTableId={selectedTableId}
+            setSelectedTableId={setSelectedTableId}
             customerName={customerName}
             setCustomerName={setCustomerName}
             orderNotes={orderNotes}
@@ -240,8 +272,10 @@ export function NewOrderClient({
                 cart={cart}
                 itemMap={itemMap}
                 total={total}
-                tableNumber={tableNumber}
-                setTableNumber={setTableNumber}
+                serviceType={serviceType}
+                setServiceType={setServiceType}
+                selectedTableId={selectedTableId}
+                setSelectedTableId={setSelectedTableId}
                 customerName={customerName}
                 setCustomerName={setCustomerName}
                 orderNotes={orderNotes}
@@ -303,8 +337,10 @@ function CartPanel(props: {
   cart: CartLine[];
   itemMap: Map<string, MenuItem>;
   total: number;
-  tableNumber: string;
-  setTableNumber: (v: string) => void;
+  serviceType: "dine_in" | "takeaway";
+  setServiceType: (v: "dine_in" | "takeaway") => void;
+  selectedTableId: string;
+  setSelectedTableId: (v: string) => void;
   customerName: string;
   setCustomerName: (v: string) => void;
   orderNotes: string;
@@ -315,28 +351,100 @@ function CartPanel(props: {
   onSubmit: () => void;
   pending: boolean;
 }) {
+  const tableSelectValue =
+    props.selectedTableId.trim() === ""
+      ? TABLE_NONE
+      : props.selectedTableId;
+  const tableTriggerLabel =
+    tableSelectValue === TABLE_NONE
+      ? "Pilih meja"
+      : (() => {
+          const t = findFloorTable(tableSelectValue);
+          return t ? `${t.label} · ${t.seats} kursi` : tableSelectValue;
+        })();
+
   const body = (
     <>
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label htmlFor="table">Meja</Label>
-            <Input
-              id="table"
-              placeholder="mis. 12"
-              value={props.tableNumber}
-              onChange={(e) => props.setTableNumber(e.target.value)}
-            />
+        <div className="space-y-2">
+          <Label>Tipe pesanan</Label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => props.setServiceType("dine_in")}
+              className={cn(
+                "flex-1 px-3 h-10 rounded-md text-sm font-medium border transition-colors",
+                props.serviceType === "dine_in"
+                  ? "bg-primary text-primary-foreground border-transparent"
+                  : "bg-background hover:bg-muted",
+              )}
+            >
+              Makan di tempat
+            </button>
+            <button
+              type="button"
+              onClick={() => props.setServiceType("takeaway")}
+              className={cn(
+                "flex-1 px-3 h-10 rounded-md text-sm font-medium border transition-colors",
+                props.serviceType === "takeaway"
+                  ? "bg-primary text-primary-foreground border-transparent"
+                  : "bg-background hover:bg-muted",
+              )}
+            >
+              Bungkus
+            </button>
+            
           </div>
+        </div>
+        {props.serviceType === "dine_in" && (
           <div className="space-y-1">
-            <Label htmlFor="cust">Pelanggan</Label>
-            <Input
-              id="cust"
-              placeholder="Opsional"
-              value={props.customerName}
-              onChange={(e) => props.setCustomerName(e.target.value)}
-            />
+            <Label htmlFor="table-select">
+              Meja
+              <span className="text-destructive"> *</span>
+            </Label>
+            <Select
+              value={tableSelectValue}
+              onValueChange={(v) =>
+                props.setSelectedTableId(v === TABLE_NONE ? "" : (v ?? ""))
+              }
+            >
+              <SelectTrigger id="table-select" className="w-full min-w-0">
+                {tableSelectValue === TABLE_NONE ? (
+                  <span className="flex flex-1 min-w-0 truncate text-left text-muted-foreground">
+                    {tableTriggerLabel}
+                  </span>
+                ) : (
+                  <SelectValue>{tableTriggerLabel}</SelectValue>
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TABLE_NONE}>
+                  Isi atau pilih meja…
+                </SelectItem>
+                {FLOOR_SECTIONS.map((section) => (
+                  <SelectGroup key={section.id}>
+                    <SelectLabel>{section.label}</SelectLabel>
+                    {FLOOR_TABLES.filter((t) => t.section === section.id).map(
+                      (t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.label} · {t.seats} kursi
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+        )}
+        <div className="space-y-1">
+          <Label htmlFor="cust">Pelanggan</Label>
+          <Input
+            id="cust"
+            placeholder="Opsional"
+            value={props.customerName}
+            onChange={(e) => props.setCustomerName(e.target.value)}
+          />
         </div>
       </div>
 

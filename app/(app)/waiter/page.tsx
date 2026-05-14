@@ -60,6 +60,7 @@ export default async function WaiterHome() {
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {formatTime(o.created_at)}
+                    {o.service_type === "takeaway" ? " · Bungkus" : ""}
                     {o.table_number ? ` · Meja ${o.table_number}` : ""}
                     {o.customer_name ? ` · ${o.customer_name}` : ""}
                   </div>

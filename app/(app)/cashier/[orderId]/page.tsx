@@ -129,7 +129,7 @@ export default async function CashierOrderPage({ params }: Props) {
           </div>
         </Card>
 
-        <div>
+        <div className="min-w-0">
           <PaymentPanel order={typed} initialPayment={(payment as Payment) ?? null} />
         </div>
       </div>

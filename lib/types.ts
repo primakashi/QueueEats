@@ -9,6 +9,7 @@ export type OrderStatus =
 
 export type PaymentStatus = "unpaid" | "pending" | "paid" | "failed" | "expired";
 export type PaymentMethod = "qris" | "cash";
+export type OrderServiceType = "dine_in" | "takeaway";
 export type QueueEntryStatus =
   | "waiting"
   | "called"
@@ -52,6 +53,7 @@ export type MenuItem = {
 export type Order = {
   id: string;
   order_number: string;
+  service_type?: OrderServiceType;
   table_number: string | null;
   customer_name: string | null;
   status: OrderStatus;

@@ -8,7 +8,14 @@ import {
   useTransition,
 } from "react";
 import { toast } from "sonner";
-import { Clock, ChefHat, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  Clock,
+  ChefHat,
+  CheckCircle2,
+  Loader2,
+  Package,
+  UtensilsCrossed,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,12 +25,24 @@ import { createClient, createRealtimeClient } from "@/lib/supabase/client";
 import type {
   Order,
   OrderItem,
+  OrderServiceType,
   OrderStatus,
   OrderWithItems,
 } from "@/lib/types";
 import { updateOrderStatus } from "./actions";
 
 const KITCHEN_STATUSES: OrderStatus[] = ["pending", "preparing", "ready"];
+
+/** Realtime patches sometimes omit unchanged columns — infer when missing. */
+function resolveServiceType(
+  order: Pick<Order, "service_type" | "table_number">,
+): OrderServiceType {
+  if (order.service_type === "takeaway" || order.service_type === "dine_in") {
+    return order.service_type;
+  }
+  const t = order.table_number?.trim();
+  return t ? "dine_in" : "takeaway";
+}
 
 function useNow(): number {
   const [now, setNow] = useState(0);
@@ -93,17 +112,35 @@ export function KitchenBoard({
           { event: "UPDATE", schema: "public", table: "orders" },
           async (payload) => {
             const updated = payload.new as Order;
+            const patch = updated as Record<string, unknown>;
             setOrders((prev) => {
               if (!KITCHEN_STATUSES.includes(updated.status)) {
                 return prev.filter((o) => o.id !== updated.id);
               }
               const exists = prev.some((o) => o.id === updated.id);
               if (!exists) return prev;
-              return prev.map((o) =>
-                o.id === updated.id
-                  ? { ...o, ...updated, order_items: o.order_items }
-                  : o,
-              );
+              return prev.map((o) => {
+                if (o.id !== updated.id) return o;
+                return {
+                  ...o,
+                  ...updated,
+                  order_items: o.order_items,
+                  service_type: (
+                    "service_type" in patch
+                      ? updated.service_type
+                      : o.service_type
+                  ) as Order["service_type"],
+                  table_number:
+                    "table_number" in patch
+                      ? updated.table_number
+                      : o.table_number,
+                  customer_name:
+                    "customer_name" in patch
+                      ? updated.customer_name
+                      : o.customer_name,
+                  notes: "notes" in patch ? updated.notes : o.notes,
+                };
+              });
             });
           },
         )
@@ -239,6 +276,8 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
           Math.floor((now - new Date(order.created_at).getTime()) / 60000),
         );
   const overdue = mins >= 15 && order.status !== "ready";
+  const serviceType = resolveServiceType(order);
+  const isTakeaway = serviceType === "takeaway";
 
   function transition(next: OrderStatus) {
     start(async () => {
@@ -251,26 +290,46 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
     <Card
       aria-busy={pending}
       className={cn(
-        "relative p-4 gap-3",
-        overdue && "border-red-500",
+        "relative gap-3 border-l-4 p-4",
+        isTakeaway ? "border-l-amber-500" : "border-l-teal-600",
+        overdue && "ring-2 ring-red-500 ring-offset-2 ring-offset-background",
         order.status === "ready" && "border-emerald-200 bg-emerald-50/40",
         pending && "opacity-90",
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0 space-y-2">
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold",
+              isTakeaway
+                ? "bg-amber-100 text-amber-950 dark:bg-amber-950/40 dark:text-amber-50"
+                : "bg-teal-100 text-teal-950 dark:bg-teal-950/40 dark:text-teal-50",
+            )}
+          >
+            {isTakeaway ? (
+              <Package className="h-4 w-4 shrink-0" aria-hidden />
+            ) : (
+              <UtensilsCrossed className="h-4 w-4 shrink-0" aria-hidden />
+            )}
+            <span>{isTakeaway ? "Bungkus" : "Makan di tempat"}</span>
+            {order.table_number?.trim() ? (
+              <span className="font-medium opacity-90">
+                · Meja {order.table_number}
+              </span>
+            ) : null}
+          </div>
           <div className="text-lg font-semibold tabular-nums">
             {order.order_number}
           </div>
           <div className="text-xs text-muted-foreground">
             {formatTime(order.created_at)}
-            {order.table_number ? ` · Meja ${order.table_number}` : ""}
             {order.customer_name ? ` · ${order.customer_name}` : ""}
           </div>
         </div>
         <Badge
           variant={overdue ? "destructive" : "secondary"}
-          className="tabular-nums"
+          className="shrink-0 tabular-nums"
         >
           {mins}m
         </Badge>

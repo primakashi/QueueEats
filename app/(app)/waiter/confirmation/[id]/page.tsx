@@ -41,12 +41,20 @@ export default async function ConfirmationPage({ params }: Props) {
           <div className="text-3xl font-semibold tabular-nums tracking-tight">
             {orderTyped.order_number}
           </div>
-          {orderTyped.table_number && (
-            <div className="text-sm text-muted-foreground mt-1">
-              Meja {orderTyped.table_number}
-              {orderTyped.customer_name ? ` · ${orderTyped.customer_name}` : ""}
-            </div>
-          )}
+          <div className="text-sm text-muted-foreground mt-1 space-y-0.5">
+            {orderTyped.service_type === "takeaway" && (
+              <div>Bungkus</div>
+            )}
+            {orderTyped.table_number && (
+              <div>
+                Meja {orderTyped.table_number}
+                {orderTyped.customer_name ? ` · ${orderTyped.customer_name}` : ""}
+              </div>
+            )}
+            {!orderTyped.table_number && orderTyped.customer_name && (
+              <div>{orderTyped.customer_name}</div>
+            )}
+          </div>
         </div>
 
         <Separator />
