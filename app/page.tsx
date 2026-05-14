@@ -21,7 +21,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Solusisaji — A POS we'd rather build with you than sell to you.",
   description:
-    "Solusisaji handles the queue, the order, the kitchen, and the payment — one system, made for cafes with real lines at the door.",
+    "Solusisaji handles the queue, the order, the kitchen, and the payment — one system, made for restaurant with real lines at the door.",
 };
 
 export default function LandingPage() {
@@ -51,7 +51,7 @@ export default function LandingPage() {
           <div className="hero-meta">
             <span>v0.1 — early access</span>
             <span className="sep">/</span>
-            <span>For multi-location cafes</span>
+            <span>For multi-location restaurants</span>
             <span className="sep">/</span>
             <span>Jakarta · Bandung · Surabaya</span>
           </div>
@@ -60,7 +60,7 @@ export default function LandingPage() {
           </h1>
           <p className="hero-sub">
             Solusisaji handles the queue, the order, the kitchen, and the payment — one system,
-            made for cafes with real lines at the door. Where it goes next, we figure out together.
+            made for restaurant with real lines at the door. Where it goes next, we figure out together.
           </p>
           <div className="cta-row">
             <a href="#talk" className="btn btn-primary">
@@ -81,7 +81,7 @@ export default function LandingPage() {
               <span className="label">Field notes</span>
             </div>
             <h2>
-              A few things we noticed, <span className="italic">standing in real cafes.</span>
+              A few things we noticed, <span className="italic">standing in real restaurant.</span>
             </h2>
           </div>
           <div className="notes">
@@ -198,11 +198,7 @@ export default function LandingPage() {
       {/* ── HOW WE WORK ── */}
       <section className="section-pad" id="talk">
         <div className="container">
-          <div className="sec-head reveal">
-            <div className="sec-tag">
-              <span className="num">§ 03</span>
-              <span className="label">How we work</span>
-            </div>
+          <div className="sec-head sec-head--solo reveal">
             <h2>
               A working relationship, <span className="italic">not a contract.</span>
             </h2>
@@ -211,7 +207,7 @@ export default function LandingPage() {
           <div className="principles-grid">
             <div className="principle reveal">
               <div className="p-tag">P.01</div>
-              <h3>One cafe at a time.</h3>
+              <h3>One outlet at a time.</h3>
               <p>We start where the problem is sharpest.</p>
             </div>
             <div className="principle reveal" style={{ "--reveal-delay": "100ms" } as React.CSSProperties}>

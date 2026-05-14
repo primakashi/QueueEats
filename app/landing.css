@@ -224,6 +224,9 @@
   margin-bottom: 64px;
   align-items: baseline;
 }
+.ss .sec-head--solo {
+  grid-template-columns: 1fr;
+}
 .ss .sec-tag {
   font-family: var(--ss-font-mono, 'JetBrains Mono'), monospace;
   font-size: 11px;
