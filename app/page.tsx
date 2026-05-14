@@ -36,10 +36,6 @@ export default function LandingPage() {
             <span className="logo-wordmark">solusisaji</span>
           </a>
           <div className="nav-meta">
-            <span>
-              <span className="status-dot" />
-              Building in Indonesia
-            </span>
             <a href="#talk">let&apos;s talk →</a>
           </div>
         </div>
@@ -251,7 +247,6 @@ export default function LandingPage() {
           </div>
           <div className="foot-bottom">
             <span>© 2026 solusisaji</span>
-            <span>solusisaji.com / built in tangerang</span>
           </div>
         </div>
       </footer>
