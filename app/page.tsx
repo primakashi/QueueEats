@@ -1,308 +1,250 @@
-import { DM_Sans, JetBrains_Mono } from "next/font/google";
+import { DM_Serif_Display, DM_Sans } from "next/font/google";
 import type { Metadata } from "next";
 import Script from "next/script";
 import "./landing.css";
 
-const dmSans = DM_Sans({
-  weight: ["400", "500", "600", "700"],
+const dmSerif = DM_Serif_Display({
+  weight: ["400"],
   style: ["normal", "italic"],
   subsets: ["latin"],
-  variable: "--ss-font-sans",
+  variable: "--font-serif",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const dmSans = DM_Sans({
   weight: ["400", "500"],
   subsets: ["latin"],
-  variable: "--ss-font-mono",
+  variable: "--font-sans",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Solusisaji — A POS we'd rather build with you than sell to you.",
+  title: "Solusisaji — A restaurant suite we'd rather build with you than sell to you.",
   description:
-    "Solusisaji handles the queue, the order, the kitchen, and the payment — one system, made for restaurant with real lines at the door.",
+    "Everything between the door and the receipt. One system, no gaps in between.",
 };
 
 export default function LandingPage() {
   return (
-    <div className={`ss ${dmSans.variable} ${jetbrainsMono.variable}`}>
+    <div className={`sl ${dmSerif.variable} ${dmSans.variable}`}>
 
       {/* ── NAV ── */}
       <nav>
-        <div className="container">
-          <a href="#" className="logo">
-            <MarkA size={30} className="logo-mark" />
-            <span className="logo-wordmark">solusisaji</span>
-          </a>
-          <div className="nav-meta">
-            <a href="#talk">let&apos;s talk →</a>
-          </div>
-        </div>
+        <a href="#" className="nav-brand">solusisaji</a>
+        <a href="#talk" className="nav-cta">let&apos;s talk →</a>
       </nav>
 
       {/* ── HERO ── */}
-      <header className="hero">
-        <div className="container">
-          <h1>
-            A POS we&apos;d rather <span className="italic">build with you</span> than sell to you.
+      <section className="hero">
+        <div className="wrap">
+          <h1 className="fi">
+            A restaurant suite we&apos;d rather <em>build with you</em> than sell to you.
           </h1>
-          <p className="hero-sub">
-            Solusisaji handles the queue, the order, the kitchen, and the payment — one system,
-            made for restaurant with real lines at the door. Where it goes next, we figure out together.
+          <p className="hero-sub fi">
+            Everything between the door and the receipt. One system, no gaps in between.
           </p>
-          <div className="cta-row">
-            <a href="#talk" className="btn btn-primary">
-              Let&apos;s talk
-              <ArrowIcon />
-            </a>
-            <a href="#what" className="btn btn-ghost">See what we built</a>
+          <div className="hero-modules fi">
+            <div className="hero-module">
+              <div className="hero-module-name">Queue</div>
+              <p className="hero-module-desc">
+                Customers join from their phone. They see where they stand. You see who&apos;s still
+                waiting, and who left.
+              </p>
+            </div>
+            <div className="hero-module">
+              <div className="hero-module-name">Order &amp; kitchen</div>
+              <p className="hero-module-desc">Tablet to kitchen screen in seconds. No paper, no relay.</p>
+            </div>
+            <div className="hero-module">
+              <div className="hero-module-name">Payment</div>
+              <p className="hero-module-desc">QRIS, e-wallets, transfer. Receipt to the customer&apos;s phone.</p>
+            </div>
+            <div className="hero-module">
+              <div className="hero-module-name">Reporting</div>
+              <p className="hero-module-desc">Sales, wait times, table turn, peak hours. One place.</p>
+            </div>
           </div>
+          <a href="#talk" className="hero-cta fi">Let&apos;s talk</a>
         </div>
-      </header>
+      </section>
 
-      {/* ── FIELD NOTES ── */}
-      <section className="section-pad">
-        <div className="container">
-          <div className="sec-head sec-head--solo reveal">
-            <h2>
-              A few things we noticed, <span className="italic">standing in real restaurant.</span>
-            </h2>
+      {/* ── ANALYTICS ── */}
+      <section className="analytics">
+        <div className="wrap">
+          <div className="section-label section-label--accent fi">Analytics</div>
+          <h2 className="fi">The questions your current tools don&apos;t answer.</h2>
+          <div className="analytics-questions">
+            <div className="a-q fi">
+              <span className="a-q-num">Q.01</span>
+              <p className="a-q-text">
+                Which menu items sell out before 1pm every weekend, and how many orders reach the
+                kitchen after they&apos;re already gone?
+              </p>
+            </div>
+            <div className="a-q fi">
+              <span className="a-q-num">Q.02</span>
+              <p className="a-q-text">
+                Your bestseller sells itself. But which items have been sitting on the menu, quietly
+                underperforming, for months?
+              </p>
+            </div>
+            <div className="a-q fi">
+              <span className="a-q-num">Q.03</span>
+              <p className="a-q-text">
+                How many customers left your weekend queue before being seated, and was it the wait,
+                or the fact that they couldn&apos;t see it moving?
+              </p>
+            </div>
           </div>
-          <div className="notes notes--solo">
-            <div>
-              <div className="note-row reveal">
-                <span className="idx">obs.01</span>
-                <div>
-                  <h3>The queue lives in people&apos;s heads.</h3>
-                  <p>
-                    Sometimes on paper, sometimes in a WhatsApp group, sometimes just in the
-                    host&apos;s memory.
-                  </p>
-                </div>
-              </div>
-              <div className="note-row reveal" style={{ "--reveal-delay": "100ms" } as React.CSSProperties}>
-                <span className="idx">obs.02</span>
-                <div>
-                  <h3>The wait is hard to estimate.</h3>
-                  <p>For the customer at the door, and for the staff trying to give them an answer.</p>
-                </div>
-              </div>
-              <div className="note-row reveal" style={{ "--reveal-delay": "200ms" } as React.CSSProperties}>
-                <span className="idx">obs.03</span>
-                <div>
-                  <h3>The pieces work, separately.</h3>
-                  <p>
-                    POS, kitchen, queue, dashboard — usually each one is fine on its own. Connecting
-                    them is the part that&apos;s done manually.
-                  </p>
-                </div>
-              </div>
-              <p className="notes-close reveal" style={{ "--reveal-delay": "300ms" } as React.CSSProperties}>That&apos;s the part we wanted to make easier.</p>
+          <p className="analytics-close fi">
+            Everyone has a sales dashboard. These are operator questions. The system is built to
+            answer them.
+          </p>
+        </div>
+      </section>
+
+      {/* ── RELATIONSHIP ── */}
+      <section className="relationship">
+        <div className="wrap">
+          <div className="section-label section-label--dark fi">The relationship</div>
+          <h2 className="fi">
+            You&apos;re not buying software. You&apos;re gaining a team that cares how your
+            restaurant runs.
+          </h2>
+          <p className="relationship-sub fi">
+            The product keeps moving. Shaped by what you&apos;re actually dealing with, not a
+            roadmap you never see.
+          </p>
+          <div className="principles">
+            <div className="fi">
+              <div className="p-id">P.01</div>
+              <div className="p-title">One outlet at a time.</div>
+              <p className="p-desc">We start where the problem is sharpest.</p>
+            </div>
+            <div className="fi">
+              <div className="p-id">P.02</div>
+              <div className="p-title">Short cycles.</div>
+              <p className="p-desc">You tell us what&apos;s missing. We build it in weeks, not quarters.</p>
+            </div>
+            <div className="fi">
+              <div className="p-id">P.03</div>
+              <div className="p-title">Your data, yours.</div>
+              <p className="p-desc">Grounded in your numbers. Exportable, anytime.</p>
+            </div>
+            <div className="fi">
+              <div className="p-id">P.04</div>
+              <div className="p-title">Your data partner.</div>
+              <p className="p-desc">
+                We built the analytics because we know how to use them. That expertise is part of
+                what you&apos;re getting.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── WHAT WE BUILT ── */}
-      <section className="section-pad alt-bg" id="what">
-        <div className="container">
-          <div className="sec-head sec-head--solo reveal">
-            <h2>
-              One system. <span className="italic">From the door to the receipt.</span>
-            </h2>
-          </div>
+      {/* ── DEMO ── */}
+      <section className="demo">
+        <div className="wrap">
+          <div className="section-label section-label--dark fi">Live product</div>
+          <h2 className="fi">See it working. Not a mockup.</h2>
+          <p className="demo-sub fi">
+            A working prototype with real data. Book a demo and we&apos;ll walk you through it with
+            your menu.
+          </p>
 
-          <div className="built-grid">
-            <div className="built-card reveal">
-              <div className="icon-frame">Q</div>
-              <span className="tag">module</span>
-              <h3>Queue</h3>
-              <p>Customers join from their phone. They know where they stand. You know who&apos;s still waiting.</p>
+          <div className="demo-frame fi">
+            <div className="demo-bar">
+              <div className="demo-dot" />
+              <div className="demo-dot" />
+              <div className="demo-dot" />
+              <span className="demo-bar-title">solusisaji — dashboard</span>
             </div>
-            <div className="built-card reveal" style={{ "--reveal-delay": "100ms" } as React.CSSProperties}>
-              <div className="icon-frame">O</div>
-              <span className="tag">module</span>
-              <h3>Order &amp; kitchen</h3>
-              <p>From tablet to kitchen screen in seconds.</p>
-            </div>
-            <div className="built-card reveal" style={{ "--reveal-delay": "200ms" } as React.CSSProperties}>
-              <div className="icon-frame">P</div>
-              <span className="tag">module</span>
-              <h3>Payment</h3>
-              <p>QRIS, e-wallets, transfer. Receipt to the customer&apos;s phone.</p>
-            </div>
-            <div className="built-card reveal" style={{ "--reveal-delay": "300ms" } as React.CSSProperties}>
-              <div className="icon-frame">D</div>
-              <span className="tag">module</span>
-              <h3>Dashboard</h3>
-              <p>Sales, wait times, table turn, peak hours — live, in one place.</p>
-            </div>
-          </div>
-
-          <div className="analytics-block reveal">
-            <div className="ab-head">
-              <span className="label">
-                <span className="signal-dot" />
-                OUR EDGE
-              </span>
-              <span className="label">/ analytics</span>
-            </div>
-            <h3>
-              Where we&apos;re sharpest: <span className="italic">the analytics.</span>
-            </h3>
-            <div className="questions">
-              <div className="q-row">
-                <span className="q-num">Q.01</span>
-                <p>How long does cleaning a table actually take, on average, on a Saturday at 1pm?</p>
+            <div className="demo-body">
+              <div className="demo-stats">
+                <div className="demo-stat">
+                  <div className="demo-stat-label">Total revenue</div>
+                  <div className="demo-stat-value">
+                    Rp 387M <span className="demo-stat-badge">+4.2%</span>
+                  </div>
+                </div>
+                <div className="demo-stat">
+                  <div className="demo-stat-label">Total orders</div>
+                  <div className="demo-stat-value">
+                    10,092 <span className="demo-stat-badge">+3.0%</span>
+                  </div>
+                </div>
+                <div className="demo-stat">
+                  <div className="demo-stat-label">Avg order value</div>
+                  <div className="demo-stat-value">Rp 38,349</div>
+                </div>
               </div>
-              <div className="q-row">
-                <span className="q-num">Q.02</span>
-                <p>
-                  Which items walk out the door the moment they&apos;re available, and which ones
-                  quietly underperform?
+              <div className="demo-chart">
+                {[45,38,62,42,55,35,50,40,58,44,48,36,52,30].map((h, i) => (
+                  <div key={i} className="demo-chart-bar" style={{ height: `${h}%` }} />
+                ))}
+              </div>
+              <div className="demo-ai">
+                <div className="demo-ai-head">
+                  <div className="demo-ai-icon" />
+                  <span className="demo-ai-title">AI Analysis</span>
+                </div>
+                <p className="demo-ai-text">
+                  Revenue up 4.2% with highest contribution from main branch. Peak traffic at
+                  07:00–08:00 with 54 orders. Recommended: add 1 staff during peak for +6–12%
+                  throughput.
                 </p>
               </div>
-              <div className="q-row">
-                <span className="q-num">Q.03</span>
-                <p>When does the queue start losing people — and is it the wait, or the visibility?</p>
-              </div>
             </div>
-            <div className="analytics-foot">
-              → These are operator questions. We built the system to answer them.
-            </div>
+          </div>
+
+          <div className="demo-cta-wrap fi">
+            <a href="mailto:contact@solusisaji.com" className="demo-cta">Book a demo</a>
           </div>
         </div>
       </section>
 
-      {/* ── HOW WE WORK ── */}
-      <section className="section-pad" id="talk">
-        <div className="container">
-          <div className="sec-head sec-head--solo reveal">
-            <h2>
-              A working relationship, <span className="italic">not a contract.</span>
-            </h2>
-          </div>
-
-          <div className="principles-grid">
-            <div className="principle reveal">
-              <div className="p-tag">P.01</div>
-              <h3>One outlet at a time.</h3>
-              <p>We start where the problem is sharpest.</p>
-            </div>
-            <div className="principle reveal" style={{ "--reveal-delay": "100ms" } as React.CSSProperties}>
-              <div className="p-tag">P.02</div>
-              <h3>Short cycles.</h3>
-              <p>You tell us what&apos;s missing. We ship in weeks, not quarters.</p>
-            </div>
-            <div className="principle reveal" style={{ "--reveal-delay": "200ms" } as React.CSSProperties}>
-              <div className="p-tag">P.03</div>
-              <h3>Grounded in your numbers.</h3>
-              <p>Every decision we make together is based on your data.</p>
-            </div>
-            <div className="principle reveal" style={{ "--reveal-delay": "300ms" } as React.CSSProperties}>
-              <div className="p-tag">P.04</div>
-              <h3>Your data, yours.</h3>
-              <p>Exportable, anytime.</p>
-            </div>
-          </div>
-
-          <div className="close-block reveal">
-            <p className="close-text">
-              If this sounds like the way you&apos;d want to work with software,{" "}
-              <span className="italic">let&apos;s talk.</span>
-            </p>
-            <a href="mailto:contact@solusisaji.com" className="btn btn-primary">
-              Let&apos;s talk
-              <ArrowIcon />
-            </a>
+      {/* ── CTA ── */}
+      <section className="cta-section" id="talk">
+        <div className="wrap">
+          <h2 className="fi">
+            More affordable than what you&apos;re paying now. More valuable than what you&apos;re
+            getting.
+          </h2>
+          <p className="cta-line fi">
+            Restaurants that stay ahead don&apos;t just serve better food. They run better
+            operations.
+          </p>
+          <div className="cta-buttons fi">
+            <a href="mailto:contact@solusisaji.com" className="cta-primary">Let&apos;s talk</a>
           </div>
         </div>
       </section>
-
-      <Script id="ss-reveal" strategy="afterInteractive">{`
-(function(){
-  var io = new IntersectionObserver(function(entries){
-    entries.forEach(function(e){
-      if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target); }
-    });
-  },{threshold:0.12});
-  document.querySelectorAll('.ss .reveal').forEach(function(el){io.observe(el);});
-})();
-`}</Script>
 
       {/* ── FOOTER ── */}
       <footer>
-        <div className="container">
-          <div className="foot-grid">
-            <div className="foot-logo">
-              <MarkA size={28} stroke="#F5EFE6" sCut="#2A1810" />
-              solusi<span className="saji"> saji</span>
-            </div>
-            <p className="foot-tag">A POS we&apos;d rather build with you than sell to you.</p>
-            <div className="foot-links">
+        <div className="wrap">
+          <div className="footer-inner">
+            <span className="footer-brand">solusisaji</span>
+            <div className="footer-links">
               <a href="mailto:contact@solusisaji.com">email</a>
-              <a href="http://wa.me/6281933221195">whatsapp</a>
+              <a href="https://wa.me/6281933221195" target="_blank" rel="noopener noreferrer">
+                whatsapp
+              </a>
+              <span className="footer-copy">© 2026 solusisaji</span>
             </div>
-          </div>
-          <div className="foot-bottom">
-            <span>© 2026 solusisaji</span>
           </div>
         </div>
       </footer>
+
+      <Script id="sl-reveal" strategy="afterInteractive">{`
+(function(){
+  var o = new IntersectionObserver(function(e){
+    e.forEach(function(el){ if(el.isIntersecting) el.target.classList.add('v'); });
+  },{threshold:0.12,rootMargin:'0px 0px -40px 0px'});
+  document.querySelectorAll('.sl .fi').forEach(function(el){ o.observe(el); });
+})();
+`}</Script>
     </div>
-  );
-}
-
-/* ── Direction A — Cloche mark (extracted verbatim from standalone HTML) ── */
-function MarkA({
-  size = 36,
-  color = "#C8553D",
-  stroke = "#2A1810",
-  sCut,
-  className,
-}: {
-  size?: number;
-  color?: string;
-  stroke?: string;
-  sCut?: string;
-  className?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 100 100"
-      aria-hidden
-      className={className}
-      style={{ display: "block", flexShrink: 0 }}
-    >
-      {/* handle */}
-      <circle cx="50" cy="14" r="4" fill={stroke} />
-      {/* dome */}
-      <path d="M14 60 A36 36 0 0 1 86 60 Z" fill={color} />
-      {/* S cut — negative space carved from dome */}
-      <path
-        d="M62 36 Q50 32 42 40 Q34 48 46 52 Q58 56 50 62"
-        fill="none"
-        stroke={sCut ?? "#F5EFE6"}
-        strokeWidth="5"
-        strokeLinecap="round"
-      />
-      {/* base plate */}
-      <rect x="8" y="62" width="84" height="6" rx="3" fill={stroke} />
-      {/* steam ticks */}
-      <circle cx="36" cy="76" r="1.6" fill={stroke} opacity="0.5" />
-      <circle cx="50" cy="78" r="1.6" fill={stroke} opacity="0.5" />
-      <circle cx="64" cy="76" r="1.6" fill={stroke} opacity="0.5" />
-    </svg>
-  );
-}
-
-function ArrowIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-      <path d="M1 6H11M11 6L6 1M11 6L6 11" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
   );
 }
