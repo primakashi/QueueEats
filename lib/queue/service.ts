@@ -61,7 +61,7 @@ function getBaseUrl(): string {
 }
 
 function getRestaurantFallbackName(): string {
-  return process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "Ayam Seruni";
+  return process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "Al Jazeerah Express";
 }
 
 function toErrorMessage(error: unknown): string {

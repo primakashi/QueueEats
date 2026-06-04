@@ -6,7 +6,7 @@ import { PublicMenu } from "./public-menu";
 export const revalidate = 60;
 
 export const metadata = {
-  title: "Menu · Ayam Seruni",
+  title: "Menu · Al Jazeerah Express",
   description: "Jelajahi menu kami",
 };
 
@@ -36,7 +36,7 @@ export default async function MenuPage() {
             <UtensilsCrossed className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
           <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight">
-            Ayam Seruni
+            Al Jazeerah Express
           </h1>
           <p className="text-xs sm:text-base text-muted-foreground mt-1 sm:mt-2">
             Menu kami

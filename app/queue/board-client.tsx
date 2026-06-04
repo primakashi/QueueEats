@@ -65,7 +65,7 @@ export function QueueBoardClient({
       <div className="max-w-5xl mx-auto">
         <header className="mb-6 text-center">
           <h1 className="text-3xl sm:text-5xl font-semibold tracking-tight">
-            Papan antrian — {data?.restaurant_name ?? "Ayam Seruni"}
+            Papan antrian — {data?.restaurant_name ?? "Al Jazeerah Express"}
           </h1>
           {/* <p className="text-sm sm:text-base text-muted-foreground mt-2">
             Auto-refresh every 10 seconds

@@ -17,7 +17,7 @@ export default async function StaffPage() {
     <div className="p-6 max-w-4xl mx-auto">
       <PageHeader
         title="Staf"
-        description="Ubah peran akun staf. Pengguna mendaftar lewat dashboard Supabase atau undangan."
+        description="Ubah peran akun staf. Pengguna mendaftar lewat undangan."
       />
       <Card className="p-0 overflow-hidden">
         <StaffTable profiles={(data ?? []) as Profile[]} />

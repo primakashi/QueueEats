@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ayam Seruni POS",
+  title: "Al Jazeerah Express POS",
   description: "POS berbasis web dengan antrian dapur dan pembayaran QRIS",
 };
 

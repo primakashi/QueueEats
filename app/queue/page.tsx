@@ -2,7 +2,7 @@ import { listQueueEntries } from "@/lib/queue/service";
 import { QueueBoardClient } from "./board-client";
 
 export const metadata = {
-  title: "Papan antrian · Ayam Seruni",
+  title: "Papan antrian · Al Jazeerah Express",
 };
 export const dynamic = "force-dynamic";
 

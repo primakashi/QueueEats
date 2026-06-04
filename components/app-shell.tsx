@@ -152,7 +152,7 @@ export function AppShell({
               <UserFooter profile={profile} />
             </SheetContent>
           </Sheet>
-          <span className="font-semibold">Ayam Seruni</span>
+          <span className="font-semibold">Al Jazeerah Express</span>
           <UserMenu profile={profile} />
         </header>
 
@@ -190,7 +190,7 @@ function BrandHeader({
           </div>
           {!collapsed && (
             <div className="leading-tight">
-              <div className="font-semibold">Ayam Seruni</div>
+              <div className="font-semibold">Al Jazeerah Express</div>
               <div className="text-xs text-muted-foreground">Titik penjualan</div>
             </div>
           )}

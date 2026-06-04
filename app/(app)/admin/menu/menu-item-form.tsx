@@ -108,8 +108,6 @@ export function MenuItemForm({
                     id="price"
                     name="price"
                     type="number"
-                    min="0"
-                    step="500"
                     required
                     defaultValue={item?.price ?? ""}
                     placeholder="35000"
