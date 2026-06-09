@@ -8,6 +8,7 @@ import type { Payment } from "@/lib/types";
 
 export async function startQrisPayment(
   orderId: string,
+  paymentDestination?: string,
 ): Promise<
   | { ok: true; payment: Payment }
   | { ok: false; error: string }
@@ -69,7 +70,11 @@ export async function startQrisPayment(
 
   await supabase
     .from("orders")
-    .update({ payment_method: "qris", payment_status: "pending" })
+    .update({
+      payment_method: "qris",
+      payment_status: "pending",
+      ...(paymentDestination ? { payment_destination: paymentDestination } : {}),
+    })
     .eq("id", orderId);
 
   revalidatePath(`/cashier/${orderId}`);
@@ -80,6 +85,7 @@ export async function startQrisPayment(
 
 export async function startCashPayment(
   orderId: string,
+  paymentDestination?: string,
 ): Promise<
   | { ok: true; payment: Payment }
   | { ok: false; error: string }
@@ -128,7 +134,11 @@ export async function startCashPayment(
 
   await supabase
     .from("orders")
-    .update({ payment_method: "cash", payment_status: "pending" })
+    .update({
+      payment_method: "cash",
+      payment_status: "pending",
+      ...(paymentDestination ? { payment_destination: paymentDestination } : {}),
+    })
     .eq("id", orderId);
 
   revalidatePath(`/cashier/${orderId}`);

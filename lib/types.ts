@@ -10,6 +10,7 @@ export type OrderStatus =
 export type PaymentStatus = "unpaid" | "pending" | "paid" | "failed" | "expired";
 export type PaymentMethod = "qris" | "cash";
 export type OrderServiceType = "dine_in" | "takeaway";
+export type OrderChannel = "direct" | "shopeefood" | "grabfood" | "gofood" | "other";
 export type QueueEntryStatus =
   | "waiting"
   | "called"
@@ -50,6 +51,17 @@ export type MenuItem = {
   updated_at: string;
 };
 
+export type Outlet = {
+  id: string;
+  name: string;
+  location: string | null;
+  is_temporary: boolean;
+  active_from: string | null;
+  active_until: string | null;
+  is_archived: boolean;
+  created_at: string;
+};
+
 export type Order = {
   id: string;
   order_number: string;
@@ -63,6 +75,9 @@ export type Order = {
   total: number;
   notes: string | null;
   created_by: string | null;
+  outlet_id: string | null;
+  order_channel: OrderChannel | null;
+  payment_destination: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -147,3 +162,29 @@ export const QUEUE_STATUS_LABEL_ID: Record<QueueEntryStatus, string> = {
   no_show: "Tidak hadir",
   cancelled: "Dibatalkan",
 };
+
+export const ORDER_CHANNEL_LABEL: Record<OrderChannel, string> = {
+  direct: "Langsung",
+  shopeefood: "ShopeeFood",
+  grabfood: "GrabFood",
+  gofood: "GoFood",
+  other: "Lainnya",
+};
+
+export const ORDER_CHANNELS: OrderChannel[] = ["direct", "shopeefood", "grabfood", "gofood", "other"];
+
+export const PAYMENT_DESTINATIONS = [
+  "QRIS BCA",
+  "QRIS BRI",
+  "QRIS BNI",
+  "QRIS Mandiri",
+  "QRIS ShopeePay",
+  "QRIS GoPay",
+  "Transfer BCA",
+  "Transfer BRI",
+  "Transfer Mandiri",
+  "Tunai",
+  "Lainnya",
+] as const;
+
+export type PaymentDestination = typeof PAYMENT_DESTINATIONS[number];

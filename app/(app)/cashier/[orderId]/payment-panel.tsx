@@ -15,10 +15,19 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createRealtimeClient } from "@/lib/supabase/client";
 import { formatIDR } from "@/lib/format";
+import { PAYMENT_DESTINATIONS } from "@/lib/types";
 import type { Order, Payment } from "@/lib/types";
 import {
   cancelQrisPayment,
@@ -42,6 +51,7 @@ export function PaymentPanel({
     "begin-qris" | "begin-cash" | "simulate-cash" | "simulate-mock" | "cancel" | null
   >(null);
   const [payment, setPayment] = useState<Payment | null>(initialPayment);
+  const [paymentDestination, setPaymentDestination] = useState<string>("");
   const [method, setMethod] = useState<"qris" | "cash" | null>(() => {
     if (!initialPayment || initialPayment.status !== "pending") return null;
     if (initialPayment.provider === "cash") return "cash";
@@ -108,7 +118,7 @@ export function PaymentPanel({
     setMethod("qris");
     setAction("begin-qris");
     start(async () => {
-      const res = await startQrisPayment(order.id);
+      const res = await startQrisPayment(order.id, paymentDestination || undefined);
       if (!res.ok) {
         toast.error(res.error);
         setMethod(null);
@@ -124,7 +134,7 @@ export function PaymentPanel({
     setMethod("cash");
     setAction("begin-cash");
     start(async () => {
-      const res = await startCashPayment(order.id);
+      const res = await startCashPayment(order.id, paymentDestination || undefined);
       if (!res.ok) {
         toast.error(res.error);
         setMethod(null);
@@ -352,6 +362,23 @@ export function PaymentPanel({
     <Card className="p-5 gap-4">
       {loadingOverlay}
       <h3 className="font-semibold">Terima pembayaran</h3>
+      <div className="space-y-1.5">
+        <Label htmlFor="pay-destination">Tujuan pembayaran</Label>
+        <Select
+          value={paymentDestination}
+          onValueChange={(v) => setPaymentDestination(v === "__none__" || !v ? "" : v)}
+        >
+          <SelectTrigger id="pay-destination" className="w-full">
+            <SelectValue placeholder="Pilih tujuan (opsional)…" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Tidak ditentukan</SelectItem>
+            {PAYMENT_DESTINATIONS.map((d) => (
+              <SelectItem key={d} value={d}>{d}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div className="grid w-full min-w-0 gap-3">
         <Button
           size="lg"

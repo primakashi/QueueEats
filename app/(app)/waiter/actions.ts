@@ -2,13 +2,15 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
-import type { Order, OrderServiceType } from "@/lib/types";
+import type { Order, OrderChannel, OrderServiceType } from "@/lib/types";
 
 export type CreateOrderInput = {
   service_type?: OrderServiceType;
   table_number?: string | null;
   customer_name?: string;
   notes?: string;
+  outlet_id?: string | null;
+  order_channel?: OrderChannel;
   items: Array<{
     menu_item_id: string;
     quantity: number;
@@ -43,6 +45,8 @@ export async function createOrder(
         : null,
     notes:
       input.notes && input.notes.trim().length > 0 ? input.notes.trim() : null,
+    outlet_id: input.outlet_id ?? null,
+    order_channel: input.order_channel ?? "direct",
     items: input.items.map((i) => ({
       menu_item_id: i.menu_item_id,
       quantity: i.quantity,

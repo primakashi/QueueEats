@@ -28,6 +28,7 @@ import type {
   OrderServiceType,
   OrderStatus,
   OrderWithItems,
+  Outlet,
 } from "@/lib/types";
 import { updateOrderStatus } from "./actions";
 
@@ -56,10 +57,13 @@ function useNow(): number {
 
 export function KitchenBoard({
   initialOrders,
+  outlets,
 }: {
   initialOrders: OrderWithItems[];
+  outlets: Pick<Outlet, "id" | "name">[];
 }) {
   const [orders, setOrders] = useState<OrderWithItems[]>(initialOrders);
+  const [selectedOutletId, setSelectedOutletId] = useState<string | null>(null);
   const now = useNow();
   const notifiedIds = useRef<Set<string>>(
     new Set(initialOrders.map((o) => o.id)),
@@ -180,11 +184,45 @@ export function KitchenBoard({
     };
   }, [fetchFullOrder]);
 
-  const pending = orders.filter((o) => o.status === "pending");
-  const preparing = orders.filter((o) => o.status === "preparing");
-  const ready = orders.filter((o) => o.status === "ready");
+  const visibleOrders = selectedOutletId
+    ? orders.filter((o) => o.outlet_id === selectedOutletId)
+    : orders;
+
+  const pending = visibleOrders.filter((o) => o.status === "pending");
+  const preparing = visibleOrders.filter((o) => o.status === "preparing");
+  const ready = visibleOrders.filter((o) => o.status === "ready");
 
   return (
+    <div className="space-y-6">
+    {outlets.length > 0 && (
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setSelectedOutletId(null)}
+          className={cn(
+            "rounded-full px-4 py-1.5 text-sm font-medium border transition-colors",
+            selectedOutletId === null
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-background text-foreground border-border hover:border-primary",
+          )}
+        >
+          Semua outlet
+        </button>
+        {outlets.map((o) => (
+          <button
+            key={o.id}
+            onClick={() => setSelectedOutletId(o.id)}
+            className={cn(
+              "rounded-full px-4 py-1.5 text-sm font-medium border transition-colors",
+              selectedOutletId === o.id
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-foreground border-border hover:border-primary",
+            )}
+          >
+            {o.name}
+          </button>
+        ))}
+      </div>
+    )}
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <Column
         title="Pesanan baru"
@@ -222,6 +260,7 @@ export function KitchenBoard({
           ready.map((o) => <OrderCard key={o.id} order={o} now={now} />)
         )}
       </Column>
+    </div>
     </div>
   );
 }

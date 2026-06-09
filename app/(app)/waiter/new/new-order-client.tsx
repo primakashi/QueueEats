@@ -21,7 +21,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { formatIDR } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { MenuCategory, MenuItem } from "@/lib/types";
+import type { MenuCategory, MenuItem, OrderChannel, Outlet } from "@/lib/types";
+import { ORDER_CHANNEL_LABEL, ORDER_CHANNELS } from "@/lib/types";
 import { startRouteProgress } from "@/components/route-progress";
 import { FullScreenLoading } from "@/components/full-screen-loading";
 import {
@@ -51,9 +52,11 @@ type CartLine = {
 export function NewOrderClient({
   items,
   categories,
+  outlets,
 }: {
   items: MenuItem[];
   categories: MenuCategory[];
+  outlets: Pick<Outlet, "id" | "name" | "is_temporary">[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -66,6 +69,8 @@ export function NewOrderClient({
   const [customerName, setCustomerName] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
+  const [outletId, setOutletId] = useState<string>(outlets[0]?.id ?? "");
+  const [orderChannel, setOrderChannel] = useState<OrderChannel>("direct");
 
   useEffect(() => {
     setSelectedTableId("");
@@ -124,6 +129,10 @@ export function NewOrderClient({
       toast.error("Pilih meja untuk makan di tempat.");
       return;
     }
+    if (outlets.length > 0 && !outletId) {
+      toast.error("Pilih outlet terlebih dahulu.");
+      return;
+    }
     start(async () => {
       const table =
         serviceType === "dine_in" ? selectedTableId.trim() : "";
@@ -132,6 +141,8 @@ export function NewOrderClient({
         table_number: table.length > 0 ? table : null,
         customer_name: customerName.trim() || undefined,
         notes: orderNotes.trim() || undefined,
+        outlet_id: outletId || null,
+        order_channel: orderChannel,
         items: cart.map((l) => ({
           menu_item_id: l.itemId,
           quantity: l.quantity,
@@ -236,6 +247,11 @@ export function NewOrderClient({
             removeLine={removeLine}
             onSubmit={submit}
             pending={pending}
+            outlets={outlets}
+            outletId={outletId}
+            setOutletId={setOutletId}
+            orderChannel={orderChannel}
+            setOrderChannel={setOrderChannel}
           />
         </div>
       </div>
@@ -288,6 +304,11 @@ export function NewOrderClient({
                   submit();
                 }}
                 pending={pending}
+                outlets={outlets}
+                outletId={outletId}
+                setOutletId={setOutletId}
+                orderChannel={orderChannel}
+                setOrderChannel={setOrderChannel}
               />
             </div>
           </SheetContent>
@@ -350,6 +371,11 @@ function CartPanel(props: {
   removeLine: (id: string) => void;
   onSubmit: () => void;
   pending: boolean;
+  outlets: Pick<Outlet, "id" | "name" | "is_temporary">[];
+  outletId: string;
+  setOutletId: (v: string) => void;
+  orderChannel: OrderChannel;
+  setOrderChannel: (v: OrderChannel) => void;
 }) {
   const tableSelectValue =
     props.selectedTableId.trim() === ""
@@ -366,6 +392,50 @@ function CartPanel(props: {
   const body = (
     <>
       <div className="space-y-3">
+        {props.outlets.length > 0 && (
+          <div className="space-y-1.5">
+            <Label htmlFor="cart-outlet">
+              Outlet <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={props.outletId}
+              onValueChange={(v) => { if (v) props.setOutletId(v); }}
+            >
+              <SelectTrigger id="cart-outlet" className="w-full min-w-0">
+                <SelectValue placeholder="Pilih outlet…">
+                  {(() => { const o = props.outlets.find(o => o.id === props.outletId); return o ? `${o.name}${o.is_temporary ? " (sementara)" : ""}` : undefined; })()}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {props.outlets.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.name}{o.is_temporary ? " (sementara)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="cart-channel">Channel pesanan</Label>
+          <Select
+            value={props.orderChannel}
+            onValueChange={(v) => { if (v) props.setOrderChannel(v as OrderChannel); }}
+          >
+            <SelectTrigger id="cart-channel" className="w-full min-w-0">
+              <SelectValue>{ORDER_CHANNEL_LABEL[props.orderChannel]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {ORDER_CHANNELS.map((ch) => (
+                <SelectItem key={ch} value={ch}>
+                  {ORDER_CHANNEL_LABEL[ch]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="space-y-2">
           <Label>Tipe pesanan</Label>
           <div className="flex gap-2">

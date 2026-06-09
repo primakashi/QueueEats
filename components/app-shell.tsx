@@ -6,9 +6,11 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   BarChart3,
+  Building2,
   ChefHat,
   CreditCard,
   LogOut,
+  Scale,
   Menu as MenuIcon,
   Settings,
   UtensilsCrossed,
@@ -41,7 +43,7 @@ type NavItem = {
 };
 
 /** Nav targets that use `loading.tsx` in-page instead of a sidebar link spinner. */
-const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales"]);
+const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation"]);
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -87,9 +89,21 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["admin"],
   },
   {
+    href: "/admin/outlets",
+    label: "Outlet",
+    icon: Building2,
+    roles: ["admin"],
+  },
+  {
     href: "/admin/sales",
     label: "Penjualan",
     icon: BarChart3,
+    roles: ["admin"],
+  },
+  {
+    href: "/admin/reconciliation",
+    label: "Rekonsiliasi",
+    icon: Scale,
     roles: ["admin"],
   },
 ];
