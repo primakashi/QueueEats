@@ -181,7 +181,7 @@ export async function deleteMenuItem(id: string): Promise<Result> {
 
 export async function updateStaffRole(
   id: string,
-  role: "waiter" | "kitchen" | "cashier" | "admin",
+  role: "waiter" | "kitchen" | "cashier" | "admin" | "owner",
 ): Promise<Result> {
   await requireRole(["admin"]);
   const supabase = await createClient();
@@ -191,8 +191,55 @@ export async function updateStaffRole(
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/users");
-  // Note: the affected user's cached profile lives in their `qe_profile`
-  // cookie and won't reflect this change until they sign out and back in.
-  // Acceptable for an internal POS where role changes are rare.
+  return { ok: true };
+}
+
+export async function deleteStaff(id: string): Promise<Result> {
+  const profile = await requireRole(["admin"]);
+  if (profile.id === id) return { ok: false, error: "Tidak dapat menghapus akun sendiri" };
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const adminClient = createAdminClient();
+
+  const regularClient = await createClient();
+  await regularClient.from("profiles").delete().eq("id", id);
+
+  const { error } = await adminClient.auth.admin.deleteUser(id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
+export async function inviteStaff(formData: FormData): Promise<Result> {
+  await requireRole(["admin"]);
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const fullName = String(formData.get("full_name") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const role = String(formData.get("role") ?? "waiter") as "waiter" | "kitchen" | "cashier" | "admin" | "owner";
+
+  if (!email) return { ok: false, error: "Email wajib diisi" };
+  if (!fullName) return { ok: false, error: "Nama wajib diisi" };
+  if (!password || password.length < 6) return { ok: false, error: "Kata sandi minimal 6 karakter" };
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const adminClient = createAdminClient();
+
+  const { data: authData, error: authErr } = await adminClient.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
+  });
+  if (authErr) return { ok: false, error: authErr.message };
+  if (!authData.user) return { ok: false, error: "Gagal membuat akun" };
+
+  const regularClient = await createClient();
+  const { error: profileErr } = await regularClient
+    .from("profiles")
+    .upsert({ id: authData.user.id, full_name: fullName, role }, { onConflict: "id" });
+  if (profileErr) return { ok: false, error: profileErr.message };
+
+  revalidatePath("/admin/users");
   return { ok: true };
 }

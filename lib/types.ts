@@ -1,4 +1,4 @@
-export type UserRole = "waiter" | "kitchen" | "cashier" | "admin";
+export type UserRole = "waiter" | "kitchen" | "cashier" | "admin" | "owner";
 
 export type OrderStatus =
   | "pending"
@@ -8,7 +8,7 @@ export type OrderStatus =
   | "cancelled";
 
 export type PaymentStatus = "unpaid" | "pending" | "paid" | "failed" | "expired";
-export type PaymentMethod = "qris" | "cash";
+export type PaymentMethod = "qris" | "cash" | "edc";
 export type OrderServiceType = "dine_in" | "takeaway";
 export type OrderChannel = "direct" | "shopeefood" | "grabfood" | "gofood" | "other";
 export type QueueEntryStatus =
@@ -60,6 +60,8 @@ export type Outlet = {
   active_until: string | null;
   is_archived: boolean;
   created_at: string;
+  tax_rate: number;
+  service_charge_rate: number;
 };
 
 export type Order = {
@@ -78,6 +80,8 @@ export type Order = {
   outlet_id: string | null;
   order_channel: OrderChannel | null;
   payment_destination: string | null;
+  tax_amount: number;
+  service_charge_amount: number;
   created_at: string;
   updated_at: string;
 };
@@ -132,10 +136,11 @@ export type QueueEntry = {
 };
 
 export const ROLE_LABEL: Record<UserRole, string> = {
-  waiter: "Waiters/Host",
+  waiter: "Layanan",
   kitchen: "Dapur",
   cashier: "Kasir",
   admin: "Admin",
+  owner: "Owner",
 };
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {

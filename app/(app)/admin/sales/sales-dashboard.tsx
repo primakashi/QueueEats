@@ -409,6 +409,7 @@ export function SalesDashboard({
   const methodOptions = [
     { value: "qris", label: "QRIS" },
     { value: "cash", label: "Tunai" },
+    { value: "edc", label: "EDC / Kartu" },
   ];
   const destinationOptions = PAYMENT_DESTINATIONS.map((d) => ({ value: d, label: d }));
 
@@ -625,7 +626,7 @@ export function SalesDashboard({
           <ChannelBar orders={filtered} />
         </Card>
         <Card className="p-4">
-          <div className="font-medium mb-1">Pendapatan per tujuan pembayaran</div>
+          <div className="font-medium mb-1">Pendapatan per Sumber Pembayaran</div>
           <DestinationBar orders={filtered} />
         </Card>
       </div>

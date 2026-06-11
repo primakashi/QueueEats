@@ -60,5 +60,30 @@ export async function createOrder(
     payload,
   });
   if (error) return { ok: false, error: error.message };
-  return { ok: true, order: data as Order };
+
+  const order = data as Order;
+
+  // Apply outlet tax/service charge to total if rates are configured
+  if (input.outlet_id) {
+    const { data: outlet } = await supabase
+      .from("outlets")
+      .select("tax_rate, service_charge_rate")
+      .eq("id", input.outlet_id)
+      .maybeSingle();
+    const taxRate = (outlet as { tax_rate?: number } | null)?.tax_rate ?? 0;
+    const serviceRate = (outlet as { service_charge_rate?: number } | null)?.service_charge_rate ?? 0;
+    if (taxRate > 0 || serviceRate > 0) {
+      const subtotal = order.subtotal ?? order.total;
+      const tax_amount = Math.round(subtotal * taxRate);
+      const service_charge_amount = Math.round(subtotal * serviceRate);
+      const total = subtotal + tax_amount + service_charge_amount;
+      await supabase
+        .from("orders")
+        .update({ tax_amount, service_charge_amount, total })
+        .eq("id", order.id);
+      return { ok: true, order: { ...order, subtotal, tax_amount, service_charge_amount, total } };
+    }
+  }
+
+  return { ok: true, order };
 }

@@ -12,7 +12,6 @@ import {
   LogOut,
   Scale,
   Menu as MenuIcon,
-  Settings,
   UtensilsCrossed,
   Users,
   ClipboardList,
@@ -48,13 +47,13 @@ const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/adm
 const NAV_ITEMS: NavItem[] = [
   {
     href: "/waiter",
-    label: "Waiters",
+    label: "Pesanan",
     icon: ClipboardList,
-    roles: ["waiter", "admin"],
+    roles: ["waiter", "cashier", "admin"],
   },
   {
     href: "/host",
-    label: "Queuing",
+    label: "Antrean",
     icon: Users,
     roles: ["waiter", "admin"],
   },
@@ -77,12 +76,6 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["admin"],
   },
   {
-    href: "/admin/categories",
-    label: "Kategori",
-    icon: Settings,
-    roles: ["admin"],
-  },
-  {
     href: "/admin/users",
     label: "Staf",
     icon: Users,
@@ -98,13 +91,13 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/sales",
     label: "Penjualan",
     icon: BarChart3,
-    roles: ["admin"],
+    roles: ["admin", "owner"],
   },
   {
     href: "/admin/reconciliation",
     label: "Rekonsiliasi",
     icon: Scale,
-    roles: ["admin"],
+    roles: ["admin", "owner"],
   },
 ];
 

@@ -82,6 +82,8 @@ export function homeForRole(role: UserRole): string {
   switch (role) {
     case "admin":
       return "/admin/menu";
+    case "owner":
+      return "/admin/sales";
     case "kitchen":
       return "/kitchen";
     case "cashier":

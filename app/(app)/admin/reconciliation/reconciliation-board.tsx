@@ -186,7 +186,7 @@ export function ReconciliationBoard({
       {/* Breakdown table */}
       <Card className="p-0 overflow-hidden">
         <div className="px-4 py-3 border-b">
-          <div className="font-medium">Rekap per tujuan pembayaran</div>
+          <div className="font-medium">Rekap per Sumber Pembayaran</div>
           <p className="text-xs text-muted-foreground">Isi kolom "Diterima" dengan jumlah aktual dari setiap rekening/sumber.</p>
         </div>
         {rows.length === 0 ? (
@@ -197,7 +197,7 @@ export function ReconciliationBoard({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Tujuan pembayaran</TableHead>
+                <TableHead>Sumber Pembayaran</TableHead>
                 <TableHead>Metode</TableHead>
                 <TableHead className="text-right">Transaksi</TableHead>
                 <TableHead className="text-right">Tercatat</TableHead>

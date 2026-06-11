@@ -30,7 +30,7 @@ type Props = {
 };
 
 export default async function AdminSalesPage({ searchParams }: Props) {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "owner"]);
   const { outlet } = await searchParams;
   const supabase = await createClient();
 
@@ -86,7 +86,7 @@ export default async function AdminSalesPage({ searchParams }: Props) {
     <div className="p-6 max-w-5xl mx-auto">
       <PageHeader
         title="Penjualan"
-        description="Rekap harian dengan filter outlet, channel, metode, dan tujuan pembayaran."
+        description="Rekap harian dengan filter outlet, channel, metode, dan Sumber Pembayaran."
       />
       <SalesDashboard
         orders={orders}

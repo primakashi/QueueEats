@@ -16,6 +16,8 @@ export async function createOutlet(formData: FormData): Promise<Result<Outlet>> 
   const is_temporary = formData.get("is_temporary") === "true";
   const active_from = String(formData.get("active_from") ?? "").trim() || null;
   const active_until = String(formData.get("active_until") ?? "").trim() || null;
+  const tax_rate = parseRate(String(formData.get("tax_rate") ?? "0"));
+  const service_charge_rate = parseRate(String(formData.get("service_charge_rate") ?? "0"));
 
   if (!name) return { ok: false, error: "Nama outlet wajib diisi" };
   if (is_temporary && !active_from) {
@@ -25,7 +27,7 @@ export async function createOutlet(formData: FormData): Promise<Result<Outlet>> 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("outlets")
-    .insert({ name, location, is_temporary, active_from, active_until })
+    .insert({ name, location, is_temporary, active_from, active_until, tax_rate, service_charge_rate })
     .select()
     .single();
 
@@ -43,6 +45,8 @@ export async function updateOutlet(formData: FormData): Promise<Result> {
   const is_temporary = formData.get("is_temporary") === "true";
   const active_from = String(formData.get("active_from") ?? "").trim() || null;
   const active_until = String(formData.get("active_until") ?? "").trim() || null;
+  const tax_rate = parseRate(String(formData.get("tax_rate") ?? "0"));
+  const service_charge_rate = parseRate(String(formData.get("service_charge_rate") ?? "0"));
 
   if (!id) return { ok: false, error: "ID tidak ada" };
   if (!name) return { ok: false, error: "Nama outlet wajib diisi" };
@@ -53,13 +57,19 @@ export async function updateOutlet(formData: FormData): Promise<Result> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("outlets")
-    .update({ name, location, is_temporary, active_from, active_until })
+    .update({ name, location, is_temporary, active_from, active_until, tax_rate, service_charge_rate })
     .eq("id", id);
 
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/outlets");
   revalidatePath("/waiter/new");
   return { ok: true };
+}
+
+function parseRate(s: string): number {
+  const n = parseFloat(s);
+  if (!Number.isFinite(n) || n < 0 || n > 100) return 0;
+  return n / 100;
 }
 
 export async function archiveOutlet(id: string): Promise<Result> {

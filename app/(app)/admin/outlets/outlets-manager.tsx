@@ -118,6 +118,36 @@ function OutletForm({
           </div>
         </div>
       )}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="outlet-tax">Pajak (%)</Label>
+          <Input
+            id="outlet-tax"
+            name="tax_rate"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            placeholder="0"
+            defaultValue={outlet ? String(((outlet.tax_rate ?? 0) * 100).toFixed(2)) : "0"}
+          />
+          <p className="text-xs text-muted-foreground">Mis. 10 untuk PPN 10%</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="outlet-service">Biaya layanan (%)</Label>
+          <Input
+            id="outlet-service"
+            name="service_charge_rate"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            placeholder="0"
+            defaultValue={outlet ? String(((outlet.service_charge_rate ?? 0) * 100).toFixed(2)) : "0"}
+          />
+          <p className="text-xs text-muted-foreground">Mis. 5 untuk service 5%</p>
+        </div>
+      </div>
       <Button type="submit" className="w-full" disabled={pending} aria-busy={pending}>
         {pending ? "Menyimpan…" : outlet ? "Simpan perubahan" : "Buat outlet"}
       </Button>
@@ -169,6 +199,17 @@ function OutletCard({ outlet }: { outlet: Outlet }) {
       {outlet.is_temporary && (outlet.active_from || outlet.active_until) && (
         <div className="text-xs text-muted-foreground">
           {formatDate(outlet.active_from)} — {outlet.active_until ? formatDate(outlet.active_until) : "tidak ada batas"}
+        </div>
+      )}
+
+      {((outlet.tax_rate ?? 0) > 0 || (outlet.service_charge_rate ?? 0) > 0) && (
+        <div className="text-xs text-muted-foreground flex gap-3">
+          {(outlet.tax_rate ?? 0) > 0 && (
+            <span>Pajak {((outlet.tax_rate ?? 0) * 100).toFixed(2).replace(/\.?0+$/, "")}%</span>
+          )}
+          {(outlet.service_charge_rate ?? 0) > 0 && (
+            <span>Layanan {((outlet.service_charge_rate ?? 0) * 100).toFixed(2).replace(/\.?0+$/, "")}%</span>
+          )}
         </div>
       )}
 

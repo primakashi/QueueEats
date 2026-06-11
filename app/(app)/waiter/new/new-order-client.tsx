@@ -125,10 +125,6 @@ export function NewOrderClient({
       toast.error("Keranjang kosong");
       return;
     }
-    if (serviceType === "dine_in" && !selectedTableId.trim()) {
-      toast.error("Pilih meja untuk makan di tempat.");
-      return;
-    }
     if (outlets.length > 0 && !outletId) {
       toast.error("Pilih outlet terlebih dahulu.");
       return;
@@ -468,10 +464,7 @@ function CartPanel(props: {
         </div>
         {props.serviceType === "dine_in" && (
           <div className="space-y-1">
-            <Label htmlFor="table-select">
-              Meja
-              <span className="text-destructive"> *</span>
-            </Label>
+            <Label htmlFor="table-select">Meja</Label>
             <Select
               value={tableSelectValue}
               onValueChange={(v) =>

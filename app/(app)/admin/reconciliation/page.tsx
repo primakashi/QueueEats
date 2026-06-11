@@ -17,7 +17,7 @@ export type ReconciliationOrder = {
 };
 
 export default async function ReconciliationPage() {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "owner"]);
   const supabase = await createClient();
 
   // Load last 30 days of paid orders + outlets

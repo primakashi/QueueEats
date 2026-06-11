@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,87 +29,86 @@ export default async function CashierPage() {
     .order("created_at", { ascending: false });
 
   const all = (data ?? []) as Order[];
-  const awaiting = all.filter(
-    (o) => o.payment_status !== "paid" && o.status !== "cancelled",
-  );
-  const done = all.filter((o) => o.payment_status === "paid");
+  const unpaid = all.filter((o) => o.payment_status !== "paid");
+  const paid = all.filter((o) => o.payment_status === "paid");
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <CashierRealtimeRefresher />
       <PageHeader
         title="Kasir"
-        description="Pesanan hari ini yang menunggu pembayaran"
+        description="Pesanan yang menunggu pembayaran"
       />
-      <div className="grid gap-6 md:grid-cols-2">
-        <Section title="Menunggu pembayaran" orders={awaiting} emptyLabel="Semua sudah tertangani!" />
-        <Section title="Lunas" orders={done} emptyLabel="Belum ada pesanan lunas hari ini" />
-      </div>
+
+      {unpaid.length === 0 ? (
+        <Card className="p-12 text-center mb-6">
+          <div className="text-sm font-medium mb-1">Semua pesanan sudah terbayar!</div>
+          <p className="text-sm text-muted-foreground">Tidak ada pesanan yang menunggu pembayaran.</p>
+        </Card>
+      ) : (
+        <div className="space-y-3 mb-8">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Menunggu pembayaran
+            </h2>
+            <Badge variant="secondary" className="rounded-full px-1.5">
+              {unpaid.length}
+            </Badge>
+          </div>
+          <div className="space-y-2">
+            {unpaid.map((o) => (
+              <OrderCard key={o.id} order={o} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {paid.length > 0 && (
+        <details className="group">
+          <summary className="flex items-center gap-2 cursor-pointer list-none select-none py-2">
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+            <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Pembayaran Selesai
+            </span>
+            <Badge variant="secondary" className="rounded-full px-1.5">{paid.length}</Badge>
+          </summary>
+          <div className="space-y-2 mt-2">
+            {paid.map((o) => (
+              <OrderCard key={o.id} order={o} />
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
 
-function Section({
-  title,
-  orders,
-  emptyLabel,
-}: {
-  title: string;
-  orders: Order[];
-  emptyLabel: string;
-}) {
+function OrderCard({ order: o }: { order: Order }) {
   return (
-    <div className="space-y-3">
-      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-        {title} · {orders.length}
-      </h2>
-      {orders.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">
-          {emptyLabel}
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {orders.map((o) => (
-            <Link
-              key={o.id}
-              href={`/cashier/${o.id}`}
-              className="block touch-manipulation"
-            >
-              <Card className="p-4 gap-2 hover:border-primary active:scale-[0.99] transition-all">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold tabular-nums">
-                      {o.order_number}
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {formatTime(o.created_at)}
-                      {o.table_number ? ` · Meja ${o.table_number}` : ""}
-                      {o.customer_name ? ` · ${o.customer_name}` : ""}
-                    </div>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex gap-2">
-                    <Badge className={statusColor(o.status)}>
-                      {ORDER_STATUS_LABEL[o.status]}
-                    </Badge>
-                    <Badge
-                      variant="secondary"
-                      className={paymentColor(o.payment_status)}
-                    >
-                      {PAYMENT_STATUS_LABEL[o.payment_status]}
-                    </Badge>
-                  </div>
-                  <div className="font-semibold tabular-nums">
-                    {formatIDR(o.total)}
-                  </div>
-                </div>
-              </Card>
-            </Link>
-          ))}
+    <Link href={`/cashier/${o.id}`} className="block touch-manipulation">
+      <Card className="p-4 gap-0 hover:border-primary active:scale-[0.99] transition-all">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="font-semibold tabular-nums">{o.order_number}</div>
+            <div className="text-xs text-muted-foreground truncate">
+              {formatTime(o.created_at)}
+              {o.service_type === "takeaway" ? " · Bungkus" : " · Dine-in"}
+              {o.table_number ? ` · Meja ${o.table_number}` : ""}
+              {o.customer_name ? ` · ${o.customer_name}` : ""}
+            </div>
+          </div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
         </div>
-      )}
-    </div>
+        <div className="flex items-center justify-between gap-2 mt-2">
+          <div className="flex gap-2">
+            <Badge className={statusColor(o.status)}>{ORDER_STATUS_LABEL[o.status]}</Badge>
+            <Badge variant="secondary" className={paymentColor(o.payment_status)}>
+              {PAYMENT_STATUS_LABEL[o.payment_status]}
+            </Badge>
+          </div>
+          <div className="font-semibold tabular-nums">{formatIDR(o.total)}</div>
+        </div>
+      </Card>
+    </Link>
   );
 }
