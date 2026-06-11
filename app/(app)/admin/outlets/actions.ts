@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 import type { Outlet } from "@/lib/types";
 
 type Result<T = undefined> =
@@ -10,7 +11,7 @@ type Result<T = undefined> =
   | { ok: false; error: string };
 
 export async function createOutlet(formData: FormData): Promise<Result<Outlet>> {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin"]);
   const name = String(formData.get("name") ?? "").trim();
   const location = String(formData.get("location") ?? "").trim() || null;
   const is_temporary = formData.get("is_temporary") === "true";
@@ -32,13 +33,23 @@ export async function createOutlet(formData: FormData): Promise<Result<Outlet>> 
     .single();
 
   if (error) return { ok: false, error: error.message };
+  await logAudit(profile, {
+    table: "outlets",
+    recordId: (data as Outlet).id,
+    entityName: name,
+    action: "create",
+    changes: [
+      { field: "tax_rate", oldValue: null, newValue: String(tax_rate) },
+      { field: "service_charge_rate", oldValue: null, newValue: String(service_charge_rate) },
+    ],
+  });
   revalidatePath("/admin/outlets");
   revalidatePath("/waiter/new");
   return { ok: true, data: data as Outlet };
 }
 
 export async function updateOutlet(formData: FormData): Promise<Result> {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin"]);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const location = String(formData.get("location") ?? "").trim() || null;
@@ -55,12 +66,38 @@ export async function updateOutlet(formData: FormData): Promise<Result> {
   }
 
   const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("outlets")
+    .select("name, tax_rate, service_charge_rate")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase
     .from("outlets")
     .update({ name, location, is_temporary, active_from, active_until, tax_rate, service_charge_rate })
     .eq("id", id);
 
   if (error) return { ok: false, error: error.message };
+
+  if (existing) {
+    const changes: { field: string; oldValue: string | null; newValue: string | null }[] = [];
+    if (existing.name !== name)
+      changes.push({ field: "name", oldValue: existing.name, newValue: name });
+    if (existing.tax_rate !== tax_rate)
+      changes.push({ field: "tax_rate", oldValue: String(existing.tax_rate), newValue: String(tax_rate) });
+    if (existing.service_charge_rate !== service_charge_rate)
+      changes.push({ field: "service_charge_rate", oldValue: String(existing.service_charge_rate), newValue: String(service_charge_rate) });
+    if (changes.length > 0) {
+      await logAudit(profile, {
+        table: "outlets",
+        recordId: id,
+        entityName: name,
+        action: "update",
+        changes,
+      });
+    }
+  }
+
   revalidatePath("/admin/outlets");
   revalidatePath("/waiter/new");
   return { ok: true };

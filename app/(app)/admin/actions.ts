@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T }))
@@ -74,7 +75,7 @@ async function uploadImage(file: File | null): Promise<string | null> {
 }
 
 export async function createMenuItem(formData: FormData): Promise<Result> {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin"]);
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const price = Number(formData.get("price") ?? 0);
@@ -94,22 +95,26 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("menu_items").insert({
-    name,
-    description,
-    price,
-    category_id,
-    is_available,
-    image_url,
-  });
+  const { data: inserted, error } = await supabase
+    .from("menu_items")
+    .insert({ name, description, price, category_id, is_available, image_url })
+    .select("id")
+    .single();
   if (error) return { ok: false, error: error.message };
+  await logAudit(profile, {
+    table: "menu_items",
+    recordId: inserted.id,
+    entityName: name,
+    action: "create",
+    changes: [{ field: "price", oldValue: null, newValue: String(price) }],
+  });
   revalidatePath("/admin/menu");
   revalidatePath("/waiter/new");
   return { ok: true };
 }
 
 export async function updateMenuItem(formData: FormData): Promise<Result> {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin"]);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
@@ -122,6 +127,14 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
   if (!name) return { ok: false, error: "Nama wajib diisi" };
   if (!Number.isFinite(price) || price < 0)
     return { ok: false, error: "Harga harus angka tidak negatif" };
+
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("menu_items")
+    .select("name, price")
+    .eq("id", id)
+    .single();
 
   const update: Record<string, unknown> = {
     name,
@@ -139,12 +152,29 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
     }
   }
 
-  const supabase = await createClient();
   const { error } = await supabase
     .from("menu_items")
     .update(update)
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+
+  if (existing) {
+    const changes: { field: string; oldValue: string | null; newValue: string | null }[] = [];
+    if (existing.price !== price)
+      changes.push({ field: "price", oldValue: String(existing.price), newValue: String(price) });
+    if (existing.name !== name)
+      changes.push({ field: "name", oldValue: existing.name, newValue: name });
+    if (changes.length > 0) {
+      await logAudit(profile, {
+        table: "menu_items",
+        recordId: id,
+        entityName: name,
+        action: "update",
+        changes,
+      });
+    }
+  }
+
   revalidatePath("/admin/menu");
   revalidatePath(`/admin/menu/${id}/edit`);
   revalidatePath("/waiter/new");
@@ -168,10 +198,24 @@ export async function toggleMenuItemAvailability(
 }
 
 export async function deleteMenuItem(id: string): Promise<Result> {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin"]);
   const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("menu_items")
+    .select("name, price")
+    .eq("id", id)
+    .single();
   const { error } = await supabase.from("menu_items").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
+  await logAudit(profile, {
+    table: "menu_items",
+    recordId: id,
+    entityName: existing?.name ?? id,
+    action: "delete",
+    changes: existing
+      ? [{ field: "price", oldValue: String(existing.price), newValue: null }]
+      : undefined,
+  });
   revalidatePath("/admin/menu");
   revalidatePath("/waiter/new");
   return { ok: true };
@@ -183,13 +227,27 @@ export async function updateStaffRole(
   id: string,
   role: "waiter" | "kitchen" | "cashier" | "admin" | "owner",
 ): Promise<Result> {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin"]);
   const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("full_name, role")
+    .eq("id", id)
+    .single();
   const { error } = await supabase
     .from("profiles")
     .update({ role })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+  if (existing) {
+    await logAudit(profile, {
+      table: "profiles",
+      recordId: id,
+      entityName: existing.full_name,
+      action: "update",
+      changes: [{ field: "role", oldValue: existing.role, newValue: role }],
+    });
+  }
   revalidatePath("/admin/users");
   return { ok: true };
 }

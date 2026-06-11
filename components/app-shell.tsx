@@ -109,9 +109,9 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/admin/changelog",
-    label: "Changelog",
+    label: "Log Perubahan",
     icon: ScrollText,
-    roles: ["owner", "admin"],
+    roles: ["owner"],
   },
 ];
 

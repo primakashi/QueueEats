@@ -1,152 +1,151 @@
 import { PageHeader } from "@/components/page-header";
 import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 
-type ChangeKind = "new" | "fix" | "improvement";
+function formatDate(iso: string): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date(iso));
+}
 
-type ChangeEntry = {
-  version: string;
-  date: string;
-  changes: { kind: ChangeKind; text: string }[];
+type AuditLog = {
+  id: string;
+  table_name: string;
+  record_id: string;
+  entity_name: string | null;
+  action: string;
+  field_name: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  changed_by_name: string;
+  created_at: string;
 };
 
-const KIND_LABEL: Record<ChangeKind, string> = {
-  new: "Baru",
-  fix: "Perbaikan",
-  improvement: "Peningkatan",
+const TABLE_LABEL: Record<string, string> = {
+  menu_items: "Menu",
+  outlets: "Outlet",
+  profiles: "Staf",
 };
 
-const KIND_VARIANT: Record<ChangeKind, "default" | "secondary" | "outline"> = {
-  new: "default",
-  fix: "secondary",
-  improvement: "outline",
+const ACTION_LABEL: Record<string, string> = {
+  create: "Dibuat",
+  update: "Diubah",
+  delete: "Dihapus",
 };
 
-const CHANGELOG: ChangeEntry[] = [
-  {
-    version: "v1.9",
-    date: "11 Jun 2025",
-    changes: [
-      { kind: "new", text: "Halaman changelog untuk owner" },
-    ],
-  },
-  {
-    version: "v1.8",
-    date: "6 Jun 2025",
-    changes: [
-      { kind: "improvement", text: "Label peran navigasi diperbarui agar lebih deskriptif" },
-      { kind: "improvement", text: "Kasir: tampilan ulang panel pembayaran dengan ringkasan yang lebih jelas" },
-      { kind: "fix", text: "Struk: nominal pajak dan biaya layanan kini dapat diedit sebelum cetak" },
-    ],
-  },
-  {
-    version: "v1.7",
-    date: "2 Jun 2025",
-    changes: [
-      { kind: "new", text: "Metode pembayaran EDC ditambahkan ke kasir" },
-      { kind: "new", text: "Papan waiter: filter status dan tampilan lebih ringkas" },
-      { kind: "improvement", text: "Peran Owner sekarang bisa mengakses halaman Outlet, Penjualan, dan Rekonsiliasi" },
-    ],
-  },
-  {
-    version: "v1.6",
-    date: "26 Mei 2025",
-    changes: [
-      { kind: "new", text: "Pajak dan biaya layanan per outlet (dapat dikonfigurasi)" },
-      { kind: "improvement", text: "Rekonsiliasi: filter per sumber pembayaran dan ringkasan total" },
-      { kind: "fix", text: "Nominal pesanan tidak terhitung pajak pada beberapa outlet" },
-    ],
-  },
-  {
-    version: "v1.5",
-    date: "19 Mei 2025",
-    changes: [
-      { kind: "new", text: "Manajemen saluran pesanan (GrabFood, GoFood, ShopeeFood, dll.)" },
-      { kind: "improvement", text: "Sidebar dapat diciutkan di layar besar" },
-      { kind: "fix", text: "Notifikasi antrean WhatsApp tidak terkirim pada kondisi tertentu" },
-    ],
-  },
-  {
-    version: "v1.4",
-    date: "12 Mei 2025",
-    changes: [
-      { kind: "new", text: "Rekonsiliasi harian per outlet" },
-      { kind: "new", text: "Dashboard penjualan dengan filter tanggal dan outlet" },
-      { kind: "improvement", text: "Halaman outlet kini menampilkan status aktif/arsip" },
-    ],
-  },
-  {
-    version: "v1.3",
-    date: "5 Mei 2025",
-    changes: [
-      { kind: "new", text: "Antrian tamu dengan notifikasi WhatsApp" },
-      { kind: "new", text: "Papan antrean publik untuk layar tampilan" },
-      { kind: "improvement", text: "Dapur: kartu pesanan dapat diklik untuk melihat detail item" },
-    ],
-  },
-  {
-    version: "v1.2",
-    date: "28 Apr 2025",
-    changes: [
-      { kind: "new", text: "Manajemen multi-outlet" },
-      { kind: "improvement", text: "Pesanan dapat dipindah antar meja oleh waiter" },
-      { kind: "fix", text: "Status dapur tidak sinkron saat ada beberapa tab terbuka" },
-    ],
-  },
-  {
-    version: "v1.1",
-    date: "21 Apr 2025",
-    changes: [
-      { kind: "new", text: "Cetak struk otomatis setelah pembayaran lunas" },
-      { kind: "new", text: "Pembayaran QRIS via Xendit" },
-      { kind: "improvement", text: "Tampilan menu publik untuk pelanggan" },
-    ],
-  },
-  {
-    version: "v1.0",
-    date: "14 Apr 2025",
-    changes: [
-      { kind: "new", text: "Rilis perdana — POS dasar dengan waiter, dapur, dan kasir" },
-      { kind: "new", text: "Manajemen menu dan kategori" },
-      { kind: "new", text: "Manajemen staf dengan peran (waiter, dapur, kasir, admin)" },
-    ],
-  },
-];
+const FIELD_LABEL: Record<string, string> = {
+  price: "Harga",
+  name: "Nama",
+  tax_rate: "Pajak",
+  service_charge_rate: "Biaya Layanan",
+  role: "Peran",
+};
+
+function formatValue(field: string | null, value: string | null): string {
+  if (value === null) return "—";
+  if (field === "price") {
+    const n = Number(value);
+    return Number.isFinite(n)
+      ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n)
+      : value;
+  }
+  if (field === "tax_rate" || field === "service_charge_rate") {
+    const n = Number(value);
+    return Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : value;
+  }
+  return value;
+}
+
+function actionVariant(action: string): "default" | "secondary" | "destructive" {
+  if (action === "create") return "default";
+  if (action === "delete") return "destructive";
+  return "secondary";
+}
 
 export default async function ChangelogPage() {
-  await requireRole(["owner", "admin"]);
+  await requireRole(["owner"]);
+
+  const supabase = await createClient();
+  const { data: logs } = await supabase
+    .from("audit_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  const rows = (logs ?? []) as AuditLog[];
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto">
       <PageHeader
-        title="Changelog"
-        description="Riwayat pembaruan dan perbaikan sistem."
+        title="Log Perubahan"
+        description="Riwayat perubahan harga, pajak, dan data sensitif lainnya."
       />
-      <div className="mt-6 space-y-8">
-        {CHANGELOG.map((entry) => (
-          <div key={entry.version} className="flex gap-6">
-            <div className="w-24 shrink-0 text-right">
-              <div className="text-sm font-semibold">{entry.version}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{entry.date}</div>
-            </div>
-            <div className="flex-1 border-l pl-6 pb-2">
-              <ul className="space-y-2">
-                {entry.changes.map((c, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm">
-                    <Badge
-                      variant={KIND_VARIANT[c.kind]}
-                      className="mt-px shrink-0 text-xs"
-                    >
-                      {KIND_LABEL[c.kind]}
-                    </Badge>
-                    <span>{c.text}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        ))}
-      </div>
+
+      {rows.length === 0 ? (
+        <p className="mt-8 text-sm text-muted-foreground text-center">
+          Belum ada perubahan yang tercatat.
+        </p>
+      ) : (
+        <div className="mt-6 overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">Waktu</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Oleh</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tabel</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Entitas</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Aksi</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Field</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nilai Lama</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nilai Baru</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {rows.map((row) => {
+                const isPriceDecrease =
+                  row.field_name === "price" &&
+                  row.old_value !== null &&
+                  row.new_value !== null &&
+                  Number(row.new_value) < Number(row.old_value);
+                return (
+                  <tr key={row.id} className={isPriceDecrease ? "bg-red-50 dark:bg-red-950/20" : undefined}>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs">
+                      {formatDate(row.created_at)}
+                    </td>
+                    <td className="px-4 py-3 font-medium whitespace-nowrap">{row.changed_by_name}</td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                      {TABLE_LABEL[row.table_name] ?? row.table_name}
+                    </td>
+                    <td className="px-4 py-3 max-w-[160px] truncate" title={row.entity_name ?? undefined}>
+                      {row.entity_name ?? <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={actionVariant(row.action)} className="text-xs">
+                        {ACTION_LABEL[row.action] ?? row.action}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                      {row.field_name ? (FIELD_LABEL[row.field_name] ?? row.field_name) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                      {formatValue(row.field_name, row.old_value)}
+                    </td>
+                    <td className={`px-4 py-3 font-medium whitespace-nowrap ${isPriceDecrease ? "text-red-600 dark:text-red-400" : ""}`}>
+                      {formatValue(row.field_name, row.new_value)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
