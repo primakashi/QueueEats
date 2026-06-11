@@ -10,6 +10,7 @@ import {
   ChefHat,
   CreditCard,
   LogOut,
+  Radio,
   Scale,
   Menu as MenuIcon,
   UtensilsCrossed,
@@ -42,7 +43,7 @@ type NavItem = {
 };
 
 /** Nav targets that use `loading.tsx` in-page instead of a sidebar link spinner. */
-const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation"]);
+const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels"]);
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -85,6 +86,12 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/outlets",
     label: "Outlet",
     icon: Building2,
+    roles: ["admin", "owner"],
+  },
+  {
+    href: "/admin/channels",
+    label: "Saluran Pesanan",
+    icon: Radio,
     roles: ["admin"],
   },
   {
@@ -181,44 +188,38 @@ function BrandHeader({
   return (
     <div
       className={cn(
-        "h-16 border-b",
-        collapsed ? "px-2" : "px-5",
+        "h-16 shrink-0 border-b flex items-center",
+        collapsed ? "justify-center px-2" : "justify-between gap-1 px-4",
       )}
     >
-      <div
-        className={cn(
-          "h-full flex items-center",
-          collapsed ? "justify-center" : "justify-between gap-2",
-        )}
-      >
-        <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-2")}>
-          <div className="h-8 w-8 rounded-md bg-primary text-primary-foreground grid place-items-center">
-            <UtensilsCrossed className="h-4 w-4" />
-          </div>
-          {!collapsed && (
-            <div className="leading-tight">
-              <div className="font-semibold">Al Jazeerah Express</div>
-              <div className="text-xs text-muted-foreground">Titik penjualan</div>
-            </div>
-          )}
+      <div className={cn("flex items-center min-w-0", collapsed ? "justify-center" : "gap-2.5")}>
+        <div className="h-8 w-8 shrink-0 rounded-md bg-primary text-primary-foreground grid place-items-center">
+          <UtensilsCrossed className="h-4 w-4" />
         </div>
-        {onToggle && (
-          <Button
-            variant="ghost"
-            size="icon"
-            type="button"
-            onClick={onToggle}
-            aria-label={collapsed ? "Buka sidebar" : "Ciutkan sidebar"}
-            title={collapsed ? "Buka sidebar" : "Ciutkan sidebar"}
-          >
-            {collapsed ? (
-              <PanelLeftOpen className="h-4 w-4" />
-            ) : (
-              <PanelLeftClose className="h-4 w-4" />
-            )}
-          </Button>
+        {!collapsed && (
+          <div className="leading-tight min-w-0">
+            <div className="text-sm font-semibold truncate">Al Jazeerah Express</div>
+            <div className="text-xs text-muted-foreground">Titik penjualan</div>
+          </div>
         )}
       </div>
+      {onToggle && (
+        <Button
+          variant="ghost"
+          size="icon"
+          type="button"
+          onClick={onToggle}
+          aria-label={collapsed ? "Buka sidebar" : "Ciutkan sidebar"}
+          title={collapsed ? "Buka sidebar" : "Ciutkan sidebar"}
+          className="shrink-0"
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="h-4 w-4" />
+          ) : (
+            <PanelLeftClose className="h-4 w-4" />
+          )}
+        </Button>
+      )}
     </div>
   );
 }

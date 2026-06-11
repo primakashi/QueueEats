@@ -44,8 +44,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatIDR } from "@/lib/format";
-import { ORDER_CHANNEL_LABEL, ORDER_CHANNELS, PAYMENT_DESTINATIONS } from "@/lib/types";
-import type { Outlet } from "@/lib/types";
+import { ORDER_CHANNEL_LABEL, PAYMENT_DESTINATIONS } from "@/lib/types";
+import type { OrderChannelConfig, Outlet } from "@/lib/types";
 import type { SalesOrder } from "./page";
 
 const COLOR_PRIMARY = "#6366f1";
@@ -331,10 +331,12 @@ function outletShare(orders: SalesOrder[], outlets: Pick<Outlet, "id" | "name">[
 export function SalesDashboard({
   orders,
   outlets,
+  channels,
   initialOutlet,
 }: {
   orders: SalesOrder[];
   outlets: Pick<Outlet, "id" | "name">[];
+  channels: OrderChannelConfig[];
   initialOutlet?: string;
 }) {
   const today = useMemo(() => new Date(), []);
@@ -405,7 +407,7 @@ export function SalesDashboard({
     outlets.map((o) => ({ value: o.id, label: o.name })),
     [outlets],
   );
-  const channelOptions = ORDER_CHANNELS.map((ch) => ({ value: ch, label: ORDER_CHANNEL_LABEL[ch] }));
+  const channelOptions = channels.map((ch) => ({ value: ch.id, label: ch.name }));
   const methodOptions = [
     { value: "qris", label: "QRIS" },
     { value: "cash", label: "Tunai" },
@@ -424,7 +426,7 @@ export function SalesDashboard({
       "No. Pesanan": o.order_number,
       Waktu: new Date(o.created_at).toLocaleString("id-ID"),
       Outlet: o.outlet_name ?? "-",
-      Channel: ORDER_CHANNEL_LABEL[(o.order_channel as keyof typeof ORDER_CHANNEL_LABEL) ?? "direct"] ?? o.order_channel ?? "-",
+      Channel: channels.find((ch) => ch.id === o.order_channel)?.name ?? ORDER_CHANNEL_LABEL[o.order_channel ?? ""] ?? o.order_channel ?? "-",
       "Metode Bayar": o.payment_method ?? "-",
       "Tujuan Bayar": o.payment_destination ?? "-",
       Status: o.payment_status,
@@ -622,8 +624,8 @@ export function SalesDashboard({
       {/* Bar charts for channel and payment destination */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card className="p-4">
-          <div className="font-medium mb-1">Pendapatan per channel</div>
-          <ChannelBar orders={filtered} />
+          <div className="font-medium mb-1">Pendapatan per saluran</div>
+          <ChannelBar orders={filtered} channels={channels} />
         </Card>
         <Card className="p-4">
           <div className="font-medium mb-1">Pendapatan per Sumber Pembayaran</div>
@@ -695,7 +697,7 @@ export function SalesDashboard({
                   </TableCell>
                   <TableCell className="text-sm">{o.outlet_name ?? <span className="text-muted-foreground">-</span>}</TableCell>
                   <TableCell className="text-sm">
-                    {ORDER_CHANNEL_LABEL[(o.order_channel as keyof typeof ORDER_CHANNEL_LABEL) ?? "direct"] ?? o.order_channel ?? "-"}
+                    {channels.find((ch) => ch.id === o.order_channel)?.name ?? ORDER_CHANNEL_LABEL[o.order_channel ?? ""] ?? o.order_channel ?? "-"}
                   </TableCell>
                   <TableCell className="text-sm">{o.payment_destination ?? <span className="text-muted-foreground">-</span>}</TableCell>
                   <TableCell>
@@ -722,15 +724,21 @@ export function SalesDashboard({
   );
 }
 
-function ChannelBar({ orders }: { orders: SalesOrder[] }) {
+function ChannelBar({ orders, channels }: { orders: SalesOrder[]; channels: OrderChannelConfig[] }) {
+  const channelName = (id: string | null) => {
+    if (!id) return "Langsung";
+    return channels.find((ch) => ch.id === id)?.name ?? ORDER_CHANNEL_LABEL[id] ?? id;
+  };
+
   const data = useMemo(() => {
     const map = new Map<string, number>();
     for (const o of orders) {
-      const ch = ORDER_CHANNEL_LABEL[(o.order_channel as keyof typeof ORDER_CHANNEL_LABEL) ?? "direct"] ?? o.order_channel ?? "Langsung";
+      const ch = channelName(o.order_channel);
       map.set(ch, (map.get(ch) ?? 0) + o.total);
     }
     return [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [orders]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, channels]);
 
   if (data.length === 0) {
     return <div className="h-48 grid place-items-center text-sm text-muted-foreground">Tidak ada data.</div>;

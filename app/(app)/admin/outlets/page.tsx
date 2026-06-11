@@ -5,7 +5,7 @@ import type { Outlet } from "@/lib/types";
 import { OutletsManager } from "./outlets-manager";
 
 export default async function AdminOutletsPage() {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "owner"]);
   const supabase = await createClient();
   const { data } = await supabase
     .from("outlets")
@@ -19,7 +19,7 @@ export default async function AdminOutletsPage() {
         title="Outlet"
         description="Kelola outlet permanen dan sementara. Setiap transaksi ditandai dengan outlet asal agar rekonsiliasi mudah."
       />
-      <OutletsManager outlets={(data ?? []) as Outlet[]} />
+      <OutletsManager outlets={(data ?? []) as Outlet[]} userRole={profile.role} />
     </div>
   );
 }

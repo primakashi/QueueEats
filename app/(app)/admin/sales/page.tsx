@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/page-header";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Outlet } from "@/lib/types";
+import type { OrderChannelConfig, Outlet } from "@/lib/types";
 import { SalesDashboard } from "./sales-dashboard";
 
 export type SalesOrderItem = {
@@ -37,7 +37,7 @@ export default async function AdminSalesPage({ searchParams }: Props) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 120);
 
-  const [{ data: ordersRaw }, { data: outletsRaw }] = await Promise.all([
+  const [{ data: ordersRaw }, { data: outletsRaw }, { data: channelsRaw }] = await Promise.all([
     supabase
       .from("orders")
       .select(`
@@ -61,6 +61,10 @@ export default async function AdminSalesPage({ searchParams }: Props) {
       .select("id, name")
       .eq("is_archived", false)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("order_channels")
+      .select("id, name, sort_order, is_active")
+      .order("sort_order", { ascending: true }),
   ]);
 
   const orders: SalesOrder[] = (ordersRaw ?? []).map((o: Record<string, unknown>) => ({
@@ -91,6 +95,7 @@ export default async function AdminSalesPage({ searchParams }: Props) {
       <SalesDashboard
         orders={orders}
         outlets={(outletsRaw ?? []) as Pick<Outlet, "id" | "name">[]}
+        channels={(channelsRaw ?? []) as OrderChannelConfig[]}
         initialOutlet={outlet}
       />
     </div>

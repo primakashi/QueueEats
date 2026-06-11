@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import type { Outlet } from "@/lib/types";
+import type { Outlet, UserRole } from "@/lib/types";
 import { archiveOutlet, createOutlet, restoreOutlet, updateOutlet } from "./actions";
 
 function formatDate(d: string | null): string {
@@ -155,7 +155,7 @@ function OutletForm({
   );
 }
 
-function OutletCard({ outlet }: { outlet: Outlet }) {
+function OutletCard({ outlet, userRole }: { outlet: Outlet; userRole: UserRole }) {
   const [pending, start] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
 
@@ -216,32 +216,36 @@ function OutletCard({ outlet }: { outlet: Outlet }) {
       <Separator />
 
       <div className="flex gap-2">
-        <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogTrigger render={<Button size="sm" variant="outline" className="flex-1" />}>
-            Edit
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit outlet</DialogTitle>
-            </DialogHeader>
-            <OutletForm outlet={outlet} onSuccess={() => setEditOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        {userRole === "admin" && (
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
+            <DialogTrigger render={<Button size="sm" variant="outline" className="flex-1" />}>
+              Edit
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit outlet</DialogTitle>
+              </DialogHeader>
+              <OutletForm outlet={outlet} onSuccess={() => setEditOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        )}
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={toggle}
-          disabled={pending}
-          aria-busy={pending}
-          className="flex-1"
-        >
-          {outlet.is_archived ? (
-            <><RotateCcw className="size-3.5 mr-1" /> Pulihkan</>
-          ) : (
-            <><Archive className="size-3.5 mr-1" /> Arsipkan</>
-          )}
-        </Button>
+        {userRole === "owner" && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={toggle}
+            disabled={pending}
+            aria-busy={pending}
+            className="flex-1"
+          >
+            {outlet.is_archived ? (
+              <><RotateCcw className="size-3.5 mr-1" /> Pulihkan</>
+            ) : (
+              <><Archive className="size-3.5 mr-1" /> Arsipkan</>
+            )}
+          </Button>
+        )}
       </div>
 
       <a
@@ -255,36 +259,38 @@ function OutletCard({ outlet }: { outlet: Outlet }) {
   );
 }
 
-export function OutletsManager({ outlets }: { outlets: Outlet[] }) {
+export function OutletsManager({ outlets, userRole }: { outlets: Outlet[]; userRole: UserRole }) {
   const [createOpen, setCreateOpen] = useState(false);
   const active = outlets.filter((o) => !o.is_archived);
   const archived = outlets.filter((o) => o.is_archived);
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger render={<Button />}>
-            <Plus className="size-4 mr-2" />
-            Tambah outlet
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Tambah outlet baru</DialogTitle>
-            </DialogHeader>
-            <OutletForm onSuccess={() => setCreateOpen(false)} />
-          </DialogContent>
-        </Dialog>
-      </div>
+      {userRole === "admin" && (
+        <div className="flex justify-end">
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger render={<Button />}>
+              <Plus className="size-4 mr-2" />
+              Tambah outlet
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Tambah outlet baru</DialogTitle>
+              </DialogHeader>
+              <OutletForm onSuccess={() => setCreateOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
 
       {active.length === 0 ? (
         <Card className="p-10 text-center text-muted-foreground text-sm">
-          Belum ada outlet. Klik "Tambah outlet" untuk memulai.
+          Belum ada outlet.{userRole === "admin" ? ' Klik "Tambah outlet" untuk memulai.' : ""}
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {active.map((o) => (
-            <OutletCard key={o.id} outlet={o} />
+            <OutletCard key={o.id} outlet={o} userRole={userRole} />
           ))}
         </div>
       )}
@@ -294,7 +300,7 @@ export function OutletsManager({ outlets }: { outlets: Outlet[] }) {
           <div className="text-sm font-medium text-muted-foreground">Diarsipkan ({archived.length})</div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {archived.map((o) => (
-              <OutletCard key={o.id} outlet={o} />
+              <OutletCard key={o.id} outlet={o} userRole={userRole} />
             ))}
           </div>
         </div>

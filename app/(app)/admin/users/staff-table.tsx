@@ -185,7 +185,7 @@ export function StaffTable({ profiles }: { profiles: Profile[] }) {
                   {formatDateTime(p.created_at)}
                 </TableCell>
                 <TableCell>
-                  {confirmDeleteId === p.id ? (
+                  {p.role === "owner" ? null : confirmDeleteId === p.id ? (
                     <div className="flex items-center gap-1">
                       <Button
                         size="sm"
@@ -218,6 +218,7 @@ export function StaffTable({ profiles }: { profiles: Profile[] }) {
                     </Button>
                   )}
                 </TableCell>
+
               </TableRow>
             ))}
           </TableBody>

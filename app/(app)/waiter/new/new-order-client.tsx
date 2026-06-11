@@ -21,8 +21,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { formatIDR } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { MenuCategory, MenuItem, OrderChannel, Outlet } from "@/lib/types";
-import { ORDER_CHANNEL_LABEL, ORDER_CHANNELS } from "@/lib/types";
+import type { MenuCategory, MenuItem, OrderChannel, OrderChannelConfig, Outlet } from "@/lib/types";
 import { startRouteProgress } from "@/components/route-progress";
 import { FullScreenLoading } from "@/components/full-screen-loading";
 import {
@@ -53,10 +52,12 @@ export function NewOrderClient({
   items,
   categories,
   outlets,
+  channels,
 }: {
   items: MenuItem[];
   categories: MenuCategory[];
   outlets: Pick<Outlet, "id" | "name" | "is_temporary">[];
+  channels: OrderChannelConfig[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -70,7 +71,7 @@ export function NewOrderClient({
   const [orderNotes, setOrderNotes] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
   const [outletId, setOutletId] = useState<string>(outlets[0]?.id ?? "");
-  const [orderChannel, setOrderChannel] = useState<OrderChannel>("direct");
+  const [orderChannel, setOrderChannel] = useState<OrderChannel>(() => channels[0]?.id ?? "direct");
 
   useEffect(() => {
     setSelectedTableId("");
@@ -248,6 +249,7 @@ export function NewOrderClient({
             setOutletId={setOutletId}
             orderChannel={orderChannel}
             setOrderChannel={setOrderChannel}
+            channels={channels}
           />
         </div>
       </div>
@@ -305,6 +307,7 @@ export function NewOrderClient({
                 setOutletId={setOutletId}
                 orderChannel={orderChannel}
                 setOrderChannel={setOrderChannel}
+                channels={channels}
               />
             </div>
           </SheetContent>
@@ -372,6 +375,7 @@ function CartPanel(props: {
   setOutletId: (v: string) => void;
   orderChannel: OrderChannel;
   setOrderChannel: (v: OrderChannel) => void;
+  channels: OrderChannelConfig[];
 }) {
   const tableSelectValue =
     props.selectedTableId.trim() === ""
@@ -414,18 +418,20 @@ function CartPanel(props: {
         )}
 
         <div className="space-y-1.5">
-          <Label htmlFor="cart-channel">Channel pesanan</Label>
+          <Label htmlFor="cart-channel">Saluran pesanan</Label>
           <Select
             value={props.orderChannel}
-            onValueChange={(v) => { if (v) props.setOrderChannel(v as OrderChannel); }}
+            onValueChange={(v) => { if (v) props.setOrderChannel(v); }}
           >
             <SelectTrigger id="cart-channel" className="w-full min-w-0">
-              <SelectValue>{ORDER_CHANNEL_LABEL[props.orderChannel]}</SelectValue>
+              <SelectValue>
+                {props.channels.find((ch) => ch.id === props.orderChannel)?.name ?? props.orderChannel}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {ORDER_CHANNELS.map((ch) => (
-                <SelectItem key={ch} value={ch}>
-                  {ORDER_CHANNEL_LABEL[ch]}
+              {props.channels.map((ch) => (
+                <SelectItem key={ch.id} value={ch.id}>
+                  {ch.name}
                 </SelectItem>
               ))}
             </SelectContent>

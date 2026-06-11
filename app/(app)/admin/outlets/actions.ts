@@ -73,7 +73,7 @@ function parseRate(s: string): number {
 }
 
 export async function archiveOutlet(id: string): Promise<Result> {
-  await requireRole(["admin"]);
+  await requireRole(["owner"]);
   const supabase = await createClient();
   const { error } = await supabase
     .from("outlets")
@@ -86,7 +86,7 @@ export async function archiveOutlet(id: string): Promise<Result> {
 }
 
 export async function restoreOutlet(id: string): Promise<Result> {
-  await requireRole(["admin"]);
+  await requireRole(["owner"]);
   const supabase = await createClient();
   const { error } = await supabase
     .from("outlets")

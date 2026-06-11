@@ -10,7 +10,14 @@ export type OrderStatus =
 export type PaymentStatus = "unpaid" | "pending" | "paid" | "failed" | "expired";
 export type PaymentMethod = "qris" | "cash" | "edc";
 export type OrderServiceType = "dine_in" | "takeaway";
-export type OrderChannel = "direct" | "shopeefood" | "grabfood" | "gofood" | "other";
+export type OrderChannel = string;
+
+export type OrderChannelConfig = {
+  id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+};
 export type QueueEntryStatus =
   | "waiting"
   | "called"
@@ -168,15 +175,14 @@ export const QUEUE_STATUS_LABEL_ID: Record<QueueEntryStatus, string> = {
   cancelled: "Dibatalkan",
 };
 
-export const ORDER_CHANNEL_LABEL: Record<OrderChannel, string> = {
+/** Fallback labels for orders that predate the order_channels table. */
+export const ORDER_CHANNEL_LABEL: Record<string, string> = {
   direct: "Langsung",
   shopeefood: "ShopeeFood",
   grabfood: "GrabFood",
   gofood: "GoFood",
   other: "Lainnya",
 };
-
-export const ORDER_CHANNELS: OrderChannel[] = ["direct", "shopeefood", "grabfood", "gofood", "other"];
 
 export const PAYMENT_DESTINATIONS = [
   "QRIS BCA",

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Shield, UtensilsCrossed, ChefHat, Receipt } from "lucide-react";
+import { Shield, UtensilsCrossed, ChefHat, Receipt, Crown } from "lucide-react";
 import { FullScreenLoading } from "@/components/full-screen-loading";
 import {
   startRouteProgress,
@@ -16,10 +16,11 @@ import { toast } from "sonner";
 
 const DEMO_PASSWORD = "Passw0rd";
 const DEMO_ACCOUNTS = [
-  { role: "Admin",   email: "admin@google.com",   Icon: Shield           },
-  { role: "Waiters/Host",  email: "waiter@google.com",  Icon: UtensilsCrossed  },
-  { role: "Dapur", email: "kitchen@google.com", Icon: ChefHat          },
-  { role: "Kasir", email: "cashier@google.com", Icon: Receipt          },
+  { role: "Admin",        email: "admin@google.com",   Icon: Shield,         span: false },
+  { role: "Waiters/Host", email: "waiter@google.com",  Icon: UtensilsCrossed, span: false },
+  { role: "Dapur",        email: "kitchen@google.com", Icon: ChefHat,        span: false },
+  { role: "Kasir",        email: "cashier@google.com", Icon: Receipt,        span: false },
+  { role: "Owner",        email: "owner@google.com",   Icon: Crown,          span: true  },
 ] as const;
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
@@ -60,7 +61,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
       )}
       <CardContent className="pt-6 space-y-5">
         <div className="grid grid-cols-2 gap-2">
-          {DEMO_ACCOUNTS.map(({ role, email, Icon }) => {
+          {DEMO_ACCOUNTS.map(({ role, email, Icon, span }) => {
             const busy = isPending && pendingEmail === email;
             return (
               <button
@@ -68,7 +69,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
                 type="button"
                 disabled={isPending}
                 onClick={() => submit(email, DEMO_PASSWORD)}
-                className="group flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 text-left transition hover:border-primary hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none touch-manipulation"
+                className={`group flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 text-left transition hover:border-primary hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none touch-manipulation${span ? " col-span-2" : ""}`}
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition">
                   <Icon className="h-4 w-4" />
