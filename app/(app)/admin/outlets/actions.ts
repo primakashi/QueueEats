@@ -111,8 +111,9 @@ function parseRate(s: string): number {
 
 export async function archiveOutlet(id: string): Promise<Result> {
   await requireRole(["owner"]);
-  const supabase = await createClient();
-  const { error } = await supabase
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const adminClient = createAdminClient();
+  const { error } = await adminClient
     .from("outlets")
     .update({ is_archived: true })
     .eq("id", id);
@@ -124,8 +125,9 @@ export async function archiveOutlet(id: string): Promise<Result> {
 
 export async function restoreOutlet(id: string): Promise<Result> {
   await requireRole(["owner"]);
-  const supabase = await createClient();
-  const { error } = await supabase
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const adminClient = createAdminClient();
+  const { error } = await adminClient
     .from("outlets")
     .update({ is_archived: false })
     .eq("id", id);
