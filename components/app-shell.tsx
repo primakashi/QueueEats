@@ -18,6 +18,7 @@ import {
   ClipboardList,
   PanelLeftClose,
   PanelLeftOpen,
+  ScrollText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -43,7 +44,7 @@ type NavItem = {
 };
 
 /** Nav targets that use `loading.tsx` in-page instead of a sidebar link spinner. */
-const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels"]);
+const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels", "/admin/changelog"]);
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -105,6 +106,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Rekonsiliasi",
     icon: Scale,
     roles: ["admin", "owner"],
+  },
+  {
+    href: "/admin/changelog",
+    label: "Changelog",
+    icon: ScrollText,
+    roles: ["owner", "admin"],
   },
 ];
 
