@@ -227,13 +227,16 @@ export async function updateStaffRole(
   id: string,
   role: "waiter" | "kitchen" | "cashier" | "admin" | "owner",
 ): Promise<Result> {
-  const profile = await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "owner"]);
+  const isOwnerCaller = profile.role === "owner";
+  if (!isOwnerCaller && role === "owner") return { ok: false, error: "Peran owner tidak dapat ditetapkan oleh admin" };
   const supabase = await createClient();
   const { data: existing } = await supabase
     .from("profiles")
     .select("full_name, role")
     .eq("id", id)
     .single();
+  if (!isOwnerCaller && existing?.role === "owner") return { ok: false, error: "Akun owner tidak dapat diubah oleh admin" };
   const { error } = await supabase
     .from("profiles")
     .update({ role })
@@ -253,8 +256,12 @@ export async function updateStaffRole(
 }
 
 export async function deleteStaff(id: string): Promise<Result> {
-  const profile = await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "owner"]);
   if (profile.id === id) return { ok: false, error: "Tidak dapat menghapus akun sendiri" };
+
+  const regularClientCheck = await createClient();
+  const { data: target } = await regularClientCheck.from("profiles").select("role").eq("id", id).single();
+  if (profile.role !== "owner" && target?.role === "owner") return { ok: false, error: "Akun owner tidak dapat dihapus oleh admin" };
 
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const adminClient = createAdminClient();
@@ -270,7 +277,7 @@ export async function deleteStaff(id: string): Promise<Result> {
 }
 
 export async function inviteStaff(formData: FormData): Promise<Result> {
-  await requireRole(["admin"]);
+  const caller = await requireRole(["admin", "owner"]);
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") ?? "").trim();
   const password = String(formData.get("password") ?? "");
@@ -279,6 +286,7 @@ export async function inviteStaff(formData: FormData): Promise<Result> {
   if (!email) return { ok: false, error: "Email wajib diisi" };
   if (!fullName) return { ok: false, error: "Nama wajib diisi" };
   if (!password || password.length < 6) return { ok: false, error: "Kata sandi minimal 6 karakter" };
+  if (caller.role !== "owner" && role === "owner") return { ok: false, error: "Peran owner tidak dapat dibuat oleh admin" };
 
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const adminClient = createAdminClient();

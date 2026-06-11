@@ -5,7 +5,7 @@ import type { Profile } from "@/lib/types";
 import { StaffTable } from "./staff-table";
 
 export default async function StaffPage() {
-  await requireRole(["admin"]);
+  const caller = await requireRole(["admin", "owner"]);
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
@@ -18,7 +18,7 @@ export default async function StaffPage() {
         title="Staf"
         description="Kelola akun dan peran staf"
       />
-      <StaffTable profiles={(data ?? []) as Profile[]} />
+      <StaffTable profiles={(data ?? []) as Profile[]} callerRole={caller.role} />
     </div>
   );
 }

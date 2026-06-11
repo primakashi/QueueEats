@@ -35,9 +35,11 @@ import type { Profile, UserRole } from "@/lib/types";
 import { ROLE_LABEL } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 
-const ROLES: UserRole[] = ["waiter", "kitchen", "cashier", "admin", "owner"];
+const ADMIN_ROLES: UserRole[] = ["waiter", "kitchen", "cashier", "admin"];
+const OWNER_ROLES: UserRole[] = ["waiter", "kitchen", "cashier", "admin", "owner"];
 
-function InviteDialog() {
+function InviteDialog({ callerRole }: { callerRole: UserRole }) {
+  const roles = callerRole === "owner" ? OWNER_ROLES : ADMIN_ROLES;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -87,7 +89,7 @@ function InviteDialog() {
                 <SelectValue>{ROLE_LABEL[selectedRole]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {ROLES.map((r) => (
+                {roles.map((r) => (
                   <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
                 ))}
               </SelectContent>
@@ -102,7 +104,7 @@ function InviteDialog() {
   );
 }
 
-export function StaffTable({ profiles }: { profiles: Profile[] }) {
+export function StaffTable({ profiles, callerRole }: { profiles: Profile[]; callerRole: UserRole }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -142,7 +144,7 @@ export function StaffTable({ profiles }: { profiles: Profile[] }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <InviteDialog />
+        <InviteDialog callerRole={callerRole} />
       </div>
       {profiles.length === 0 ? (
         <div className="p-8 text-center text-sm text-muted-foreground border rounded-md">
@@ -163,23 +165,27 @@ export function StaffTable({ profiles }: { profiles: Profile[] }) {
               <TableRow key={p.id} aria-busy={busyId === p.id}>
                 <TableCell className="font-medium">{p.full_name}</TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={p.role}
-                      onValueChange={(v) => changeRole(p.id, v as UserRole)}
-                      disabled={pending}
-                    >
-                      <SelectTrigger className="w-36">
-                        <SelectValue>{ROLE_LABEL[p.role]}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ROLES.map((r) => (
-                          <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {busyId === p.id && <Spinner className="text-muted-foreground" />}
-                  </div>
+                  {p.role === "owner" ? (
+                    <span className="text-sm text-muted-foreground">{ROLE_LABEL[p.role]}</span>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={p.role}
+                        onValueChange={(v) => changeRole(p.id, v as UserRole)}
+                        disabled={pending}
+                      >
+                        <SelectTrigger className="w-36">
+                          <SelectValue>{ROLE_LABEL[p.role]}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(callerRole === "owner" ? OWNER_ROLES : ADMIN_ROLES).map((r) => (
+                            <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {busyId === p.id && <Spinner className="text-muted-foreground" />}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                   {formatDateTime(p.created_at)}
