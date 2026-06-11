@@ -7,6 +7,7 @@ import {
   ChevronDown,
   LayoutGrid,
   List,
+  Loader2,
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,6 +42,12 @@ const NEXT_STATUS: Partial<Record<OrderStatus, { next: OrderStatus; label: strin
   pending: { next: "preparing", label: "Konfirmasi" },
   preparing: { next: "ready", label: "Siap" },
   ready: { next: "completed", label: "Selesai" },
+};
+
+// Extra shortcut shown when order is pending — lets waiter skip kitchen
+const SKIP_KITCHEN: { next: OrderStatus; label: string } = {
+  next: "ready",
+  label: "Langsung siap",
 };
 
 type ServiceFilter = "all" | "dine_in" | "takeaway";
@@ -252,7 +259,7 @@ function OrderCard({
 }) {
   const advance = NEXT_STATUS[o.status];
   return (
-    <Card className="p-3 gap-0 flex flex-col">
+    <Card className={`p-3 gap-0 flex flex-col transition-opacity ${isBusy ? "opacity-60" : ""}`}>
       <div className="flex items-start justify-between gap-2 mb-2">
         <div>
           <div className="text-sm font-semibold tabular-nums">{o.order_number}</div>
@@ -275,7 +282,12 @@ function OrderCard({
           {o.order_items.slice(0, 4).map((item) => (
             <div key={item.id} className="flex gap-1.5">
               <span className="text-muted-foreground tabular-nums shrink-0">{item.quantity}×</span>
-              <span className="truncate">{item.name_snapshot}</span>
+              <div className="min-w-0">
+                <span className="truncate">{item.name_snapshot}</span>
+                {item.notes && (
+                  <div className="text-muted-foreground italic truncate">↳ {item.notes}</div>
+                )}
+              </div>
             </div>
           ))}
           {o.order_items.length > 4 && (
@@ -285,20 +297,37 @@ function OrderCard({
           )}
         </div>
       )}
+      {o.notes && (
+        <div className="text-xs text-muted-foreground italic border-t pt-1.5 mb-2">
+          📝 {o.notes}
+        </div>
+      )}
       <div className="flex items-center justify-between mt-auto pt-1.5 border-t gap-2">
         <span className="font-semibold tabular-nums text-sm">{formatIDR(o.total)}</span>
-        {advance && (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={isPending && isBusy}
-            aria-busy={isBusy}
-            onClick={() => onAdvance(o.id, advance.next)}
-            className="h-7 text-xs"
-          >
-            {advance.label}
-          </Button>
-        )}
+        <div className="flex gap-1.5">
+          {o.status === "pending" && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={isBusy}
+              onClick={() => onAdvance(o.id, SKIP_KITCHEN.next)}
+              className="h-7 text-xs text-muted-foreground"
+            >
+              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : SKIP_KITCHEN.label}
+            </Button>
+          )}
+          {advance && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isBusy}
+              onClick={() => onAdvance(o.id, advance.next)}
+              className="h-7 text-xs"
+            >
+              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
+            </Button>
+          )}
+        </div>
       </div>
     </Card>
   );
@@ -321,9 +350,10 @@ function OrderRow({
     .map((i) => `${i.quantity}× ${i.name_snapshot}`)
     .join(", ");
   const more = o.order_items.length > 3 ? ` +${o.order_items.length - 3}` : "";
+  const hasItemNotes = o.order_items.some((i) => i.notes);
 
   return (
-    <Card className="px-4 py-3 gap-0">
+    <Card className={`px-4 py-3 gap-0 transition-opacity ${isBusy ? "opacity-60" : ""}`}>
       <div className="flex items-center gap-3 flex-wrap">
         <div className="font-semibold tabular-nums w-16 shrink-0">{o.order_number}</div>
         <div className="text-xs text-muted-foreground shrink-0">
@@ -342,20 +372,38 @@ function OrderRow({
             {PAYMENT_STATUS_LABEL[o.payment_status]}
           </Badge>
           <span className="font-semibold tabular-nums text-sm">{formatIDR(o.total)}</span>
+          {o.status === "pending" && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={isBusy}
+              onClick={() => onAdvance(o.id, SKIP_KITCHEN.next)}
+              className="h-7 text-xs text-muted-foreground"
+            >
+              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : SKIP_KITCHEN.label}
+            </Button>
+          )}
           {advance && (
             <Button
               size="sm"
               variant="outline"
-              disabled={isPending && isBusy}
-              aria-busy={isBusy}
+              disabled={isBusy}
               onClick={() => onAdvance(o.id, advance.next)}
               className="h-7 text-xs"
             >
-              {advance.label}
+              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
             </Button>
           )}
         </div>
       </div>
+      {(o.notes || hasItemNotes) && (
+        <div className="mt-1.5 pt-1.5 border-t text-xs text-muted-foreground space-y-0.5">
+          {o.notes && <div className="italic">📝 {o.notes}</div>}
+          {hasItemNotes && o.order_items.filter((i) => i.notes).map((i) => (
+            <div key={i.id} className="italic">↳ {i.quantity}× {i.name_snapshot}: {i.notes}</div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

@@ -7,8 +7,8 @@ import type { OrderStatus } from "@/lib/types";
 import { ORDER_STATUS_LABEL } from "@/lib/types";
 
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  pending: ["preparing", "cancelled"],
-  preparing: ["ready", "cancelled"],
+  pending: ["preparing", "ready", "completed", "cancelled"],
+  preparing: ["ready", "completed", "cancelled"],
   ready: ["completed"],
   completed: [],
   cancelled: [],
@@ -36,11 +36,14 @@ export async function updateOrderStatus(
     };
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("orders")
     .update({ status: next })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: error.message };
+  if (!updated || updated.length === 0)
+    return { ok: false, error: "Tidak dapat mengubah status — periksa izin akun ini di Supabase." };
 
   revalidatePath("/waiter");
   revalidatePath("/kitchen");

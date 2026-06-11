@@ -615,7 +615,7 @@ function CartPanel(props: {
           onClick={props.onSubmit}
         >
           {props.pending && <Spinner className="mr-2" />}
-          {props.pending ? "Mengirim…" : "Kirim ke dapur"}
+          {props.pending ? "Mengirim…" : "Buat Order"}
         </Button>
       </div>
     </>
