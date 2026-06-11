@@ -297,11 +297,16 @@ export async function inviteStaff(formData: FormData): Promise<Result> {
     email_confirm: true,
     user_metadata: { full_name: fullName },
   });
-  if (authErr) return { ok: false, error: authErr.message };
+  if (authErr) {
+    const msg = authErr.message.toLowerCase();
+    if (msg.includes("already been registered") || msg.includes("already registered") || msg.includes("email_exists")) {
+      return { ok: false, error: "Email sudah terdaftar. Gunakan email lain." };
+    }
+    return { ok: false, error: authErr.message };
+  }
   if (!authData.user) return { ok: false, error: "Gagal membuat akun" };
 
-  const regularClient = await createClient();
-  const { error: profileErr } = await regularClient
+  const { error: profileErr } = await adminClient
     .from("profiles")
     .upsert({ id: authData.user.id, full_name: fullName, role }, { onConflict: "id" });
   if (profileErr) return { ok: false, error: profileErr.message };
