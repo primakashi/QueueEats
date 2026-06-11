@@ -329,7 +329,7 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
     <Card
       aria-busy={pending}
       className={cn(
-        "relative gap-3 border-l-4 p-4",
+        "relative gap-2 border-l-4 p-3",
         isTakeaway ? "border-l-amber-500" : "border-l-teal-600",
         overdue && "ring-2 ring-red-500 ring-offset-2 ring-offset-background",
         order.status === "ready" && "border-emerald-200 bg-emerald-50/40",
@@ -337,28 +337,26 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 space-y-2">
+        <div className="min-w-0 space-y-1">
           <div
             className={cn(
-              "flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold",
+              "inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-semibold",
               isTakeaway
                 ? "bg-amber-100 text-amber-950 dark:bg-amber-950/40 dark:text-amber-50"
                 : "bg-teal-100 text-teal-950 dark:bg-teal-950/40 dark:text-teal-50",
             )}
           >
             {isTakeaway ? (
-              <Package className="h-4 w-4 shrink-0" aria-hidden />
+              <Package className="h-3.5 w-3.5 shrink-0" aria-hidden />
             ) : (
-              <UtensilsCrossed className="h-4 w-4 shrink-0" aria-hidden />
+              <UtensilsCrossed className="h-3.5 w-3.5 shrink-0" aria-hidden />
             )}
-            <span>{isTakeaway ? "Bungkus" : "Makan di tempat"}</span>
+            <span>{isTakeaway ? "Bungkus" : "Dine-in"}</span>
             {order.table_number?.trim() ? (
-              <span className="font-medium opacity-90">
-                · Meja {order.table_number}
-              </span>
+              <span className="opacity-90">· Meja {order.table_number}</span>
             ) : null}
           </div>
-          <div className="text-lg font-semibold tabular-nums">
+          <div className="font-semibold tabular-nums">
             {order.order_number}
           </div>
           <div className="text-xs text-muted-foreground">
@@ -368,25 +366,25 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
         </div>
         <Badge
           variant={overdue ? "destructive" : "secondary"}
-          className="shrink-0 tabular-nums"
+          className="shrink-0 tabular-nums text-xs"
         >
           {mins}m
         </Badge>
       </div>
 
-      <ul className="space-y-1.5">
+      <ul className="space-y-1 border-t pt-2">
         {order.order_items
           .slice()
           .sort((a, b) => a.created_at.localeCompare(b.created_at))
           .map((i) => (
-            <li key={i.id} className="flex items-start gap-2 text-base">
-              <span className="inline-block w-7 shrink-0 text-right font-semibold tabular-nums">
+            <li key={i.id} className="flex items-start gap-2 text-sm">
+              <span className="inline-block w-6 shrink-0 text-right font-semibold tabular-nums">
                 {i.quantity}×
               </span>
               <div className="flex-1 min-w-0">
                 <div className="leading-snug">{i.name_snapshot}</div>
                 {i.notes && (
-                  <div className="text-sm text-muted-foreground italic">
+                  <div className="text-xs text-muted-foreground italic">
                     {i.notes}
                   </div>
                 )}
@@ -397,14 +395,14 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
 
       {order.notes && (
         <div className="text-xs text-muted-foreground italic border-t pt-2">
-          Catatan pesanan: {order.notes}
+          {order.notes}
         </div>
       )}
 
       {order.status === "pending" && (
         <div className="flex gap-2 pt-1">
           <Button
-            className="flex-1 h-12 text-base touch-manipulation"
+            className="flex-1 h-10 touch-manipulation"
             disabled={pending}
             onClick={() => transition("preparing")}
           >
@@ -420,7 +418,7 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
       {order.status === "preparing" && (
         <div className="flex gap-2 pt-1">
           <Button
-            className="flex-1 h-12 text-base bg-emerald-600 hover:bg-emerald-600/90 touch-manipulation"
+            className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-600/90 touch-manipulation"
             disabled={pending}
             onClick={() => transition("ready")}
           >
@@ -434,7 +432,7 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
         </div>
       )}
       {order.status === "ready" && (
-        <div className="flex items-center justify-center gap-2 pt-1 text-sm font-medium text-emerald-700">
+        <div className="flex items-center justify-center gap-1.5 pt-1 text-sm font-medium text-emerald-700">
           <CheckCircle2 className="h-4 w-4" />
           Siap diambil
         </div>

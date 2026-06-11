@@ -252,10 +252,10 @@ function OrderCard({
 }) {
   const advance = NEXT_STATUS[o.status];
   return (
-    <Card className="p-4 gap-0 flex flex-col">
+    <Card className="p-3 gap-0 flex flex-col">
       <div className="flex items-start justify-between gap-2 mb-2">
         <div>
-          <div className="font-semibold tabular-nums">{o.order_number}</div>
+          <div className="text-sm font-semibold tabular-nums">{o.order_number}</div>
           <div className="text-xs text-muted-foreground">
             {formatTime(o.created_at)}
             {o.service_type === "takeaway" ? " · Bungkus" : " · Dine-in"}
@@ -264,14 +264,14 @@ function OrderCard({
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Badge className={statusColor(o.status)}>{ORDER_STATUS_LABEL[o.status]}</Badge>
-          <Badge variant="secondary" className={paymentColor(o.payment_status)}>
+          <Badge className={`text-xs ${statusColor(o.status)}`}>{ORDER_STATUS_LABEL[o.status]}</Badge>
+          <Badge variant="secondary" className={`text-xs ${paymentColor(o.payment_status)}`}>
             {PAYMENT_STATUS_LABEL[o.payment_status]}
           </Badge>
         </div>
       </div>
       {o.order_items.length > 0 && (
-        <div className="text-sm space-y-0.5 mb-3 border-t pt-2">
+        <div className="text-xs space-y-0.5 mb-2 border-t pt-1.5">
           {o.order_items.slice(0, 4).map((item) => (
             <div key={item.id} className="flex gap-1.5">
               <span className="text-muted-foreground tabular-nums shrink-0">{item.quantity}×</span>
@@ -279,13 +279,13 @@ function OrderCard({
             </div>
           ))}
           {o.order_items.length > 4 && (
-            <div className="text-xs text-muted-foreground">
+            <div className="text-muted-foreground">
               +{o.order_items.length - 4} item lagi
             </div>
           )}
         </div>
       )}
-      <div className="flex items-center justify-between mt-auto pt-2 border-t gap-2">
+      <div className="flex items-center justify-between mt-auto pt-1.5 border-t gap-2">
         <span className="font-semibold tabular-nums text-sm">{formatIDR(o.total)}</span>
         {advance && (
           <Button
