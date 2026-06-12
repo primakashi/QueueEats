@@ -16,7 +16,7 @@ export default async function SuperAdminLayout({ children }: { children: React.R
           </div>
           <div>
             <span className="font-semibold text-sm">Solusi Saji</span>
-            <span className="text-xs text-muted-foreground ml-2">Product Team</span>
+            <span className="text-xs text-muted-foreground ml-2">Super Admin</span>
           </div>
         </div>
         <form action={signOut}>
