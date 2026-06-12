@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { type UserRole, HQ_ROLES } from "@/lib/types";
 
@@ -14,15 +14,16 @@ type Result<T = undefined> =
 // ========== Categories ==========
 
 export async function createCategory(formData: FormData): Promise<Result> {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "branch_manager"]);
   const name = String(formData.get("name") ?? "").trim();
   const sortOrder = Number(formData.get("sort_order") ?? 0);
   if (!name) return { ok: false, error: "Nama wajib diisi" };
+  const restaurant_id = getRestaurantFilter(profile);
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("menu_categories")
-    .insert({ name, sort_order: Number.isFinite(sortOrder) ? sortOrder : 0 });
+    .insert({ name, sort_order: Number.isFinite(sortOrder) ? sortOrder : 0, restaurant_id });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/categories");
   revalidatePath("/admin/menu");
@@ -76,7 +77,7 @@ async function uploadImage(file: File | null): Promise<string | null> {
 }
 
 export async function createMenuItem(formData: FormData): Promise<Result> {
-  const profile = await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "branch_manager"]);
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const price = Number(formData.get("price") ?? 0);
@@ -95,10 +96,11 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
     return { ok: false, error: (e as Error).message };
   }
 
+  const restaurant_id = getRestaurantFilter(profile);
   const supabase = await createClient();
   const { data: inserted, error } = await supabase
     .from("menu_items")
-    .insert({ name, description, price, category_id, is_available, image_url })
+    .insert({ name, description, price, category_id, is_available, image_url, restaurant_id })
     .select("id")
     .single();
   if (error) return { ok: false, error: error.message };
@@ -312,9 +314,10 @@ export async function inviteStaff(formData: FormData): Promise<Result> {
   }
   if (!authData.user) return { ok: false, error: "Gagal membuat akun" };
 
+  const restaurantId = getRestaurantFilter(caller);
   const { error: profileErr } = await adminClient
     .from("profiles")
-    .upsert({ id: authData.user.id, full_name: fullName, role, outlet_id: outletId }, { onConflict: "id" });
+    .upsert({ id: authData.user.id, full_name: fullName, role, outlet_id: outletId, restaurant_id: restaurantId }, { onConflict: "id" });
   if (profileErr) return { ok: false, error: profileErr.message };
 
   revalidatePath("/admin/users");

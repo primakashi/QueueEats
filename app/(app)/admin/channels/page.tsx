@@ -1,16 +1,16 @@
 import { PageHeader } from "@/components/page-header";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { OrderChannelConfig } from "@/lib/types";
 import { ChannelsManager } from "./channels-manager";
 
 export default async function AdminChannelsPage() {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin"]);
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("order_channels")
-    .select("*")
-    .order("sort_order", { ascending: true });
+  const rid = getRestaurantFilter(profile);
+  let q = supabase.from("order_channels").select("*");
+  if (rid) q = q.eq("restaurant_id", rid);
+  const { data } = await q.order("sort_order", { ascending: true });
 
   return (
     <div className="p-6 max-w-3xl mx-auto">

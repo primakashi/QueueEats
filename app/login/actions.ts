@@ -50,7 +50,9 @@ export async function signIn(formData: FormData) {
   };
   await setProfileCookie(profile);
 
-  if (redirectTo && redirectTo.startsWith("/")) {
+  const APP_PREFIXES = ["/admin", "/cashier", "/waiter", "/kitchen", "/host", "/superadmin"];
+  const isAppRoute = APP_PREFIXES.some((p) => redirectTo.startsWith(p));
+  if (isAppRoute) {
     redirect(redirectTo);
   }
   redirect(homeForRole(profile.role));

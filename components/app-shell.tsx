@@ -124,9 +124,11 @@ const NAV_ITEMS: NavItem[] = [
 
 export function AppShell({
   profile,
+  restaurantName,
   children,
 }: {
   profile: Profile;
+  restaurantName: string;
   children: React.ReactNode;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -148,6 +150,7 @@ export function AppShell({
         )}
       >
         <BrandHeader
+          name={restaurantName}
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed((prev) => !prev)}
         />
@@ -175,12 +178,12 @@ export function AppShell({
               <MenuIcon className="h-5 w-5" />
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72 flex flex-col">
-              <BrandHeader />
+              <BrandHeader name={restaurantName} />
               <Nav items={items} />
               <UserFooter profile={profile} />
             </SheetContent>
           </Sheet>
-          <span className="font-semibold">Al Jazeerah Express</span>
+          <span className="font-semibold">{restaurantName}</span>
           <UserMenu profile={profile} />
         </header>
 
@@ -193,9 +196,11 @@ export function AppShell({
 }
 
 function BrandHeader({
+  name,
   collapsed = false,
   onToggle,
 }: {
+  name: string;
   collapsed?: boolean;
   onToggle?: () => void;
 }) {
@@ -212,7 +217,7 @@ function BrandHeader({
         </div>
         {!collapsed && (
           <div className="leading-tight min-w-0">
-            <div className="text-sm font-semibold truncate">Al Jazeerah Express</div>
+            <div className="text-sm font-semibold truncate">{name}</div>
             <div className="text-xs text-muted-foreground">Titik penjualan</div>
           </div>
         )}

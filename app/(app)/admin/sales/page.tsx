@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/page-header";
-import { requireRole, getOutletFilter } from "@/lib/auth";
+import { requireRole, getOutletFilter, getRestaurantFilter } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { OrderChannelConfig, Outlet } from "@/lib/types";
 import { SalesDashboard } from "./sales-dashboard";
@@ -34,6 +34,7 @@ export default async function AdminSalesPage({ searchParams }: Props) {
   const { outlet } = await searchParams;
   const supabase = await createClient();
   const outletFilter = getOutletFilter(profile);
+  const rid = getRestaurantFilter(profile);
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 120);
@@ -57,18 +58,18 @@ export default async function AdminSalesPage({ searchParams }: Props) {
     .gte("created_at", cutoff.toISOString())
     .order("created_at", { ascending: false });
   if (outletFilter) ordersQuery = ordersQuery.eq("outlet_id", outletFilter);
+  else if (rid) ordersQuery = ordersQuery.eq("restaurant_id", rid);
+
+  let outletsQuery = supabase.from("outlets").select("id, name").eq("is_archived", false);
+  if (rid) outletsQuery = outletsQuery.eq("restaurant_id", rid);
+
+  let channelsQuery = supabase.from("order_channels").select("id, name, sort_order, is_active");
+  if (rid) channelsQuery = channelsQuery.eq("restaurant_id", rid);
 
   const [{ data: ordersRaw }, { data: outletsRaw }, { data: channelsRaw }] = await Promise.all([
     ordersQuery,
-    supabase
-      .from("outlets")
-      .select("id, name")
-      .eq("is_archived", false)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("order_channels")
-      .select("id, name, sort_order, is_active")
-      .order("sort_order", { ascending: true }),
+    outletsQuery.order("created_at", { ascending: true }),
+    channelsQuery.order("sort_order", { ascending: true }),
   ]);
 
   const orders: SalesOrder[] = (ordersRaw ?? []).map((o: Record<string, unknown>) => ({

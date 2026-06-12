@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import { formatIDR, formatDateTime } from "@/lib/format";
 import {
   ORDER_STATUS_LABEL,
@@ -22,23 +22,19 @@ import { EditableOrderItems } from "./order-edit";
 type Props = { params: Promise<{ orderId: string }> };
 
 export default async function CashierOrderPage({ params }: Props) {
-  await requireRole(["cashier", "admin"]);
+  const profile = await requireRole(["cashier", "admin", "branch_manager"]);
   const { orderId } = await params;
   const supabase = await createClient();
+  const rid = getRestaurantFilter(profile);
+
+  let menuQuery = supabase.from("menu_items").select("id, name, price, is_available").eq("is_available", true);
+  if (rid) menuQuery = menuQuery.eq("restaurant_id", rid);
 
   const [{ data: order }, { data: items }, { data: menuItems }] =
     await Promise.all([
       supabase.from("orders").select("*").eq("id", orderId).maybeSingle(),
-      supabase
-        .from("order_items")
-        .select("*")
-        .eq("order_id", orderId)
-        .order("created_at"),
-      supabase
-        .from("menu_items")
-        .select("id, name, price, is_available")
-        .eq("is_available", true)
-        .order("name"),
+      supabase.from("order_items").select("*").eq("order_id", orderId).order("created_at"),
+      menuQuery.order("name"),
     ]);
 
   if (!order) notFound();

@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Al Jazeerah Express POS",
-  description: "POS berbasis web dengan antrian dapur dan pembayaran QRIS",
+  title: "Solusi Saji",
+  description: "Sistem restoran all-in-one — antrian, order, dapur, pembayaran, laporan.",
 };
 
 export const viewport: Viewport = {

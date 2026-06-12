@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/page-header";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 
@@ -69,14 +69,19 @@ function actionVariant(action: string): "default" | "secondary" | "destructive" 
 }
 
 export default async function ChangelogPage() {
-  await requireRole(["owner"]);
-
+  const profile = await requireRole(["owner"]);
   const supabase = await createClient();
-  const { data: logs } = await supabase
-    .from("audit_logs")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(500);
+  const rid = getRestaurantFilter(profile);
+
+  // Scope logs to users who belong to this restaurant
+  let logsQuery = supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500);
+  if (rid) {
+    const { data: staffIds } = await supabase.from("profiles").select("id").eq("restaurant_id", rid);
+    const ids = (staffIds ?? []).map((p) => p.id as string);
+    if (ids.length) logsQuery = logsQuery.in("changed_by_id", ids);
+    else logsQuery = logsQuery.eq("changed_by_id", "00000000-0000-0000-0000-000000000000");
+  }
+  const { data: logs } = await logsQuery;
 
   const rows = (logs ?? []) as AuditLog[];
 

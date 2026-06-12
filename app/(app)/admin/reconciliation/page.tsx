@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/page-header";
-import { requireRole, getOutletFilter } from "@/lib/auth";
+import { requireRole, getOutletFilter, getRestaurantFilter } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { CashMovement, CashierSession, Outlet } from "@/lib/types";
 import { ReconciliationBoard } from "./reconciliation-board";
@@ -25,6 +25,7 @@ export default async function ReconciliationPage() {
   const profile = await requireRole(["admin", "owner", "finance", "branch_manager"]);
   const supabase = await createClient();
   const outletFilter = getOutletFilter(profile);
+  const rid = getRestaurantFilter(profile);
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 30);
@@ -42,6 +43,7 @@ export default async function ReconciliationPage() {
     .gte("created_at", cutoff.toISOString())
     .order("created_at", { ascending: false });
   if (outletFilter) ordersQuery = ordersQuery.eq("outlet_id", outletFilter);
+  else if (rid) ordersQuery = ordersQuery.eq("restaurant_id", rid);
 
   let sessionsQuery = supabase
     .from("cashier_sessions")
@@ -49,6 +51,10 @@ export default async function ReconciliationPage() {
     .gte("session_date", cutoffDate)
     .order("session_date", { ascending: false });
   if (outletFilter) sessionsQuery = sessionsQuery.eq("outlet_id", outletFilter);
+  else if (rid) sessionsQuery = sessionsQuery.eq("restaurant_id", rid);
+
+  let outletsQuery = supabase.from("outlets").select("id, name").eq("is_archived", false);
+  if (rid) outletsQuery = outletsQuery.eq("restaurant_id", rid);
 
   const [
     { data: ordersRaw },
@@ -56,11 +62,7 @@ export default async function ReconciliationPage() {
     { data: sessionsRaw },
   ] = await Promise.all([
     ordersQuery,
-    supabase
-      .from("outlets")
-      .select("id, name")
-      .eq("is_archived", false)
-      .order("created_at", { ascending: true }),
+    outletsQuery.order("created_at", { ascending: true }),
     sessionsQuery,
   ]);
 

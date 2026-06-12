@@ -14,9 +14,9 @@ export default async function LoginPage({ searchParams }: Props) {
           <div className="h-12 w-12 rounded-xl bg-primary text-primary-foreground grid place-items-center">
             <UtensilsCrossed className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Al Jazeerah Express POS</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Solusi Saji</h1>
           <p className="text-sm text-muted-foreground">
-            Masuk ke akun staf Anda
+            Masuk ke akun restoran Anda
           </p>
         </div>
         <LoginForm redirectTo={redirect} />
