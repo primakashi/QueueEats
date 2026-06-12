@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole, getOutletFilter } from "@/lib/auth";
+import { requireRole, getOutletFilter, getRestaurantFilter } from "@/lib/auth";
 import { formatIDR, formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,6 +26,7 @@ export default async function CashierSessionsPage() {
   const profile = await requireRole(["admin", "owner", "finance", "branch_manager"]);
   const supabase = await createClient();
   const outletFilter = getOutletFilter(profile);
+  const rid = getRestaurantFilter(profile);
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 30);
@@ -41,6 +42,7 @@ export default async function CashierSessionsPage() {
     .gte("session_date", cutoff.toISOString().slice(0, 10))
     .order("session_date", { ascending: false });
   if (outletFilter) sessionsQuery = sessionsQuery.eq("outlet_id", outletFilter);
+  else if (rid) sessionsQuery = sessionsQuery.eq("restaurant_id", rid);
 
   const { data: sessionsRaw } = await sessionsQuery;
   const sessions = (sessionsRaw ?? []) as Array<Record<string, unknown>>;

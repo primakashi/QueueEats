@@ -32,17 +32,17 @@ export async function createCategory(formData: FormData): Promise<Result> {
 }
 
 export async function updateCategory(formData: FormData): Promise<Result> {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "branch_manager"]);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const sortOrder = Number(formData.get("sort_order") ?? 0);
   if (!id || !name) return { ok: false, error: "Data tidak lengkap" };
 
+  const rid = getRestaurantFilter(profile);
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("menu_categories")
-    .update({ name, sort_order: Number.isFinite(sortOrder) ? sortOrder : 0 })
-    .eq("id", id);
+  let q = supabase.from("menu_categories").update({ name, sort_order: Number.isFinite(sortOrder) ? sortOrder : 0 }).eq("id", id);
+  if (rid) q = q.eq("restaurant_id", rid);
+  const { error } = await q;
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/categories");
   revalidatePath("/admin/menu");
@@ -51,9 +51,12 @@ export async function updateCategory(formData: FormData): Promise<Result> {
 }
 
 export async function deleteCategory(id: string): Promise<Result> {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "branch_manager"]);
+  const rid = getRestaurantFilter(profile);
   const supabase = await createClient();
-  const { error } = await supabase.from("menu_categories").delete().eq("id", id);
+  let q = supabase.from("menu_categories").delete().eq("id", id);
+  if (rid) q = q.eq("restaurant_id", rid);
+  const { error } = await q;
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/categories");
   revalidatePath("/admin/menu");
@@ -117,7 +120,7 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
 }
 
 export async function updateMenuItem(formData: FormData): Promise<Result> {
-  const profile = await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "branch_manager"]);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
@@ -131,13 +134,12 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
   if (!Number.isFinite(price) || price < 0)
     return { ok: false, error: "Harga harus angka tidak negatif" };
 
+  const rid = getRestaurantFilter(profile);
   const supabase = await createClient();
 
-  const { data: existing } = await supabase
-    .from("menu_items")
-    .select("name, price")
-    .eq("id", id)
-    .single();
+  let existingQ = supabase.from("menu_items").select("name, price").eq("id", id);
+  if (rid) existingQ = existingQ.eq("restaurant_id", rid);
+  const { data: existing } = await existingQ.single();
 
   const update: Record<string, unknown> = {
     name,
@@ -155,10 +157,9 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
     }
   }
 
-  const { error } = await supabase
-    .from("menu_items")
-    .update(update)
-    .eq("id", id);
+  let updateQ = supabase.from("menu_items").update(update).eq("id", id);
+  if (rid) updateQ = updateQ.eq("restaurant_id", rid);
+  const { error } = await updateQ;
   if (error) return { ok: false, error: error.message };
 
   if (existing) {
@@ -188,12 +189,12 @@ export async function toggleMenuItemAvailability(
   id: string,
   available: boolean,
 ): Promise<Result> {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "branch_manager"]);
+  const rid = getRestaurantFilter(profile);
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("menu_items")
-    .update({ is_available: available })
-    .eq("id", id);
+  let q = supabase.from("menu_items").update({ is_available: available }).eq("id", id);
+  if (rid) q = q.eq("restaurant_id", rid);
+  const { error } = await q;
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/menu");
   revalidatePath("/waiter/new");
@@ -201,14 +202,15 @@ export async function toggleMenuItemAvailability(
 }
 
 export async function deleteMenuItem(id: string): Promise<Result> {
-  const profile = await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "branch_manager"]);
+  const rid = getRestaurantFilter(profile);
   const supabase = await createClient();
-  const { data: existing } = await supabase
-    .from("menu_items")
-    .select("name, price")
-    .eq("id", id)
-    .single();
-  const { error } = await supabase.from("menu_items").delete().eq("id", id);
+  let existingQ = supabase.from("menu_items").select("name, price").eq("id", id);
+  if (rid) existingQ = existingQ.eq("restaurant_id", rid);
+  const { data: existing } = await existingQ.single();
+  let deleteQ = supabase.from("menu_items").delete().eq("id", id);
+  if (rid) deleteQ = deleteQ.eq("restaurant_id", rid);
+  const { error } = await deleteQ;
   if (error) return { ok: false, error: error.message };
   await logAudit(profile, {
     table: "menu_items",
