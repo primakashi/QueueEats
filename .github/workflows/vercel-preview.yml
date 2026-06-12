@@ -26,6 +26,11 @@ jobs:
         with:
           node-version: 20
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "Prima Dani"
+          git config --global user.email "cc.primadani@gmail.com"
+
       - name: Install Vercel CLI
         run: npm i -g vercel@latest
 
