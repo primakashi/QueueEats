@@ -10,7 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/format";
 
 export default async function SuperAdminPage() {
@@ -77,7 +76,6 @@ export default async function SuperAdminPage() {
                 <TableHead>Nama Restoran</TableHead>
                 <TableHead>Owner</TableHead>
                 <TableHead className="text-center">Outlet</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead className="hidden sm:table-cell">Bergabung</TableHead>
               </TableRow>
             </TableHeader>
@@ -90,13 +88,6 @@ export default async function SuperAdminPage() {
                   </TableCell>
                   <TableCell className="text-center tabular-nums">
                     {outletCountByRestaurant.get(r.id as string) ?? 0}
-                  </TableCell>
-                  <TableCell>
-                    {r.is_active ? (
-                      <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50">Aktif</Badge>
-                    ) : (
-                      <Badge variant="secondary">Nonaktif</Badge>
-                    )}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                     {formatDateTime(r.created_at as string)}
