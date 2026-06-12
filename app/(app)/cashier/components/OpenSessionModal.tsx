@@ -1,0 +1,77 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Wallet } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { openSession } from "../session-actions";
+
+export function OpenSessionGate({ outletId }: { outletId: string | null }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    const fd = new FormData(e.currentTarget);
+    if (outletId) fd.set("outlet_id", outletId);
+    start(async () => {
+      const res = await openSession(fd);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      toast.success("Sesi kasir dibuka");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/90 backdrop-blur-sm p-4">
+      <Card className="w-full max-w-sm">
+        <CardContent className="pt-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-semibold">Buka Sesi Kasir</h2>
+              <p className="text-xs text-muted-foreground">Sesi belum dibuka hari ini.</p>
+            </div>
+          </div>
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="opening-cash">Modal awal (Rp)</Label>
+              <Input
+                id="opening-cash"
+                name="opening_cash"
+                type="number"
+                min={0}
+                step={1000}
+                defaultValue={0}
+                placeholder="0"
+                required
+                disabled={pending}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Jumlah uang tunai di laci kasir saat sesi dimulai.
+              </p>
+            </div>
+            {error && (
+              <p className="text-sm text-destructive" role="alert">{error}</p>
+            )}
+            <Button type="submit" className="w-full" disabled={pending} aria-busy={pending}>
+              {pending ? "Membuka sesi…" : "Buka Sesi"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

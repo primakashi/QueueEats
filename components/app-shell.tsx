@@ -19,6 +19,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ScrollText,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -44,44 +45,44 @@ type NavItem = {
 };
 
 /** Nav targets that use `loading.tsx` in-page instead of a sidebar link spinner. */
-const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels", "/admin/changelog"]);
+const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels", "/admin/changelog", "/admin/cashier-sessions"]);
 
 const NAV_ITEMS: NavItem[] = [
   {
     href: "/waiter",
     label: "Pesanan",
     icon: ClipboardList,
-    roles: ["waiter", "cashier", "admin"],
+    roles: ["waiter", "cashier", "admin", "branch_manager"],
   },
   {
     href: "/host",
     label: "Antrean",
     icon: Users,
-    roles: ["waiter", "admin"],
+    roles: ["waiter", "admin", "branch_manager"],
   },
   {
     href: "/kitchen",
     label: "Dapur",
     icon: ChefHat,
-    roles: ["kitchen", "admin"],
+    roles: ["kitchen", "admin", "branch_manager"],
   },
   {
     href: "/cashier",
     label: "Kasir",
     icon: CreditCard,
-    roles: ["cashier", "admin"],
+    roles: ["cashier", "admin", "branch_manager"],
   },
   {
     href: "/admin/menu",
     label: "Menu",
     icon: UtensilsCrossed,
-    roles: ["admin"],
+    roles: ["admin", "branch_manager"],
   },
   {
     href: "/admin/users",
     label: "Staf",
     icon: Users,
-    roles: ["admin", "owner"],
+    roles: ["admin", "owner", "branch_manager"],
   },
   {
     href: "/admin/outlets",
@@ -99,13 +100,19 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/sales",
     label: "Penjualan",
     icon: BarChart3,
-    roles: ["admin", "owner"],
+    roles: ["admin", "owner", "finance", "branch_manager"],
   },
   {
     href: "/admin/reconciliation",
     label: "Rekonsiliasi",
     icon: Scale,
-    roles: ["admin", "owner"],
+    roles: ["admin", "owner", "finance", "branch_manager"],
+  },
+  {
+    href: "/admin/cashier-sessions",
+    label: "Sesi Kasir",
+    icon: Wallet,
+    roles: ["admin", "owner", "finance", "branch_manager"],
   },
   {
     href: "/admin/changelog",

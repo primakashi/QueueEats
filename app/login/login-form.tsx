@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -94,6 +95,14 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Masuk..." : "Masuk"}
           </Button>
+          <div className="text-center">
+            <Link
+              href="/login/reset"
+              className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline transition-colors"
+            >
+              Lupa kata sandi?
+            </Link>
+          </div>
         </form>
       </CardContent>
     </Card>

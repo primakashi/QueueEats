@@ -26,15 +26,18 @@ export function PaymentPanel({ order }: { order: Order }) {
   const [pending, start] = useTransition();
   const [action, setAction] = useState<"cash" | "edc" | null>(null);
   const [paymentDestination, setPaymentDestination] = useState<string>("");
+  const [payError, setPayError] = useState<string | null>(null);
 
   const isPaid = order.payment_status === "paid";
 
   function pay(method: "cash" | "edc") {
     setAction(method);
+    setPayError(null);
     start(async () => {
       const res = await confirmPayment(order.id, method, paymentDestination || undefined);
       if (!res.ok) {
         toast.error(res.error);
+        setPayError(res.error);
         setAction(null);
         return;
       }
@@ -130,6 +133,11 @@ export function PaymentPanel({ order }: { order: Order }) {
           {action === "edc" ? "Mencatat…" : "Bayar EDC / Kartu"}
         </Button>
       </div>
+      {payError && (
+        <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
+          {payError} — Coba lagi.
+        </div>
+      )}
     </Card>
   );
 }

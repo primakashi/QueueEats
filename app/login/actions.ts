@@ -42,7 +42,12 @@ export async function signIn(formData: FormData) {
     return { error: "Tidak ada profil untuk akun ini" };
   }
 
-  const profile = profileRow as Profile;
+  const raw = profileRow as Record<string, unknown>;
+  const profile: Profile = {
+    ...(raw as unknown as Profile),
+    outlet_id: (raw.outlet_id as string | null) ?? null,
+    restaurant_id: (raw.restaurant_id as string | null) ?? null,
+  };
   await setProfileCookie(profile);
 
   if (redirectTo && redirectTo.startsWith("/")) {

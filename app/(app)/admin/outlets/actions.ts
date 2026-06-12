@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import type { Outlet } from "@/lib/types";
 
@@ -11,7 +11,7 @@ type Result<T = undefined> =
   | { ok: false; error: string };
 
 export async function createOutlet(formData: FormData): Promise<Result<Outlet>> {
-  const profile = await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "owner"]);
   const name = String(formData.get("name") ?? "").trim();
   const location = String(formData.get("location") ?? "").trim() || null;
   const is_temporary = formData.get("is_temporary") === "true";
@@ -19,6 +19,7 @@ export async function createOutlet(formData: FormData): Promise<Result<Outlet>> 
   const active_until = String(formData.get("active_until") ?? "").trim() || null;
   const tax_rate = parseRate(String(formData.get("tax_rate") ?? "0"));
   const service_charge_rate = parseRate(String(formData.get("service_charge_rate") ?? "0"));
+  const restaurant_id = getRestaurantFilter(profile);
 
   if (!name) return { ok: false, error: "Nama outlet wajib diisi" };
   if (is_temporary && !active_from) {
@@ -28,7 +29,7 @@ export async function createOutlet(formData: FormData): Promise<Result<Outlet>> 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("outlets")
-    .insert({ name, location, is_temporary, active_from, active_until, tax_rate, service_charge_rate })
+    .insert({ name, location, is_temporary, active_from, active_until, tax_rate, service_charge_rate, restaurant_id })
     .select()
     .single();
 

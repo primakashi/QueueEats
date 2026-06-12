@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/page-header";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getOutletFilter } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { OrderChannelConfig, Outlet } from "@/lib/types";
 import { SalesDashboard } from "./sales-dashboard";
@@ -30,32 +30,36 @@ type Props = {
 };
 
 export default async function AdminSalesPage({ searchParams }: Props) {
-  await requireRole(["admin", "owner"]);
+  const profile = await requireRole(["admin", "owner", "finance", "branch_manager"]);
   const { outlet } = await searchParams;
   const supabase = await createClient();
+  const outletFilter = getOutletFilter(profile);
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 120);
 
+  let ordersQuery = supabase
+    .from("orders")
+    .select(`
+      id,
+      order_number,
+      total,
+      payment_method,
+      payment_destination,
+      order_channel,
+      outlet_id,
+      status,
+      payment_status,
+      created_at,
+      outlets ( name ),
+      order_items ( name_snapshot, quantity, price_snapshot )
+    `)
+    .gte("created_at", cutoff.toISOString())
+    .order("created_at", { ascending: false });
+  if (outletFilter) ordersQuery = ordersQuery.eq("outlet_id", outletFilter);
+
   const [{ data: ordersRaw }, { data: outletsRaw }, { data: channelsRaw }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select(`
-        id,
-        order_number,
-        total,
-        payment_method,
-        payment_destination,
-        order_channel,
-        outlet_id,
-        status,
-        payment_status,
-        created_at,
-        outlets ( name ),
-        order_items ( name_snapshot, quantity, price_snapshot )
-      `)
-      .gte("created_at", cutoff.toISOString())
-      .order("created_at", { ascending: false }),
+    ordersQuery,
     supabase
       .from("outlets")
       .select("id, name")

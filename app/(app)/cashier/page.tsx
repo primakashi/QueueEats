@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getOutletFilter, getRestaurantFilter } from "@/lib/auth";
 import { formatIDR, formatTime } from "@/lib/format";
 import {
   ORDER_STATUS_LABEL,
@@ -13,20 +13,31 @@ import {
 } from "@/lib/types";
 import { paymentColor, statusColor } from "@/lib/status";
 import { CashierRealtimeRefresher } from "./cashier-realtime";
+import { OpenSessionGate } from "./components/OpenSessionModal";
+import { SessionBar } from "./components/SessionBar";
+import { getOpenSession, getSessionSummary } from "./session-actions";
 
 export default async function CashierPage() {
-  await requireRole(["cashier", "admin"]);
+  const profile = await requireRole(["cashier", "admin", "branch_manager"]);
   const supabase = await createClient();
+  const outletFilter = getOutletFilter(profile);
+  const restaurantFilter = getRestaurantFilter(profile);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const { data } = await supabase
+  const session = await getOpenSession(outletFilter, restaurantFilter);
+  const sessionSummary = session ? await getSessionSummary(session.id) : null;
+
+  let query = supabase
     .from("orders")
     .select("*")
     .neq("status", "cancelled")
     .gte("created_at", today.toISOString())
     .order("created_at", { ascending: false });
+  if (outletFilter) query = query.eq("outlet_id", outletFilter);
+
+  const { data } = await query;
 
   const all = (data ?? []) as Order[];
   const unpaid = all.filter((o) => o.payment_status !== "paid");
@@ -35,10 +46,19 @@ export default async function CashierPage() {
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <CashierRealtimeRefresher />
+
+      {!session && (
+        <OpenSessionGate outletId={outletFilter} />
+      )}
+
       <PageHeader
         title="Kasir"
         description="Pesanan yang menunggu pembayaran"
       />
+
+      {session && sessionSummary && (
+        <SessionBar session={session} movements={sessionSummary.movements} />
+      )}
 
       {unpaid.length === 0 ? (
         <Card className="p-12 text-center mb-6">

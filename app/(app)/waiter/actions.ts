@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import type { Order, OrderChannel, OrderServiceType } from "@/lib/types";
 
 export type CreateOrderInput = {
@@ -24,7 +24,8 @@ export async function createOrder(
   | { ok: true; order: Order }
   | { ok: false; error: string }
 > {
-  await requireRole(["waiter", "admin"]);
+  const profile = await requireRole(["waiter", "admin", "branch_manager"]);
+  const restaurantId = getRestaurantFilter(profile);
   if (!input.items || input.items.length === 0) {
     return { ok: false, error: "Keranjang kosong" };
   }
@@ -62,6 +63,11 @@ export async function createOrder(
   if (error) return { ok: false, error: error.message };
 
   const order = data as Order;
+
+  // Stamp restaurant_id if the DB trigger didn't catch it (e.g. order has no outlet_id)
+  if (restaurantId && !order.restaurant_id) {
+    await supabase.from("orders").update({ restaurant_id: restaurantId }).eq("id", order.id);
+  }
 
   // Apply outlet tax/service charge to total if rates are configured
   if (input.outlet_id) {

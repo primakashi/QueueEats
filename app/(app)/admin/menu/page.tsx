@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import { formatIDR } from "@/lib/format";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 import { AvailabilityToggle } from "./availability-toggle";
@@ -14,18 +14,17 @@ import { DeleteMenuItemButton } from "./delete-button";
 import { CategoriesManager } from "../categories/categories-manager";
 
 export default async function AdminMenuPage() {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "branch_manager"]);
   const supabase = await createClient();
+  const rid = getRestaurantFilter(profile);
+
+  let itemsQ = supabase.from("menu_items").select("*");
+  let catsQ = supabase.from("menu_categories").select("*");
+  if (rid) { itemsQ = itemsQ.eq("restaurant_id", rid); catsQ = catsQ.eq("restaurant_id", rid); }
 
   const [{ data: items }, { data: categories }] = await Promise.all([
-    supabase
-      .from("menu_items")
-      .select("*")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("menu_categories")
-      .select("*")
-      .order("sort_order", { ascending: true }),
+    itemsQ.order("created_at", { ascending: false }),
+    catsQ.order("sort_order", { ascending: true }),
   ]);
 
   const categoryMap = new Map<string, MenuCategory>();

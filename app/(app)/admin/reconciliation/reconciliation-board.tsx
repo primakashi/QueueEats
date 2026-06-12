@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { AlertCircle, CheckCircle2, ChevronDown, Minus } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, Minus, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +25,7 @@ import {
 } from "@/components/ui/table";
 import { formatIDR } from "@/lib/format";
 import type { Outlet } from "@/lib/types";
-import type { ReconciliationOrder } from "./page";
+import type { ReconciliationOrder, SessionWithMovements } from "./page";
 
 type Row = {
   destination: string;
@@ -44,15 +45,17 @@ function storageKey(date: string, outletId: string) {
 export function ReconciliationBoard({
   orders,
   outlets,
+  sessions,
 }: {
   orders: ReconciliationOrder[];
   outlets: Pick<Outlet, "id" | "name">[];
+  sessions: SessionWithMovements[];
 }) {
   const today = useMemo(() => new Date(), []);
   const [dateStr, setDateStr] = useState(() => toDateStr(today));
   const [selectedOutletId, setSelectedOutletId] = useState<string>("");
-  // received amounts keyed by destination label
   const [received, setReceived] = useState<Record<string, string>>({});
+  const [copied, setCopied] = useState(false);
 
   // Load persisted received amounts from localStorage
   useEffect(() => {
@@ -99,6 +102,72 @@ export function ReconciliationBoard({
     return s + v;
   }, 0);
   const totalDiff = totalReceived - totalExpected;
+
+  // Find the cashier session for the current date + outlet filter
+  const currentSession = useMemo(() => {
+    return sessions.find((s) => {
+      if (s.session_date !== dateStr) return false;
+      if (selectedOutletId && s.outlet_id !== selectedOutletId) return false;
+      return true;
+    }) ?? null;
+  }, [sessions, dateStr, selectedOutletId]);
+
+  const sessionCashIn = useMemo(
+    () => currentSession?.movements.filter((m) => m.type === "cash_in").reduce((s, m) => s + m.amount, 0) ?? 0,
+    [currentSession],
+  );
+  const sessionCashOut = useMemo(
+    () => currentSession?.movements.filter((m) => m.type === "cash_out").reduce((s, m) => s + m.amount, 0) ?? 0,
+    [currentSession],
+  );
+  const cashSalesTotal = useMemo(
+    () => filtered.filter((o) => o.payment_method === "cash").reduce((s, o) => s + o.total, 0),
+    [filtered],
+  );
+  const expectedClosing = currentSession
+    ? currentSession.opening_cash + sessionCashIn - sessionCashOut + cashSalesTotal
+    : null;
+
+  function buildWhatsAppText() {
+    const outletLabel = outlets.find((o) => o.id === selectedOutletId)?.name ?? "Semua Outlet";
+    const dateLabel = new Date(dateStr).toLocaleDateString("id-ID", { dateStyle: "long" });
+    const lines: string[] = [
+      `*Rekap Harian — ${outletLabel}*`,
+      `📅 ${dateLabel}`,
+      ``,
+      `*Penjualan*`,
+      `• Total transaksi: ${filtered.length} pesanan`,
+      `• Total penjualan: ${formatIDR(totalExpected)}`,
+      ``,
+      `*Pembayaran*`,
+      ...rows.map((r) => `• ${r.destination}: ${formatIDR(r.expected)}`),
+    ];
+    if (currentSession) {
+      lines.push(
+        ``,
+        `*Kas Kasir*`,
+        `• Modal awal: ${formatIDR(currentSession.opening_cash)}`,
+        ...(sessionCashIn > 0 ? [`• Kas masuk: ${formatIDR(sessionCashIn)}`] : []),
+        ...(sessionCashOut > 0 ? [`• Kas keluar: ${formatIDR(sessionCashOut)}`] : []),
+        `• Penjualan tunai: ${formatIDR(cashSalesTotal)}`,
+        `• Estimasi saldo akhir: ${formatIDR(expectedClosing ?? 0)}`,
+        ...(currentSession.actual_closing_cash != null
+          ? [`• Saldo aktual: ${formatIDR(currentSession.actual_closing_cash)}`]
+          : []),
+        `• Status sesi: ${currentSession.status === "open" ? "Masih buka" : "Ditutup"}`,
+      );
+    }
+    lines.push(``, `_Dibuat oleh Solusi Saji POS_`);
+    return lines.join("\n");
+  }
+
+  async function copyRecap() {
+    try {
+      await navigator.clipboard.writeText(buildWhatsAppText());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
 
   const outletOptions = outlets.map((o) => ({ value: o.id, label: o.name }));
   const selectedOutletLabel = outlets.find(o => o.id === selectedOutletId)?.name ?? "Semua outlet";
@@ -181,6 +250,62 @@ export function ReconciliationBoard({
             {totalDiff === 0 && totalExpected > 0 ? "✓ Cocok" : totalDiff !== 0 && totalExpected > 0 ? "Periksa selisih" : "-"}
           </div>
         </Card>
+      </div>
+
+      {/* Cashier session panel */}
+      {currentSession && (
+        <Card className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="font-medium">Sesi Kasir</div>
+            <Badge variant={currentSession.status === "open" ? "outline" : "secondary"}
+              className={currentSession.status === "open" ? "text-emerald-600 border-emerald-300 bg-emerald-50" : ""}>
+              {currentSession.status === "open" ? "Aktif" : "Ditutup"}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+            <div className="text-muted-foreground">Modal awal</div>
+            <div className="text-right tabular-nums font-medium">{formatIDR(currentSession.opening_cash)}</div>
+            {sessionCashIn > 0 && <>
+              <div className="text-muted-foreground">+ Kas masuk</div>
+              <div className="text-right tabular-nums text-emerald-700">{formatIDR(sessionCashIn)}</div>
+            </>}
+            {sessionCashOut > 0 && <>
+              <div className="text-muted-foreground">− Kas keluar</div>
+              <div className="text-right tabular-nums text-rose-700">{formatIDR(sessionCashOut)}</div>
+            </>}
+            <div className="text-muted-foreground">+ Penjualan tunai</div>
+            <div className="text-right tabular-nums">{formatIDR(cashSalesTotal)}</div>
+            <Separator className="col-span-2 my-0.5" />
+            <div className="font-medium">Estimasi saldo akhir</div>
+            <div className="text-right tabular-nums font-semibold">{formatIDR(expectedClosing ?? 0)}</div>
+            {currentSession.actual_closing_cash != null && <>
+              <div className="text-muted-foreground">Saldo aktual</div>
+              <div className="text-right tabular-nums">{formatIDR(currentSession.actual_closing_cash)}</div>
+              <div className="text-muted-foreground">Selisih</div>
+              <div className={`text-right tabular-nums font-medium ${
+                currentSession.actual_closing_cash - (expectedClosing ?? 0) < 0 ? "text-destructive" :
+                currentSession.actual_closing_cash - (expectedClosing ?? 0) > 0 ? "text-emerald-600" : ""
+              }`}>
+                {currentSession.actual_closing_cash - (expectedClosing ?? 0) > 0 ? "+" : ""}
+                {formatIDR(currentSession.actual_closing_cash - (expectedClosing ?? 0))}
+              </div>
+            </>}
+          </div>
+        </Card>
+      )}
+
+      {/* WhatsApp recap */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={copyRecap}
+          disabled={filtered.length === 0}
+          className="gap-2"
+        >
+          {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+          {copied ? "Tersalin!" : "Salin Rekap WhatsApp"}
+        </Button>
       </div>
 
       {/* Breakdown table */}

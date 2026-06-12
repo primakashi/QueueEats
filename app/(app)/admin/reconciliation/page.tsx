@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/page-header";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getOutletFilter } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Outlet } from "@/lib/types";
+import type { CashMovement, CashierSession, Outlet } from "@/lib/types";
 import { ReconciliationBoard } from "./reconciliation-board";
 
 export type ReconciliationOrder = {
@@ -16,32 +16,70 @@ export type ReconciliationOrder = {
   created_at: string;
 };
 
-export default async function ReconciliationPage() {
-  await requireRole(["admin", "owner"]);
-  const supabase = await createClient();
+export type SessionWithMovements = CashierSession & {
+  outlet_name: string | null;
+  movements: Pick<CashMovement, "type" | "amount" | "category">[];
+};
 
-  // Load last 30 days of paid orders + outlets
+export default async function ReconciliationPage() {
+  const profile = await requireRole(["admin", "owner", "finance", "branch_manager"]);
+  const supabase = await createClient();
+  const outletFilter = getOutletFilter(profile);
+
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 30);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
 
-  const [{ data: ordersRaw }, { data: outletsRaw }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select(`
-        id, order_number, total,
-        payment_method, payment_destination,
-        outlet_id, payment_status, created_at,
-        outlets ( name )
-      `)
-      .eq("payment_status", "paid")
-      .gte("created_at", cutoff.toISOString())
-      .order("created_at", { ascending: false }),
+  let ordersQuery = supabase
+    .from("orders")
+    .select(`
+      id, order_number, total,
+      payment_method, payment_destination,
+      outlet_id, payment_status, created_at,
+      outlets ( name )
+    `)
+    .eq("payment_status", "paid")
+    .gte("created_at", cutoff.toISOString())
+    .order("created_at", { ascending: false });
+  if (outletFilter) ordersQuery = ordersQuery.eq("outlet_id", outletFilter);
+
+  let sessionsQuery = supabase
+    .from("cashier_sessions")
+    .select(`*, outlets ( name )`)
+    .gte("session_date", cutoffDate)
+    .order("session_date", { ascending: false });
+  if (outletFilter) sessionsQuery = sessionsQuery.eq("outlet_id", outletFilter);
+
+  const [
+    { data: ordersRaw },
+    { data: outletsRaw },
+    { data: sessionsRaw },
+  ] = await Promise.all([
+    ordersQuery,
     supabase
       .from("outlets")
       .select("id, name")
       .eq("is_archived", false)
       .order("created_at", { ascending: true }),
+    sessionsQuery,
   ]);
+
+  // Fetch movements for all sessions
+  const sessionIds = (sessionsRaw ?? []).map((s: Record<string, unknown>) => s.id as string);
+  const { data: movementsRaw } = sessionIds.length
+    ? await supabase
+        .from("cash_movements")
+        .select("session_id, type, amount, category")
+        .in("session_id", sessionIds)
+    : { data: [] };
+
+  const movementsBySession = new Map<string, Pick<CashMovement, "type" | "amount" | "category">[]>();
+  for (const m of (movementsRaw ?? []) as Array<Record<string, unknown>>) {
+    const sid = m.session_id as string;
+    const list = movementsBySession.get(sid) ?? [];
+    list.push({ type: m.type as CashMovement["type"], amount: m.amount as number, category: m.category as CashMovement["category"] });
+    movementsBySession.set(sid, list);
+  }
 
   const orders: ReconciliationOrder[] = (ordersRaw ?? []).map((o: Record<string, unknown>) => ({
     id: o.id as string,
@@ -55,6 +93,12 @@ export default async function ReconciliationPage() {
     created_at: o.created_at as string,
   }));
 
+  const sessions: SessionWithMovements[] = (sessionsRaw ?? []).map((s: Record<string, unknown>) => ({
+    ...(s as unknown as CashierSession),
+    outlet_name: (s.outlets as { name?: string } | null)?.name ?? null,
+    movements: movementsBySession.get(s.id as string) ?? [],
+  }));
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <PageHeader
@@ -64,6 +108,7 @@ export default async function ReconciliationPage() {
       <ReconciliationBoard
         orders={orders}
         outlets={(outletsRaw ?? []) as Pick<Outlet, "id" | "name">[]}
+        sessions={sessions}
       />
     </div>
   );

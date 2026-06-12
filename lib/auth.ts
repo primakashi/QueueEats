@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, UserRole } from "@/lib/types";
+import { HQ_ROLES } from "@/lib/types";
 
 export const PROFILE_COOKIE = "qe_profile";
 
@@ -15,8 +16,26 @@ function isProfileShape(value: unknown): value is Profile {
     typeof v.id === "string" &&
     typeof v.full_name === "string" &&
     typeof v.role === "string" &&
-    typeof v.created_at === "string"
+    typeof v.created_at === "string" &&
+    (v.outlet_id == null || typeof v.outlet_id === "string") &&
+    (v.restaurant_id == null || typeof v.restaurant_id === "string")
   );
+}
+
+/** Returns the outlet_id to use as a DB filter, or null if the user has HQ/global access. */
+export function getOutletFilter(profile: Profile): string | null {
+  if (profile.role === "super_admin" || HQ_ROLES.includes(profile.role)) return null;
+  return profile.outlet_id;
+}
+
+/**
+ * Returns the restaurant_id to scope all queries to, or null for super_admin (sees everything).
+ * HQ roles (owner, admin, finance) return their restaurant_id.
+ * Branch roles return their restaurant_id (outlet filter is applied on top).
+ */
+export function getRestaurantFilter(profile: Profile): string | null {
+  if (profile.role === "super_admin") return null;
+  return profile.restaurant_id;
 }
 
 export async function getUser() {
@@ -80,9 +99,13 @@ export async function requireRole(
 
 export function homeForRole(role: UserRole): string {
   switch (role) {
+    case "super_admin":
+      return "/superadmin";
     case "admin":
+    case "branch_manager":
       return "/admin/menu";
     case "owner":
+    case "finance":
       return "/admin/sales";
     case "kitchen":
       return "/kitchen";

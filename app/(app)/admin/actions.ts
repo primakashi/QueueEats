@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { type UserRole, HQ_ROLES } from "@/lib/types";
 
 type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T }))
@@ -225,7 +226,7 @@ export async function deleteMenuItem(id: string): Promise<Result> {
 
 export async function updateStaffRole(
   id: string,
-  role: "waiter" | "kitchen" | "cashier" | "admin" | "owner",
+  role: UserRole,
 ): Promise<Result> {
   const profile = await requireRole(["admin", "owner"]);
   const isOwnerCaller = profile.role === "owner";
@@ -277,16 +278,21 @@ export async function deleteStaff(id: string): Promise<Result> {
 }
 
 export async function inviteStaff(formData: FormData): Promise<Result> {
-  const caller = await requireRole(["admin", "owner"]);
+  const caller = await requireRole(["admin", "owner", "branch_manager"]);
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const role = String(formData.get("role") ?? "waiter") as "waiter" | "kitchen" | "cashier" | "admin" | "owner";
+  const role = String(formData.get("role") ?? "waiter") as UserRole;
+  const outletIdRaw = String(formData.get("outlet_id") ?? "").trim();
+  const outletId = outletIdRaw || null;
 
   if (!email) return { ok: false, error: "Email wajib diisi" };
   if (!fullName) return { ok: false, error: "Nama wajib diisi" };
   if (!password || password.length < 6) return { ok: false, error: "Kata sandi minimal 6 karakter" };
   if (caller.role !== "owner" && role === "owner") return { ok: false, error: "Peran owner tidak dapat dibuat oleh admin" };
+  if (caller.role === "branch_manager" && !HQ_ROLES.includes(role) && outletId !== caller.outlet_id) {
+    return { ok: false, error: "Tidak dapat membuat akun untuk outlet lain" };
+  }
 
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const adminClient = createAdminClient();
@@ -308,9 +314,60 @@ export async function inviteStaff(formData: FormData): Promise<Result> {
 
   const { error: profileErr } = await adminClient
     .from("profiles")
-    .upsert({ id: authData.user.id, full_name: fullName, role }, { onConflict: "id" });
+    .upsert({ id: authData.user.id, full_name: fullName, role, outlet_id: outletId }, { onConflict: "id" });
   if (profileErr) return { ok: false, error: profileErr.message };
 
   revalidatePath("/admin/users");
+  return { ok: true };
+}
+
+export async function resetStaffPassword(staffId: string): Promise<Result> {
+  await requireRole(["admin", "owner"]);
+
+  const supabase = await createClient();
+  const { data: staff } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", staffId)
+    .maybeSingle();
+  if (!staff) return { ok: false, error: "Akun tidak ditemukan" };
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const adminClient = createAdminClient();
+
+  const { data: authUser } = await adminClient.auth.admin.getUserById(staffId);
+  if (!authUser.user?.email) return { ok: false, error: "Email akun tidak ditemukan" };
+
+  const { data, error } = await adminClient.auth.admin.generateLink({
+    type: "recovery",
+    email: authUser.user.email,
+    options: {
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/login/update-password`,
+    },
+  });
+  if (error || !data?.properties?.action_link) {
+    return { ok: false, error: error?.message ?? "Gagal membuat link reset" };
+  }
+
+  const { Resend } = await import("resend");
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error: emailErr } = await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL ?? "noreply@solusissaji.com",
+    to: authUser.user.email,
+    subject: "Reset Kata Sandi — Solusi Saji POS",
+    html: `
+      <p>Halo,</p>
+      <p>Admin telah meminta reset kata sandi untuk akun Anda.</p>
+      <p>
+        <a href="${data.properties.action_link}" style="background:#0f172a;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
+          Reset Kata Sandi
+        </a>
+      </p>
+      <p>Link ini berlaku selama 1 jam.</p>
+      <p>— Tim Solusi Saji</p>
+    `,
+  });
+  if (emailErr) return { ok: false, error: "Gagal mengirim email reset" };
+
   return { ok: true };
 }

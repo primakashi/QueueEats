@@ -1,33 +1,30 @@
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import type { MenuCategory, MenuItem, OrderChannelConfig, Outlet } from "@/lib/types";
 import { NewOrderClient } from "./new-order-client";
 
 export default async function NewOrderPage() {
-  await requireRole(["waiter", "admin"]);
+  const profile = await requireRole(["waiter", "admin", "branch_manager"]);
   const supabase = await createClient();
+  const rid = getRestaurantFilter(profile);
+
+  let itemsQ = supabase.from("menu_items").select("*").eq("is_available", true);
+  let catsQ = supabase.from("menu_categories").select("*");
+  let outletsQ = supabase.from("outlets").select("id, name, is_temporary").eq("is_archived", false);
+  let channelsQ = supabase.from("order_channels").select("id, name, sort_order, is_active").eq("is_active", true);
+  if (rid) {
+    itemsQ = itemsQ.eq("restaurant_id", rid);
+    catsQ = catsQ.eq("restaurant_id", rid);
+    outletsQ = outletsQ.eq("restaurant_id", rid);
+    channelsQ = channelsQ.eq("restaurant_id", rid);
+  }
 
   const [{ data: items }, { data: categories }, { data: outlets }, { data: channels }] = await Promise.all([
-    supabase
-      .from("menu_items")
-      .select("*")
-      .eq("is_available", true)
-      .order("name"),
-    supabase
-      .from("menu_categories")
-      .select("*")
-      .order("sort_order", { ascending: true }),
-    supabase
-      .from("outlets")
-      .select("id, name, is_temporary")
-      .eq("is_archived", false)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("order_channels")
-      .select("id, name, sort_order, is_active")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true }),
+    itemsQ.order("name"),
+    catsQ.order("sort_order", { ascending: true }),
+    outletsQ.order("created_at", { ascending: true }),
+    channelsQ.order("sort_order", { ascending: true }),
   ]);
 
   return (
