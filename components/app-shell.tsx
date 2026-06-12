@@ -218,7 +218,7 @@ function BrandHeader({
         {!collapsed && (
           <div className="leading-tight min-w-0">
             <div className="text-sm font-semibold truncate">{name}</div>
-            <div className="text-xs text-muted-foreground">Titik penjualan</div>
+            {/* <div className="text-xs text-muted-foreground">Titik penjualan</div> */}
           </div>
         )}
       </div>
