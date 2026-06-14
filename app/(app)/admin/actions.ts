@@ -84,6 +84,8 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const price = Number(formData.get("price") ?? 0);
+  const sortRaw = Number(formData.get("sort_order") ?? 0);
+  const sort_order = Number.isFinite(sortRaw) ? Math.trunc(sortRaw) : 0;
   const category_id = String(formData.get("category_id") ?? "") || null;
   const is_available = formData.get("is_available") === "on";
   const imageFile = formData.get("image") as File | null;
@@ -103,7 +105,7 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
   const supabase = await createClient();
   const { data: inserted, error } = await supabase
     .from("menu_items")
-    .insert({ name, description, price, category_id, is_available, image_url, restaurant_id })
+    .insert({ name, description, price, sort_order, category_id, is_available, image_url, restaurant_id })
     .select("id")
     .single();
   if (error) return { ok: false, error: error.message };
@@ -125,6 +127,8 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const price = Number(formData.get("price") ?? 0);
+  const sortRaw = Number(formData.get("sort_order") ?? 0);
+  const sort_order = Number.isFinite(sortRaw) ? Math.trunc(sortRaw) : 0;
   const category_id = String(formData.get("category_id") ?? "") || null;
   const is_available = formData.get("is_available") === "on";
   const imageFile = formData.get("image") as File | null;
@@ -145,6 +149,7 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
     name,
     description,
     price,
+    sort_order,
     category_id,
     is_available,
   };

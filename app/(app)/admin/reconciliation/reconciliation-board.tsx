@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { AlertCircle, CheckCircle2, ChevronDown, Minus, Copy, Check } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, Minus, Copy, Check, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -169,6 +169,12 @@ export function ReconciliationBoard({
     } catch { /* ignore */ }
   }
 
+  function sendToWhatsApp() {
+    const text = encodeURIComponent(buildWhatsAppText());
+    // wa.me without a number opens chat picker — user chooses recipient.
+    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+  }
+
   const outletOptions = outlets.map((o) => ({ value: o.id, label: o.name }));
   const selectedOutletLabel = outlets.find(o => o.id === selectedOutletId)?.name ?? "Semua outlet";
 
@@ -295,7 +301,7 @@ export function ReconciliationBoard({
       )}
 
       {/* WhatsApp recap */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -304,7 +310,16 @@ export function ReconciliationBoard({
           className="gap-2"
         >
           {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-          {copied ? "Tersalin!" : "Salin Rekap WhatsApp"}
+          {copied ? "Tersalin!" : "Salin Rekap"}
+        </Button>
+        <Button
+          size="sm"
+          onClick={sendToWhatsApp}
+          disabled={filtered.length === 0}
+          className="gap-2 bg-[#25D366] hover:bg-[#1da750] text-white"
+        >
+          <MessageCircle className="h-4 w-4" />
+          Kirim ke WhatsApp
         </Button>
       </div>
 

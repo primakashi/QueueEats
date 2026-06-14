@@ -133,6 +133,20 @@ export function MenuItemForm({
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="sort_order">Urutan tampil</Label>
+                <Input
+                  id="sort_order"
+                  name="sort_order"
+                  type="number"
+                  defaultValue={item?.sort_order ?? 0}
+                  placeholder="0"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Angka lebih kecil tampil lebih dulu. Item dengan angka sama diurutkan A→Z.
+                </p>
+              </div>
+
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <input
                   type="checkbox"

@@ -13,6 +13,7 @@ import {
   Radio,
   Scale,
   Menu as MenuIcon,
+  Tag,
   UtensilsCrossed,
   Users,
   ClipboardList,
@@ -45,7 +46,7 @@ type NavItem = {
 };
 
 /** Nav targets that use `loading.tsx` in-page instead of a sidebar link spinner. */
-const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels", "/admin/changelog", "/admin/cashier-sessions"]);
+const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels", "/admin/changelog", "/admin/cashier-sessions", "/admin/discounts"]);
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -77,6 +78,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Menu",
     icon: UtensilsCrossed,
     roles: ["admin", "branch_manager"],
+  },
+  {
+    href: "/admin/discounts",
+    label: "Diskon",
+    icon: Tag,
+    roles: ["admin", "owner", "branch_manager"],
   },
   {
     href: "/admin/users",

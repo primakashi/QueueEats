@@ -36,7 +36,53 @@ export type Restaurant = {
   id: string;
   name: string;
   is_active: boolean;
+  subscription_end_date: string | null;
+  subscription_notes: string | null;
   created_at: string;
+};
+
+export type DiscountScope = "menu_item" | "transaction" | "daily";
+export type DiscountValueType = "amount" | "percent";
+
+export type Discount = {
+  id: string;
+  restaurant_id: string | null;
+  name: string;
+  scope: DiscountScope;
+  value_type: DiscountValueType;
+  value: number;
+  active_from: string | null;
+  active_until: string | null;
+  menu_item_id: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OrderDiscount = {
+  id: string;
+  order_id: string;
+  discount_id: string | null;
+  scope: DiscountScope;
+  name_snapshot: string;
+  value_type: DiscountValueType;
+  value_snapshot: number;
+  amount: number;
+  order_item_id: string | null;
+  reason: string | null;
+  applied_by: string | null;
+  created_at: string;
+};
+
+export const DISCOUNT_SCOPE_LABEL: Record<DiscountScope, string> = {
+  menu_item: "Per item",
+  transaction: "Per transaksi",
+  daily: "Promo harian",
+};
+
+export const DISCOUNT_VALUE_TYPE_LABEL: Record<DiscountValueType, string> = {
+  amount: "Nominal (Rp)",
+  percent: "Persen (%)",
 };
 
 export type Profile = {
@@ -63,6 +109,7 @@ export type MenuItem = {
   price: number;
   image_url: string | null;
   is_available: boolean;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 };
@@ -99,6 +146,7 @@ export type Order = {
   payment_destination: string | null;
   tax_amount: number;
   service_charge_amount: number;
+  discount_amount: number;
   created_at: string;
   updated_at: string;
 };

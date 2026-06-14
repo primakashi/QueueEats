@@ -21,7 +21,9 @@ export default async function NewOrderPage() {
   }
 
   const [{ data: items }, { data: categories }, { data: outlets }, { data: channels }] = await Promise.all([
-    itemsQ.order("name"),
+    itemsQ
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true }),
     catsQ.order("sort_order", { ascending: true }),
     outletsQ.order("created_at", { ascending: true }),
     channelsQ.order("sort_order", { ascending: true }),

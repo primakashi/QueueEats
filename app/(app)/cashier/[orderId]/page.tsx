@@ -11,8 +11,10 @@ import { formatIDR, formatDateTime } from "@/lib/format";
 import {
   ORDER_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
+  type Discount,
   type MenuItem,
   type Order,
+  type OrderDiscount,
   type OrderItem,
 } from "@/lib/types";
 import { paymentColor, statusColor } from "@/lib/status";
@@ -30,17 +32,34 @@ export default async function CashierOrderPage({ params }: Props) {
   let menuQuery = supabase.from("menu_items").select("id, name, price, is_available").eq("is_available", true);
   if (rid) menuQuery = menuQuery.eq("restaurant_id", rid);
 
-  const [{ data: order }, { data: items }, { data: menuItems }] =
+  let discountsQuery = supabase.from("discounts").select("*").eq("is_active", true);
+  if (rid) discountsQuery = discountsQuery.eq("restaurant_id", rid);
+
+  const [{ data: order }, { data: items }, { data: menuItems }, { data: appliedRaw }, { data: catalogRaw }] =
     await Promise.all([
       supabase.from("orders").select("*").eq("id", orderId).maybeSingle(),
       supabase.from("order_items").select("*").eq("order_id", orderId).order("created_at"),
       menuQuery.order("name"),
+      supabase
+        .from("order_discounts")
+        .select("*")
+        .eq("order_id", orderId)
+        .order("created_at"),
+      discountsQuery.order("name"),
     ]);
 
   if (!order) notFound();
   const typed = order as Order;
   const itemsTyped = (items ?? []) as OrderItem[];
   const menuTyped = (menuItems ?? []) as MenuItem[];
+  const applied = (appliedRaw ?? []) as OrderDiscount[];
+  const today = new Date().toISOString().slice(0, 10);
+  const catalog = ((catalogRaw ?? []) as Discount[]).filter((d) => {
+    if (d.scope !== "daily") return true;
+    if (d.active_from && d.active_from > today) return false;
+    if (d.active_until && d.active_until < today) return false;
+    return true;
+  });
 
   const isPaid = typed.payment_status === "paid";
 
@@ -102,12 +121,18 @@ export default async function CashierOrderPage({ params }: Props) {
                 </div>
               )}
               <div className="border-t pt-4 space-y-1.5">
-                {(typed.tax_amount > 0 || typed.service_charge_amount > 0) && (
+                {(typed.tax_amount > 0 || typed.service_charge_amount > 0 || (typed.discount_amount ?? 0) > 0) && (
                   <>
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>Subtotal</span>
                       <span className="tabular-nums">{formatIDR(typed.subtotal)}</span>
                     </div>
+                    {(typed.discount_amount ?? 0) > 0 && (
+                      <div className="flex justify-between text-sm text-emerald-700">
+                        <span>Diskon</span>
+                        <span className="tabular-nums">−{formatIDR(typed.discount_amount)}</span>
+                      </div>
+                    )}
                     {typed.tax_amount > 0 && (
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Pajak</span>
@@ -138,7 +163,10 @@ export default async function CashierOrderPage({ params }: Props) {
                 subtotal={typed.subtotal}
                 taxAmount={typed.tax_amount ?? 0}
                 serviceAmount={typed.service_charge_amount ?? 0}
+                discountAmount={typed.discount_amount ?? 0}
                 menuItems={menuTyped}
+                appliedDiscounts={applied}
+                discountCatalog={catalog}
               />
             </div>
           )}

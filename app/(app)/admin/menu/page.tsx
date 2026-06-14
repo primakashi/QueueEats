@@ -23,7 +23,9 @@ export default async function AdminMenuPage() {
   if (rid) { itemsQ = itemsQ.eq("restaurant_id", rid); catsQ = catsQ.eq("restaurant_id", rid); }
 
   const [{ data: items }, { data: categories }] = await Promise.all([
-    itemsQ.order("created_at", { ascending: false }),
+    itemsQ
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true }),
     catsQ.order("sort_order", { ascending: true }),
   ]);
 

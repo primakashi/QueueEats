@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Loader2,
   Package,
+  Printer,
   UtensilsCrossed,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -305,8 +306,40 @@ function EmptyColumn({ label }: { label: string }) {
   );
 }
 
+const PRINTED_KEY = "kitchen-printed-orders";
+
+function loadPrintedSet(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(PRINTED_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function markPrinted(orderId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const set = loadPrintedSet();
+    set.add(orderId);
+    // Cap at last 500 to avoid unbounded growth.
+    const arr = [...set].slice(-500);
+    localStorage.setItem(PRINTED_KEY, JSON.stringify(arr));
+  } catch {
+    /* ignore */
+  }
+}
+
 function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
   const [pending, start] = useTransition();
+  const [printed, setPrinted] = useState(false);
+  useEffect(() => {
+    setPrinted(loadPrintedSet().has(order.id));
+  }, [order.id]);
+
   const mins =
     now === 0
       ? 0
@@ -323,6 +356,14 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
       const res = await updateOrderStatus(order.id, next);
       if (!res.ok) toast.error(res.error);
     });
+  }
+
+  function printTicket() {
+    const reprint = printed;
+    const url = `/kitchen/${order.id}/print${reprint ? "?reprint=1" : ""}`;
+    window.open(url, "_blank", "width=420,height=700,toolbar=0,menubar=0");
+    markPrinted(order.id);
+    setPrinted(true);
   }
 
   return (
@@ -364,12 +405,30 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
             {order.customer_name ? ` · ${order.customer_name}` : ""}
           </div>
         </div>
-        <Badge
-          variant={overdue ? "destructive" : "secondary"}
-          className="shrink-0 tabular-nums text-xs"
-        >
-          {mins}m
-        </Badge>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={printTicket}
+            title={printed ? "Cetak ulang tiket" : "Cetak tiket dapur"}
+            aria-label={printed ? "Cetak ulang tiket dapur" : "Cetak tiket dapur"}
+          >
+            <Printer
+              className={cn(
+                "h-3.5 w-3.5",
+                printed ? "text-muted-foreground" : "text-foreground",
+              )}
+            />
+          </Button>
+          <Badge
+            variant={overdue ? "destructive" : "secondary"}
+            className="tabular-nums text-xs"
+          >
+            {mins}m
+          </Badge>
+        </div>
       </div>
 
       <ul className="space-y-1 border-t pt-2">

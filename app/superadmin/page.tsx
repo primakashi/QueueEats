@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/format";
+import { SubscriptionEditor } from "./subscription-editor";
 
 export default async function SuperAdminPage() {
   const supabase = await createClient();
@@ -76,6 +77,7 @@ export default async function SuperAdminPage() {
                 <TableHead>Nama Restoran</TableHead>
                 <TableHead>Owner</TableHead>
                 <TableHead className="text-center">Outlet</TableHead>
+                <TableHead>Langganan</TableHead>
                 <TableHead className="hidden sm:table-cell">Bergabung</TableHead>
               </TableRow>
             </TableHeader>
@@ -88,6 +90,13 @@ export default async function SuperAdminPage() {
                   </TableCell>
                   <TableCell className="text-center tabular-nums">
                     {outletCountByRestaurant.get(r.id as string) ?? 0}
+                  </TableCell>
+                  <TableCell>
+                    <SubscriptionEditor
+                      restaurantId={r.id as string}
+                      endDate={(r.subscription_end_date as string | null) ?? null}
+                      notes={(r.subscription_notes as string | null) ?? null}
+                    />
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                     {formatDateTime(r.created_at as string)}

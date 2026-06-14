@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Minus, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -62,6 +62,8 @@ export function NewOrderClient({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [sortMode, setSortMode] = useState<"custom" | "name">("custom");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [serviceType, setServiceType] = useState<"dine_in" | "takeaway">(
     "dine_in",
@@ -79,11 +81,25 @@ export function NewOrderClient({
 
   const itemMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const filteredItems = useMemo(() => {
-    if (selectedCategory === "all") return items;
-    if (selectedCategory === "uncategorized")
-      return items.filter((i) => !i.category_id);
-    return items.filter((i) => i.category_id === selectedCategory);
-  }, [items, selectedCategory]);
+    let list = items;
+    if (selectedCategory === "uncategorized") {
+      list = list.filter((i) => !i.category_id);
+    } else if (selectedCategory !== "all") {
+      list = list.filter((i) => i.category_id === selectedCategory);
+    }
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (i) =>
+          i.name.toLowerCase().includes(q) ||
+          (i.description ?? "").toLowerCase().includes(q),
+      );
+    }
+    if (sortMode === "name") {
+      list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return list;
+  }, [items, selectedCategory, search, sortMode]);
 
   const totalItems = cart.reduce((s, l) => s + l.quantity, 0);
   const total = cart.reduce((s, l) => {
@@ -164,6 +180,55 @@ export function NewOrderClient({
         <FullScreenLoading title="Mengirim pesanan ke dapur…" />
       )}
       <div className="space-y-4 min-w-0">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9 pr-9"
+              placeholder="Cari menu…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Cari menu"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
+                aria-label="Bersihkan pencarian"
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+          <div className="flex gap-1 shrink-0 rounded-md border p-0.5">
+            <button
+              type="button"
+              onClick={() => setSortMode("custom")}
+              className={cn(
+                "px-3 h-9 rounded-sm text-xs font-medium transition",
+                sortMode === "custom"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Urutan menu
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortMode("name")}
+              className={cn(
+                "px-3 h-9 rounded-sm text-xs font-medium transition",
+                sortMode === "name"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              A–Z
+            </button>
+          </div>
+        </div>
+
         <CategoryTabs
           categories={categories}
           value={selectedCategory}
@@ -172,7 +237,9 @@ export function NewOrderClient({
 
         {filteredItems.length === 0 ? (
           <Card className="p-12 text-center text-sm text-muted-foreground">
-            Tidak ada item di kategori ini.
+            {search
+              ? `Tidak ada item cocok dengan "${search}".`
+              : "Tidak ada item di kategori ini."}
           </Card>
         ) : (
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
