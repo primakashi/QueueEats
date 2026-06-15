@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { SolusiSajiMark } from "@/components/solusi-saji-mark";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/app/login/actions";
 import type { Profile, UserRole } from "@/lib/types";
@@ -219,9 +220,7 @@ function BrandHeader({
       )}
     >
       <div className={cn("flex items-center min-w-0", collapsed ? "justify-center" : "gap-2.5")}>
-        <div className="h-8 w-8 shrink-0 rounded-md bg-primary text-primary-foreground grid place-items-center">
-          <UtensilsCrossed className="h-4 w-4" />
-        </div>
+        <SolusiSajiMark className={cn("shrink-0 w-auto", collapsed ? "h-5" : "h-6")} />
         {!collapsed && (
           <div className="leading-tight min-w-0">
             <div className="text-sm font-semibold truncate">{name}</div>

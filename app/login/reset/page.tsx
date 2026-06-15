@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { SolusiSajiMark } from "@/components/solusi-saji-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,9 +31,7 @@ export default function ResetPasswordPage() {
     <main className="grid min-h-0 flex-1 place-items-center overflow-y-auto p-6 bg-muted/30 [-webkit-overflow-scrolling:touch]">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <div className="h-12 w-12 rounded-xl bg-primary text-primary-foreground grid place-items-center">
-            <UtensilsCrossed className="h-6 w-6" />
-          </div>
+          <SolusiSajiMark className="h-10 w-auto" />
           <h1 className="text-2xl font-semibold tracking-tight">Lupa kata sandi?</h1>
           <p className="text-sm text-muted-foreground">
             Masukkan email akun Anda dan kami akan kirimkan link reset.
