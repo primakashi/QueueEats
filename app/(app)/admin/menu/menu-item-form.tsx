@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
@@ -104,12 +105,11 @@ export function MenuItemForm({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="price">Harga (IDR)</Label>
-                  <Input
+                  <CurrencyInput
                     id="price"
                     name="price"
-                    type="number"
                     required
-                    defaultValue={item?.price ?? ""}
+                    defaultValue={item?.price ?? 0}
                     placeholder="35000"
                   />
                 </div>

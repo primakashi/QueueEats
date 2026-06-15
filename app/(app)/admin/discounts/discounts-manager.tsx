@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -285,16 +286,28 @@ function DiscountForm({
           <Label htmlFor="d-value">
             Nilai {valueType === "percent" ? "(%)" : "(Rp)"}
           </Label>
-          <Input
-            id="d-value"
-            name="value"
-            type="number"
-            min="0"
-            step={valueType === "percent" ? "0.1" : "1"}
-            required
-            defaultValue={discount?.value ?? ""}
-            placeholder={valueType === "percent" ? "10" : "5000"}
-          />
+          {valueType === "amount" ? (
+            <CurrencyInput
+              id="d-value"
+              name="value"
+              required
+              defaultValue={discount?.value ?? 0}
+              placeholder="5000"
+              key={`amount-${discount?.id}`}
+            />
+          ) : (
+            <Input
+              id="d-value"
+              name="value"
+              type="number"
+              min="0"
+              step="0.1"
+              required
+              defaultValue={discount?.value ?? ""}
+              placeholder="10"
+              key={`percent-${discount?.id}`}
+            />
+          )}
         </div>
 
         {scope === "menu_item" && (

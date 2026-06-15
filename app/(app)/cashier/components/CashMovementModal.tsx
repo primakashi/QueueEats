@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import {
   Dialog,
   DialogContent,
@@ -72,12 +73,9 @@ export function CashMovementModal({ sessionId, type, onClose }: Props) {
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="cm-amount">Jumlah (Rp) <span className="text-destructive">*</span></Label>
-            <Input
+            <CurrencyInput
               id="cm-amount"
               name="amount"
-              type="number"
-              min={1}
-              step={1000}
               placeholder="0"
               required
               disabled={pending}

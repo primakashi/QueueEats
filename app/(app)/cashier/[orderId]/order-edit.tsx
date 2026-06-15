@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -623,14 +624,22 @@ function DiscountPicker({
             </div>
             <div className="space-y-1.5">
               <Label>Nilai</Label>
-              <Input
-                type="number"
-                min="0"
-                step={valueType === "percent" ? "0.1" : "1"}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                placeholder={valueType === "percent" ? "10" : "5000"}
-              />
+              {valueType === "amount" ? (
+                <CurrencyInput
+                  value={value}
+                  onValueChange={setValue}
+                  placeholder="5000"
+                />
+              ) : (
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder="10"
+                />
+              )}
             </div>
           </div>
 

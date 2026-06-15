@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import {
   Dialog,
   DialogContent,
@@ -97,12 +98,9 @@ export function CloseSessionModal({ session, onClose }: Props) {
 
             <div className="space-y-1.5">
               <Label htmlFor="actual-cash">Uang tunai aktual di laci (Rp) <span className="text-destructive">*</span></Label>
-              <Input
+              <CurrencyInput
                 id="actual-cash"
                 name="actual_closing_cash"
-                type="number"
-                min={0}
-                step={1000}
                 defaultValue={expected}
                 required
                 disabled={pending}
