@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import type { OrderChannelConfig } from "@/lib/types";
 
 type Result<T = undefined> =
@@ -10,7 +10,7 @@ type Result<T = undefined> =
   | { ok: false; error: string };
 
 export async function createChannel(formData: FormData): Promise<Result<OrderChannelConfig>> {
-  await requireRole(["admin"]);
+  const profile = await requireRole(["admin"]);
   const id = String(formData.get("id") ?? "").trim().toLowerCase().replace(/\s+/g, "_");
   const name = String(formData.get("name") ?? "").trim();
 
@@ -19,20 +19,19 @@ export async function createChannel(formData: FormData): Promise<Result<OrderCha
   if (!name) return { ok: false, error: "Nama saluran wajib diisi" };
 
   const supabase = await createClient();
+  const restaurant_id = getRestaurantFilter(profile);
+
   const { data: existing } = await supabase.from("order_channels").select("id").eq("id", id).maybeSingle();
   if (existing) return { ok: false, error: "ID saluran sudah digunakan" };
 
-  const { data: lastRow } = await supabase
-    .from("order_channels")
-    .select("sort_order")
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  let sortQ = supabase.from("order_channels").select("sort_order").order("sort_order", { ascending: false }).limit(1);
+  if (restaurant_id) sortQ = sortQ.eq("restaurant_id", restaurant_id);
+  const { data: lastRow } = await sortQ.maybeSingle();
   const sort_order = ((lastRow?.sort_order as number) ?? -1) + 1;
 
   const { data, error } = await supabase
     .from("order_channels")
-    .insert({ id, name, sort_order })
+    .insert({ id, name, sort_order, restaurant_id })
     .select()
     .single();
 
