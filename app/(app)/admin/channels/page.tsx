@@ -5,7 +5,7 @@ import type { OrderChannelConfig } from "@/lib/types";
 import { ChannelsManager } from "./channels-manager";
 
 export default async function AdminChannelsPage() {
-  const profile = await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "owner"]);
   const supabase = await createClient();
   const rid = getRestaurantFilter(profile);
   let q = supabase.from("order_channels").select("*");

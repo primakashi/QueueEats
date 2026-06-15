@@ -26,6 +26,8 @@ import { startRouteProgress } from "@/components/route-progress";
 import { FullScreenLoading } from "@/components/full-screen-loading";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 
+const UNCATEGORIZED = "__none__";
+
 export function MenuItemForm({
   categories,
   item,
@@ -37,7 +39,7 @@ export function MenuItemForm({
   const [pending, start] = useTransition();
   const [preview, setPreview] = useState<string | null>(item?.image_url ?? null);
   const [categoryId, setCategoryId] = useState<string>(
-    item?.category_id ?? (categories[0]?.id ?? ""),
+    item ? item.category_id ?? UNCATEGORIZED : categories[0]?.id ?? UNCATEGORIZED,
   );
   const [available, setAvailable] = useState<boolean>(item?.is_available ?? true);
 
@@ -48,7 +50,7 @@ export function MenuItemForm({
   }
 
   function onSubmit(formData: FormData) {
-    formData.set("category_id", categoryId);
+    formData.set("category_id", categoryId === UNCATEGORIZED ? "" : categoryId);
     if (available) formData.set("is_available", "on");
     else formData.delete("is_available");
     if (item) formData.set("id", item.id);
@@ -117,11 +119,13 @@ export function MenuItemForm({
                   <Label htmlFor="category">Kategori</Label>
                   <Select
                     value={categoryId}
-                    onValueChange={(v) => setCategoryId(v ?? "")}
+                    onValueChange={(v) => setCategoryId(v ?? UNCATEGORIZED)}
                   >
                     <SelectTrigger id="category">
                       <SelectValue placeholder="Pilih kategori">
-                        {categories.find((c) => c.id === categoryId)?.name ?? "Pilih kategori"}
+                        {categoryId === UNCATEGORIZED
+                          ? "Lainnya"
+                          : categories.find((c) => c.id === categoryId)?.name ?? "Pilih kategori"}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -130,6 +134,7 @@ export function MenuItemForm({
                           {c.name}
                         </SelectItem>
                       ))}
+                      <SelectItem value={UNCATEGORIZED}>Lainnya</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

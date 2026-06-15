@@ -9,6 +9,7 @@ import {
   List,
   Loader2,
   Plus,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,46 @@ const NEXT_STATUS: Partial<Record<OrderStatus, { next: OrderStatus; label: strin
   preparing: { next: "ready", label: "Siap" },
   ready: { next: "completed", label: "Selesai" },
 };
+
+const PRINTED_KEY = "waiter-printed-orders";
+
+function loadPrintedSet(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(PRINTED_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function markPrinted(orderId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const set = loadPrintedSet();
+    set.add(orderId);
+    const arr = [...set].slice(-500);
+    localStorage.setItem(PRINTED_KEY, JSON.stringify(arr));
+  } catch {
+    /* ignore */
+  }
+}
+
+function usePrintTicket(orderId: string) {
+  const [printed, setPrinted] = useState(false);
+  useEffect(() => {
+    setPrinted(loadPrintedSet().has(orderId));
+  }, [orderId]);
+  function print() {
+    const url = `/kitchen/${orderId}/print${printed ? "?reprint=1" : ""}`;
+    window.open(url, "_blank", "width=420,height=700,toolbar=0,menubar=0");
+    markPrinted(orderId);
+    setPrinted(true);
+  }
+  return { printed, print };
+}
 
 // Extra shortcut shown when order is pending — lets waiter skip kitchen
 const SKIP_KITCHEN: { next: OrderStatus; label: string } = {
@@ -258,6 +299,7 @@ function OrderCard({
   onAdvance: (id: string, next: OrderStatus) => void;
 }) {
   const advance = NEXT_STATUS[o.status];
+  const { printed, print } = usePrintTicket(o.id);
   return (
     <Card className={`p-3 gap-0 flex flex-col transition-opacity ${isBusy ? "opacity-60" : ""}`}>
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -271,7 +313,20 @@ function OrderCard({
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Badge className={`text-xs ${statusColor(o.status)}`}>{ORDER_STATUS_LABEL[o.status]}</Badge>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              onClick={print}
+              title={printed ? "Cetak ulang tiket" : "Cetak tiket"}
+              aria-label={printed ? "Cetak ulang tiket" : "Cetak tiket"}
+            >
+              <Printer className={`h-3.5 w-3.5 ${printed ? "text-muted-foreground" : ""}`} />
+            </Button>
+            <Badge className={`text-xs ${statusColor(o.status)}`}>{ORDER_STATUS_LABEL[o.status]}</Badge>
+          </div>
           <Badge variant="secondary" className={`text-xs ${paymentColor(o.payment_status)}`}>
             {PAYMENT_STATUS_LABEL[o.payment_status]}
           </Badge>
@@ -351,10 +406,22 @@ function OrderRow({
     .join(", ");
   const more = o.order_items.length > 3 ? ` +${o.order_items.length - 3}` : "";
   const hasItemNotes = o.order_items.some((i) => i.notes);
+  const { printed, print } = usePrintTicket(o.id);
 
   return (
     <Card className={`px-4 py-3 gap-0 transition-opacity ${isBusy ? "opacity-60" : ""}`}>
       <div className="flex items-center gap-3 flex-wrap">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6 shrink-0"
+          onClick={print}
+          title={printed ? "Cetak ulang tiket" : "Cetak tiket"}
+          aria-label={printed ? "Cetak ulang tiket" : "Cetak tiket"}
+        >
+          <Printer className={`h-3.5 w-3.5 ${printed ? "text-muted-foreground" : ""}`} />
+        </Button>
         <div className="font-semibold tabular-nums w-16 shrink-0">{o.order_number}</div>
         <div className="text-xs text-muted-foreground shrink-0">
           {formatTime(o.created_at)}

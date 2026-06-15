@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import type { OrderChannelConfig } from "@/lib/types";
+import {
+  CHANNEL_PRESETS,
+  type OrderChannelConfig,
+  type OrderChannelKind,
+} from "@/lib/types";
 import { createChannel, updateChannel, toggleChannelActive, deleteChannel } from "./actions";
 
 function ChannelForm({
@@ -26,10 +30,17 @@ function ChannelForm({
   onSuccess: () => void;
 }) {
   const [pending, start] = useTransition();
+  const [kind, setKind] = useState<OrderChannelKind>(channel?.kind ?? "online");
+  const [name, setName] = useState(channel?.name ?? "");
+
+  const presets = CHANNEL_PRESETS[kind];
+  const availablePresets = useMemo(() => presets, [presets]);
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    fd.set("kind", kind);
+    fd.set("name", name);
     start(async () => {
       const res = channel ? await updateChannel(fd) : await createChannel(fd);
       if (!res.ok) {
@@ -44,22 +55,27 @@ function ChannelForm({
   return (
     <form onSubmit={submit} className="space-y-4">
       {channel && <input type="hidden" name="id" value={channel.id} />}
-      {!channel && (
-        <div className="space-y-1.5">
-          <Label htmlFor="channel-id">
-            ID saluran <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="channel-id"
-            name="id"
-            placeholder="mis. tokopedia_food"
-            required
-          />
-          <p className="text-xs text-muted-foreground">
-            Huruf kecil, angka, dan underscore. Tidak bisa diubah setelah dibuat.
-          </p>
+
+      <div className="space-y-1.5">
+        <Label>Tipe</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {(["direct", "online"] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setKind(k)}
+              className={`h-10 rounded-md border text-sm font-medium transition-colors ${
+                kind === k
+                  ? "bg-primary text-primary-foreground border-transparent"
+                  : "bg-background hover:bg-muted"
+              }`}
+            >
+              {k === "direct" ? "Direct" : "Online"}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
+
       <div className="space-y-1.5">
         <Label htmlFor="channel-name">
           Nama saluran <span className="text-destructive">*</span>
@@ -67,11 +83,27 @@ function ChannelForm({
         <Input
           id="channel-name"
           name="name"
-          placeholder="mis. TokopediaFood"
-          defaultValue={channel?.name}
+          placeholder={kind === "direct" ? "mis. Dine-in" : "mis. GoFood"}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
           required
         />
+        {availablePresets.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {availablePresets.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setName(p)}
+                className="text-xs rounded-full border px-2 py-0.5 hover:bg-muted transition-colors"
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
       <Button type="submit" className="w-full" disabled={pending} aria-busy={pending}>
         {pending ? "Menyimpan…" : channel ? "Simpan perubahan" : "Tambah saluran"}
       </Button>
@@ -112,7 +144,6 @@ function ChannelRow({ channel }: { channel: OrderChannelConfig }) {
     <div className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3">
       <div className="flex items-center gap-3 min-w-0">
         <span className="font-medium truncate">{channel.name}</span>
-        <span className="text-xs text-muted-foreground font-mono shrink-0">{channel.id}</span>
         {!channel.is_active && <Badge variant="outline">Nonaktif</Badge>}
       </div>
 
@@ -159,11 +190,29 @@ function ChannelRow({ channel }: { channel: OrderChannelConfig }) {
   );
 }
 
+const GROUP_LABEL: Record<"direct" | "online" | "uncategorized", string> = {
+  direct: "Direct",
+  online: "Online",
+  uncategorized: "Belum dikelompokkan",
+};
+
 export function ChannelsManager({ channels }: { channels: OrderChannelConfig[] }) {
   const [createOpen, setCreateOpen] = useState(false);
 
+  const groups = useMemo(() => {
+    const direct: OrderChannelConfig[] = [];
+    const online: OrderChannelConfig[] = [];
+    const uncategorized: OrderChannelConfig[] = [];
+    for (const ch of channels) {
+      if (ch.kind === "direct") direct.push(ch);
+      else if (ch.kind === "online") online.push(ch);
+      else uncategorized.push(ch);
+    }
+    return { direct, online, uncategorized };
+  }, [channels]);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex justify-end">
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger render={<Button />}>
@@ -184,11 +233,22 @@ export function ChannelsManager({ channels }: { channels: OrderChannelConfig[] }
           Belum ada saluran. Klik "Tambah saluran" untuk memulai.
         </Card>
       ) : (
-        <div className="space-y-2">
-          {channels.map((ch) => (
-            <ChannelRow key={ch.id} channel={ch} />
-          ))}
-        </div>
+        (["direct", "online", "uncategorized"] as const).map((kind) => {
+          const list = groups[kind];
+          if (list.length === 0) return null;
+          return (
+            <div key={kind} className="space-y-2">
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {GROUP_LABEL[kind]}
+              </div>
+              <div className="space-y-2">
+                {list.map((ch) => (
+                  <ChannelRow key={ch.id} channel={ch} />
+                ))}
+              </div>
+            </div>
+          );
+        })
       )}
     </div>
   );

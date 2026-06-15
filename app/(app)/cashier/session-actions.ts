@@ -19,19 +19,35 @@ export async function getOpenSession(
 ): Promise<CashierSession | null> {
   if (!outletId && !restaurantId) return null;
   const supabase = await createClient();
-  let query = supabase
-    .from("cashier_sessions")
-    .select("*")
-    .eq("session_date", todayDate())
-    .eq("status", "open");
+  // Pick the most recently opened session — multiple concurrent open sessions
+  // are allowed (no per-day limit), so we return the latest.
+  const baseQuery = () =>
+    supabase
+      .from("cashier_sessions")
+      .select("*")
+      .eq("session_date", todayDate())
+      .eq("status", "open")
+      .order("opened_at", { ascending: false })
+      .limit(1);
+
+  // 1. Outlet-specific session (cashier / branch_manager case).
   if (outletId) {
-    query = query.eq("outlet_id", outletId);
-  } else if (restaurantId) {
-    query = query.eq("restaurant_id", restaurantId).is("outlet_id", null);
+    const { data } = await baseQuery().eq("outlet_id", outletId);
+    const row = data?.[0];
+    if (row) return row as CashierSession;
   }
 
-  const { data } = await query.maybeSingle();
-  return (data as CashierSession | null);
+  // 2. HQ user (admin/owner) has no outlet filter — find the most recently
+  //    opened session for this restaurant regardless of outlet. This covers
+  //    both restaurant-level sessions (outlet_id IS NULL) and sessions the
+  //    HQ user just opened for a specific outlet via the picker.
+  if (restaurantId) {
+    const { data } = await baseQuery().eq("restaurant_id", restaurantId);
+    const row = data?.[0];
+    if (row) return row as CashierSession;
+  }
+
+  return null;
 }
 
 export async function openSession(formData: FormData): Promise<Result<CashierSession>> {
@@ -46,11 +62,6 @@ export async function openSession(formData: FormData): Promise<Result<CashierSes
   }
 
   const supabase = await createClient();
-
-  // Prevent duplicate open session — must be scoped by outlet (cabang),
-  // or by restaurant when the restaurant has no outlets.
-  const existing = await getOpenSession(outletId, restaurantId);
-  if (existing) return { ok: false, error: "Sudah ada sesi yang terbuka hari ini" };
 
   const { data, error } = await supabase
     .from("cashier_sessions")

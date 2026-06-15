@@ -14,7 +14,7 @@ import { DeleteMenuItemButton } from "./delete-button";
 import { CategoriesManager } from "../categories/categories-manager";
 
 export default async function AdminMenuPage() {
-  const profile = await requireRole(["admin", "branch_manager"]);
+  const profile = await requireRole(["admin", "branch_manager", "cashier", "waiter"]);
   const supabase = await createClient();
   const rid = getRestaurantFilter(profile);
 

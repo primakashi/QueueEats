@@ -69,7 +69,7 @@ function actionVariant(action: string): "default" | "secondary" | "destructive" 
 }
 
 export default async function ChangelogPage() {
-  const profile = await requireRole(["owner"]);
+  const profile = await requireRole(["owner", "admin"]);
   const supabase = await createClient();
   const rid = getRestaurantFilter(profile);
 

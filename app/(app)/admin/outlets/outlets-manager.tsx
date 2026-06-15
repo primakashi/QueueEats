@@ -216,7 +216,7 @@ function OutletCard({ outlet, userRole }: { outlet: Outlet; userRole: UserRole }
       <Separator />
 
       <div className="flex gap-2">
-        {userRole === "admin" && (
+        {(userRole === "admin" || userRole === "owner") && (
           <Dialog open={editOpen} onOpenChange={setEditOpen}>
             <DialogTrigger render={<Button size="sm" variant="outline" className="flex-1" />}>
               Edit
@@ -266,7 +266,7 @@ export function OutletsManager({ outlets, userRole }: { outlets: Outlet[]; userR
 
   return (
     <div className="space-y-6">
-      {userRole === "admin" && (
+      {(userRole === "admin" || userRole === "owner") && (
         <div className="flex justify-end">
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger render={<Button />}>
@@ -285,7 +285,7 @@ export function OutletsManager({ outlets, userRole }: { outlets: Outlet[]; userR
 
       {active.length === 0 ? (
         <Card className="p-10 text-center text-muted-foreground text-sm">
-          Belum ada outlet.{userRole === "admin" ? ' Klik "Tambah outlet" untuk memulai.' : ""}
+          Belum ada outlet.{userRole === "admin" || userRole === "owner" ? ' Klik "Tambah outlet" untuk memulai.' : ""}
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

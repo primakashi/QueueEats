@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   BarChart3,
+  Boxes,
   Building2,
   ChefHat,
   CreditCard,
@@ -39,95 +40,52 @@ import { signOut } from "@/app/login/actions";
 import type { Profile, UserRole } from "@/lib/types";
 import { ROLE_LABEL } from "@/lib/types";
 
+type NavSection = "Operasional" | "Katalog & Promosi" | "Laporan & Rekonsiliasi" | "Manajemen";
+
 type NavItem = {
+  section: NavSection;
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: UserRole[];
 };
 
+const NAV_SECTION_ORDER: NavSection[] = [
+  "Operasional",
+  "Katalog & Promosi",
+  "Laporan & Rekonsiliasi",
+  "Manajemen",
+];
+
 /** Nav targets that use `loading.tsx` in-page instead of a sidebar link spinner. */
-const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels", "/admin/changelog", "/admin/cashier-sessions", "/admin/discounts"]);
+const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels", "/admin/changelog", "/admin/cashier-sessions", "/admin/discounts", "/admin/stok"]);
+
+// Per access matrix: cashier and waiter both get the broader "Kasir + Waitress" access.
+const OPS_ROLES: UserRole[] = ["admin", "branch_manager", "cashier", "waiter"];
+const CATALOG_ROLES: UserRole[] = ["admin", "branch_manager", "cashier", "waiter"];
 
 const NAV_ITEMS: NavItem[] = [
-  {
-    href: "/waiter",
-    label: "Pesanan",
-    icon: ClipboardList,
-    roles: ["waiter", "cashier", "admin", "branch_manager"],
-  },
-  {
-    href: "/host",
-    label: "Antrean",
-    icon: Users,
-    roles: ["waiter", "admin", "branch_manager"],
-  },
-  {
-    href: "/kitchen",
-    label: "Dapur",
-    icon: ChefHat,
-    roles: ["kitchen", "admin", "branch_manager"],
-  },
-  {
-    href: "/cashier",
-    label: "Kasir",
-    icon: CreditCard,
-    roles: ["cashier", "admin", "branch_manager"],
-  },
-  {
-    href: "/admin/menu",
-    label: "Menu",
-    icon: UtensilsCrossed,
-    roles: ["admin", "branch_manager"],
-  },
-  {
-    href: "/admin/discounts",
-    label: "Diskon",
-    icon: Tag,
-    roles: ["admin", "owner", "branch_manager"],
-  },
-  {
-    href: "/admin/users",
-    label: "Staf",
-    icon: Users,
-    roles: ["admin", "owner", "branch_manager"],
-  },
-  {
-    href: "/admin/outlets",
-    label: "Outlet",
-    icon: Building2,
-    roles: ["admin", "owner"],
-  },
-  {
-    href: "/admin/channels",
-    label: "Saluran Pesanan",
-    icon: Radio,
-    roles: ["admin"],
-  },
-  {
-    href: "/admin/sales",
-    label: "Penjualan",
-    icon: BarChart3,
-    roles: ["admin", "owner", "finance", "branch_manager"],
-  },
-  {
-    href: "/admin/reconciliation",
-    label: "Rekonsiliasi",
-    icon: Scale,
-    roles: ["admin", "owner", "finance", "branch_manager"],
-  },
-  {
-    href: "/admin/cashier-sessions",
-    label: "Sesi Kasir",
-    icon: Wallet,
-    roles: ["admin", "owner", "finance", "branch_manager"],
-  },
-  {
-    href: "/admin/changelog",
-    label: "Log Perubahan",
-    icon: ScrollText,
-    roles: ["owner"],
-  },
+  // Operasional
+  // { section: "Operasional", href: "/host", label: "Antrean", icon: Users, roles: OPS_ROLES },
+  { section: "Operasional", href: "/waiter", label: "Pesanan", icon: ClipboardList, roles: OPS_ROLES },
+  { section: "Operasional", href: "/kitchen", label: "Dapur", icon: ChefHat, roles: [...OPS_ROLES, "kitchen"] },
+  { section: "Operasional", href: "/cashier", label: "Kasir", icon: CreditCard, roles: OPS_ROLES },
+
+  // Katalog & Promosi
+  { section: "Katalog & Promosi", href: "/admin/menu", label: "Menu", icon: UtensilsCrossed, roles: CATALOG_ROLES },
+  { section: "Katalog & Promosi", href: "/admin/discounts", label: "Diskon", icon: Tag, roles: [...CATALOG_ROLES, "owner"] },
+  // { section: "Katalog & Promosi", href: "/admin/stok", label: "Stok", icon: Boxes, roles: [...CATALOG_ROLES, "kitchen"] },
+
+  // Laporan & Rekonsiliasi
+  { section: "Laporan & Rekonsiliasi", href: "/admin/sales", label: "Penjualan", icon: BarChart3, roles: ["admin", "owner", "finance", "branch_manager", "cashier", "waiter"] },
+  { section: "Laporan & Rekonsiliasi", href: "/admin/reconciliation", label: "Rekonsiliasi", icon: Scale, roles: ["admin", "owner", "finance", "branch_manager"] },
+
+  // Manajemen
+  { section: "Manajemen", href: "/admin/users", label: "Staf", icon: Users, roles: ["admin", "owner", "branch_manager"] },
+  { section: "Manajemen", href: "/admin/outlets", label: "Outlet", icon: Building2, roles: ["admin", "owner"] },
+  { section: "Manajemen", href: "/admin/channels", label: "Saluran Pesanan", icon: Radio, roles: ["admin", "owner"] },
+  { section: "Manajemen", href: "/admin/cashier-sessions", label: "Log Kasir", icon: Wallet, roles: ["admin", "owner", "finance", "branch_manager"] },
+  { section: "Manajemen", href: "/admin/changelog", label: "Log Perubahan", icon: ScrollText, roles: ["admin", "owner"] },
 ];
 
 export function AppShell({
@@ -140,7 +98,9 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const items = NAV_ITEMS.filter((i) => i.roles.includes(profile.role));
+  const items = NAV_ITEMS.filter(
+    (i) => profile.role === "super_admin" || i.roles.includes(profile.role),
+  );
   return (
     <div className="flex flex-1 flex-col bg-muted/30">
       {/*
@@ -164,6 +124,7 @@ export function AppShell({
         />
         <Nav items={items} collapsed={sidebarCollapsed} />
         <UserFooter profile={profile} collapsed={sidebarCollapsed} />
+        <BrandAttribution collapsed={sidebarCollapsed} />
       </aside>
 
       <div
@@ -189,6 +150,7 @@ export function AppShell({
               <BrandHeader name={restaurantName} />
               <Nav items={items} />
               <UserFooter profile={profile} />
+              <BrandAttribution />
             </SheetContent>
           </Sheet>
           <span className="font-semibold">{restaurantName}</span>
@@ -219,12 +181,18 @@ function BrandHeader({
         collapsed ? "justify-center px-2" : "justify-between gap-1 px-4",
       )}
     >
-      <div className={cn("flex items-center min-w-0", collapsed ? "justify-center" : "gap-2.5")}>
-        <SolusiSajiMark className={cn("shrink-0 w-auto", collapsed ? "h-5" : "h-6")} />
-        {!collapsed && (
+      <div className={cn("flex items-center min-w-0", collapsed ? "justify-center" : "")}>
+        {collapsed ? (
+          <div
+            className="h-9 w-9 rounded-md bg-primary/10 text-primary grid place-items-center text-sm font-semibold shrink-0"
+            aria-label={name}
+            title={name}
+          >
+            {(name?.trim()?.[0] ?? "?").toUpperCase()}
+          </div>
+        ) : (
           <div className="leading-tight min-w-0">
             <div className="text-sm font-semibold truncate">{name}</div>
-            {/* <div className="text-xs text-muted-foreground">Titik penjualan</div> */}
           </div>
         )}
       </div>
@@ -257,35 +225,47 @@ function Nav({
   collapsed?: boolean;
 }) {
   const pathname = usePathname();
+  const sections = NAV_SECTION_ORDER.map((section) => ({
+    section,
+    items: items.filter((i) => i.section === section),
+  })).filter((s) => s.items.length > 0);
+
   return (
-    <nav className={cn("flex-1 space-y-1 overflow-y-auto", collapsed ? "p-2" : "p-3")}>
-      {items.map((item) => {
-        const active =
-          pathname === item.href || pathname.startsWith(item.href + "/");
-        const Icon = item.icon;
-        const showNavSpinner =
-          !collapsed && !NAV_IN_PAGE_LOADING_HREFS.has(item.href);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            title={item.label}
-            className={cn(
-              "flex items-center rounded-md py-2 text-sm font-medium transition-colors",
-              collapsed
-                ? "justify-center px-2"
-                : "gap-3 px-3",
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {!collapsed && <span className="flex-1">{item.label}</span>}
-            {showNavSpinner && <NavLinkSpinner />}
-          </Link>
-        );
-      })}
+    <nav className={cn("flex-1 overflow-y-auto", collapsed ? "p-2 space-y-2" : "p-3 space-y-4")}>
+      {sections.map(({ section, items: sectionItems }) => (
+        <div key={section} className="space-y-1">
+          {!collapsed && (
+            <div className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {section}
+            </div>
+          )}
+          {sectionItems.map((item) => {
+            const active =
+              pathname === item.href || pathname.startsWith(item.href + "/");
+            const Icon = item.icon;
+            const showNavSpinner =
+              !collapsed && !NAV_IN_PAGE_LOADING_HREFS.has(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                className={cn(
+                  "flex items-center rounded-md py-2 text-sm font-medium transition-colors",
+                  collapsed ? "justify-center px-2" : "gap-3 px-3",
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {!collapsed && <span className="flex-1">{item.label}</span>}
+                {showNavSpinner && <NavLinkSpinner />}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }
@@ -317,6 +297,20 @@ function UserFooter({
       <form action={signOut}>
         <SignOutIconButton />
       </form>
+    </div>
+  );
+}
+
+function BrandAttribution({ collapsed = false }: { collapsed?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "border-t px-3 py-2 flex items-center",
+        collapsed ? "justify-center" : "justify-center gap-2 text-[10px] text-muted-foreground",
+      )}
+    >
+      {!collapsed && <span>Powered by</span>}
+      <SolusiSajiMark className={cn("shrink-0 w-auto", collapsed ? "h-3.5" : "h-4")} />
     </div>
   );
 }

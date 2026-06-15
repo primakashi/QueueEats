@@ -93,7 +93,10 @@ export async function requireRole(
   roles: UserRole[],
 ): Promise<Profile> {
   const profile = await requireProfile();
-  if (!roles.includes(profile.role)) redirect("/403");
+  // super_admin bypasses all role gates so they can debug any page.
+  if (profile.role !== "super_admin" && !roles.includes(profile.role)) {
+    redirect("/403");
+  }
   return profile;
 }
 

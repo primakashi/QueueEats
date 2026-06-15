@@ -5,7 +5,7 @@ import type { Discount, MenuItem } from "@/lib/types";
 import { DiscountsManager } from "./discounts-manager";
 
 export default async function DiscountsPage() {
-  const profile = await requireRole(["admin", "owner", "branch_manager"]);
+  const profile = await requireRole(["admin", "owner", "branch_manager", "cashier", "waiter"]);
   const supabase = await createClient();
   const rid = getRestaurantFilter(profile);
 

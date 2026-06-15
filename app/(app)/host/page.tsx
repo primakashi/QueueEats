@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 export const dynamic = "force-dynamic";
 
 export default async function HostPage() {
-  await requireRole(["waiter", "admin"]);
+  await requireRole(["waiter", "cashier", "admin", "branch_manager"]);
   try {
     const [restaurant, list] = await Promise.all([
       getOrCreateRestaurant(),

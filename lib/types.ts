@@ -12,11 +12,30 @@ export type PaymentMethod = "qris" | "cash" | "edc";
 export type OrderServiceType = "dine_in" | "takeaway";
 export type OrderChannel = string;
 
+export type OrderChannelKind = "direct" | "online";
+
 export type OrderChannelConfig = {
   id: string;
   name: string;
   sort_order: number;
   is_active: boolean;
+  kind: OrderChannelKind | null;
+};
+
+export const CHANNEL_PRESETS: Record<OrderChannelKind, string[]> = {
+  direct: ["Dine-in", "Takeaway"],
+  online: [
+    "GoFood",
+    "GrabFood",
+    "ShopeeFood",
+    "WhatsApp",
+    "Tokopedia",
+    "Shopee",
+    "Blibli",
+    "TikTokShop",
+    "Facebook",
+    "Festival",
+  ],
 };
 export type QueueEntryStatus =
   | "waiting"
@@ -309,18 +328,32 @@ export const ORDER_CHANNEL_LABEL: Record<string, string> = {
   other: "Lainnya",
 };
 
-export const PAYMENT_DESTINATIONS = [
-  "QRIS BCA",
-  "QRIS BRI",
-  "QRIS BNI",
-  "QRIS Mandiri",
-  "QRIS ShopeePay",
-  "QRIS GoPay",
-  "Transfer BCA",
-  "Transfer BRI",
-  "Transfer Mandiri",
-  "Tunai",
-  "Lainnya",
-] as const;
+export const PAYMENT_DESTINATION_GROUPS: ReadonlyArray<{
+  label: string;
+  options: ReadonlyArray<string>;
+}> = [
+  { label: "Tunai", options: ["Tunai"] },
+  { label: "Aplikasi", options: ["GoFood", "GrabFood", "ShopeeFood"] },
+  { label: "Kartu", options: ["Kartu EDC"] },
+  {
+    label: "Transfer Bank",
+    options: ["Transfer BCA", "Transfer BRI", "Transfer BNI", "Transfer Mandiri"],
+  },
+  {
+    label: "QRIS",
+    options: [
+      "QRIS BCA",
+      "QRIS BRI",
+      "QRIS BNI",
+      "QRIS Mandiri",
+      "QRIS ShopeePay",
+      "QRIS GoPay",
+    ],
+  },
+  { label: "Lainnya", options: ["Lainnya"] },
+];
 
-export type PaymentDestination = typeof PAYMENT_DESTINATIONS[number];
+export const PAYMENT_DESTINATIONS: ReadonlyArray<string> =
+  PAYMENT_DESTINATION_GROUPS.flatMap((g) => g.options);
+
+export type PaymentDestination = string;

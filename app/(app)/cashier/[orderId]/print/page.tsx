@@ -13,7 +13,7 @@ import { AutoPrint } from "./auto-print";
 type Props = { params: Promise<{ orderId: string }> };
 
 export default async function PrintReceiptPage({ params }: Props) {
-  await requireRole(["cashier", "admin"]);
+  await requireRole(["cashier", "admin", "branch_manager", "waiter"]);
   const { orderId } = await params;
   const supabase = await createClient();
 

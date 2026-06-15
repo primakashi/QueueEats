@@ -6,29 +6,40 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
-import { formatIDR } from "@/lib/format";
-import type { Order, OrderItem } from "@/lib/types";
+import { formatIDR, formatDateTime } from "@/lib/format";
+import { ORDER_CHANNEL_LABEL, type Order, type OrderChannelConfig, type OrderItem } from "@/lib/types";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function ConfirmationPage({ params }: Props) {
-  await requireRole(["waiter", "admin"]);
+  await requireRole(["waiter", "cashier", "admin", "branch_manager"]);
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: order }, { data: items }] = await Promise.all([
+  const [{ data: order }, { data: items }, { data: channelsRaw }] = await Promise.all([
     supabase.from("orders").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("order_items")
       .select("*")
       .eq("order_id", id)
       .order("created_at", { ascending: true }),
+    supabase.from("order_channels").select("id, name, kind"),
   ]);
 
   if (!order) notFound();
 
   const orderTyped = order as Order;
   const itemsTyped = (items ?? []) as OrderItem[];
+  const channels = (channelsRaw ?? []) as Pick<OrderChannelConfig, "id" | "name" | "kind">[];
+
+  const channelInfo = channels.find((c) => c.id === orderTyped.order_channel);
+  const isOnline = channelInfo?.kind === "online";
+  const tipeLabel = isOnline ? "Online" : "Langsung";
+  const sourceLabel = isOnline
+    ? (channelInfo?.name ?? ORDER_CHANNEL_LABEL[orderTyped.order_channel ?? ""] ?? orderTyped.order_channel ?? "Online")
+    : orderTyped.service_type === "takeaway"
+    ? "Takeaway"
+    : "Dine-in";
 
   return (
     <div className="p-6 max-w-xl mx-auto">
@@ -37,24 +48,25 @@ export default async function ConfirmationPage({ params }: Props) {
           <CheckCircle2 className="h-10 w-10" />
         </div>
         <div>
-          <div className="text-sm text-muted-foreground">Pesanan terkirim</div>
+          <div className="text-sm text-muted-foreground">Pesanan tercatat</div>
           <div className="text-3xl font-semibold tabular-nums tracking-tight">
             {orderTyped.order_number}
           </div>
-          <div className="text-sm text-muted-foreground mt-1 space-y-0.5">
-            {orderTyped.service_type === "takeaway" && (
-              <div>Bungkus</div>
-            )}
-            {orderTyped.table_number && (
-              <div>
-                Meja {orderTyped.table_number}
-                {orderTyped.customer_name ? ` · ${orderTyped.customer_name}` : ""}
-              </div>
-            )}
-            {!orderTyped.table_number && orderTyped.customer_name && (
-              <div>{orderTyped.customer_name}</div>
-            )}
-          </div>
+        </div>
+
+        <div className="text-left text-sm space-y-1.5 rounded-md border bg-muted/30 p-4">
+          <DetailRow label="Waktu" value={formatDateTime(orderTyped.created_at)} />
+          {orderTyped.customer_name && (
+            <DetailRow label="Pelanggan" value={orderTyped.customer_name} />
+          )}
+          <DetailRow label="Tipe pesanan" value={tipeLabel} />
+          <DetailRow label="Sumber pesanan" value={sourceLabel} />
+          {orderTyped.service_type === "dine_in" && orderTyped.table_number && (
+            <DetailRow label="Meja" value={orderTyped.table_number} />
+          )}
+          {orderTyped.notes && (
+            <DetailRow label="Catatan" value={orderTyped.notes} />
+          )}
         </div>
 
         <Separator />
@@ -102,6 +114,15 @@ export default async function ConfirmationPage({ params }: Props) {
           </Button>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="text-right break-words">{value}</span>
     </div>
   );
 }

@@ -50,7 +50,7 @@ export async function createOutlet(formData: FormData): Promise<Result<Outlet>> 
 }
 
 export async function updateOutlet(formData: FormData): Promise<Result> {
-  const profile = await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "owner"]);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const location = String(formData.get("location") ?? "").trim() || null;

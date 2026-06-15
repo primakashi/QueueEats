@@ -13,7 +13,7 @@ export default function ConfirmationLoading() {
           <CheckCircle2 className="h-10 w-10" />
         </div>
         <div className="space-y-2">
-          <div className="text-sm text-muted-foreground">Pesanan terkirim</div>
+          <div className="text-sm text-muted-foreground">Pesanan tercatat</div>
           <Skeleton className="h-9 w-32 mx-auto" />
           <Skeleton className="h-4 w-44 mx-auto" />
         </div>

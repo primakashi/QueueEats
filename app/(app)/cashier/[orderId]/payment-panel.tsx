@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Banknote, CheckCircle2, CreditCard, Printer } from "lucide-react";
+import { CheckCircle2, Printer, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,39 +11,46 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { formatIDR } from "@/lib/format";
-import { PAYMENT_DESTINATIONS } from "@/lib/types";
+import { PAYMENT_DESTINATION_GROUPS } from "@/lib/types";
 import type { Order } from "@/lib/types";
 import { confirmPayment } from "../actions";
 import { FullScreenLoading } from "@/components/full-screen-loading";
 
+function methodFromDestination(destination: string): "cash" | "edc" {
+  return destination === "Tunai" ? "cash" : "edc";
+}
+
 export function PaymentPanel({ order }: { order: Order }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [action, setAction] = useState<"cash" | "edc" | null>(null);
   const [paymentDestination, setPaymentDestination] = useState<string>("");
   const [payError, setPayError] = useState<string | null>(null);
 
   const isPaid = order.payment_status === "paid";
 
-  function pay(method: "cash" | "edc") {
-    setAction(method);
+  function pay() {
+    if (!paymentDestination) {
+      setPayError("Pilih sumber pembayaran dulu");
+      return;
+    }
+    const method = methodFromDestination(paymentDestination);
     setPayError(null);
     start(async () => {
-      const res = await confirmPayment(order.id, method, paymentDestination || undefined);
+      const res = await confirmPayment(order.id, method, paymentDestination);
       if (!res.ok) {
         toast.error(res.error);
         setPayError(res.error);
-        setAction(null);
         return;
       }
       toast.success("Pembayaran diterima!");
       router.refresh();
-      setAction(null);
     });
   }
 
@@ -92,47 +99,34 @@ export function PaymentPanel({ order }: { order: Order }) {
           onValueChange={(v) => setPaymentDestination(v === "__none__" || !v ? "" : v)}
         >
           <SelectTrigger id="pay-destination" className="w-full">
-            <SelectValue placeholder="Pilih tujuan (opsional)…" />
+            <SelectValue placeholder="Pilih sumber pembayaran" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__none__">Tidak ditentukan</SelectItem>
-            {PAYMENT_DESTINATIONS.map((d) => (
-              <SelectItem key={d} value={d}>{d}</SelectItem>
+            {PAYMENT_DESTINATION_GROUPS.map((g) => (
+              <SelectGroup key={g.label}>
+                <SelectLabel>{g.label}</SelectLabel>
+                {g.options.map((d) => (
+                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                ))}
+              </SelectGroup>
             ))}
           </SelectContent>
         </Select>
       </div>
-      <div className="grid gap-3">
-        <Button
-          size="lg"
-          className="h-14 text-base gap-3"
-          onClick={() => pay("cash")}
-          disabled={pending}
-          aria-busy={action === "cash"}
-        >
-          {action === "cash" ? (
-            <Spinner className="h-5 w-5 shrink-0" size="md" />
-          ) : (
-            <Banknote className="h-5 w-5 shrink-0" />
-          )}
-          {action === "cash" ? "Mencatat…" : "Bayar Tunai"}
-        </Button>
-        <Button
-          size="lg"
-          variant="outline"
-          className="h-14 text-base gap-3"
-          onClick={() => pay("edc")}
-          disabled={pending}
-          aria-busy={action === "edc"}
-        >
-          {action === "edc" ? (
-            <Spinner className="h-5 w-5 shrink-0" size="md" />
-          ) : (
-            <CreditCard className="h-5 w-5 shrink-0" />
-          )}
-          {action === "edc" ? "Mencatat…" : "Bayar EDC / Kartu"}
-        </Button>
-      </div>
+      <Button
+        size="lg"
+        className="h-14 text-base gap-3"
+        onClick={pay}
+        disabled={pending || !paymentDestination}
+        aria-busy={pending}
+      >
+        {pending ? (
+          <Spinner className="h-5 w-5 shrink-0" size="md" />
+        ) : (
+          <Wallet className="h-5 w-5 shrink-0" />
+        )}
+        {pending ? "Mencatat…" : "Pembayaran Diterima"}
+      </Button>
       {payError && (
         <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
           {payError} — Coba lagi.

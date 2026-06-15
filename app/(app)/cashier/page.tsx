@@ -18,7 +18,7 @@ import { SessionBar } from "./components/SessionBar";
 import { getOpenSession, getSessionSummary } from "./session-actions";
 
 export default async function CashierPage() {
-  const profile = await requireRole(["cashier", "admin", "branch_manager"]);
+  const profile = await requireRole(["cashier", "admin", "branch_manager", "waiter"]);
   const supabase = await createClient();
   const outletFilter = getOutletFilter(profile);
   const restaurantFilter = getRestaurantFilter(profile);
@@ -28,6 +28,19 @@ export default async function CashierPage() {
 
   const session = await getOpenSession(outletFilter, restaurantFilter);
   const sessionSummary = session ? await getSessionSummary(session.id) : null;
+
+  // For HQ roles (admin/owner) opening a session, offer an outlet picker so
+  // the session is tied to a specific cabang rather than left null.
+  let outletsForPicker: Array<{ id: string; name: string }> = [];
+  if (!session && !outletFilter && restaurantFilter) {
+    const { data: outletsData } = await supabase
+      .from("outlets")
+      .select("id, name")
+      .eq("restaurant_id", restaurantFilter)
+      .eq("is_archived", false)
+      .order("name", { ascending: true });
+    outletsForPicker = (outletsData ?? []) as Array<{ id: string; name: string }>;
+  }
 
   let query = supabase
     .from("orders")
@@ -48,7 +61,7 @@ export default async function CashierPage() {
       <CashierRealtimeRefresher />
 
       {!session && (
-        <OpenSessionGate outletId={outletFilter} />
+        <OpenSessionGate outletId={outletFilter} outlets={outletsForPicker} />
       )}
 
       <PageHeader

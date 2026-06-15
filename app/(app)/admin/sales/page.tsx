@@ -30,7 +30,7 @@ type Props = {
 };
 
 export default async function AdminSalesPage({ searchParams }: Props) {
-  const profile = await requireRole(["admin", "owner", "finance", "branch_manager"]);
+  const profile = await requireRole(["admin", "owner", "finance", "branch_manager", "cashier", "waiter"]);
   const { outlet } = await searchParams;
   const supabase = await createClient();
   const outletFilter = getOutletFilter(profile);
@@ -63,7 +63,7 @@ export default async function AdminSalesPage({ searchParams }: Props) {
   let outletsQuery = supabase.from("outlets").select("id, name").eq("is_archived", false);
   if (rid) outletsQuery = outletsQuery.eq("restaurant_id", rid);
 
-  let channelsQuery = supabase.from("order_channels").select("id, name, sort_order, is_active");
+  let channelsQuery = supabase.from("order_channels").select("id, name, sort_order, is_active, kind");
   if (rid) channelsQuery = channelsQuery.eq("restaurant_id", rid);
 
   const [{ data: ordersRaw }, { data: outletsRaw }, { data: channelsRaw }] = await Promise.all([

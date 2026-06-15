@@ -5,7 +5,7 @@ import type { OrderWithItems, Outlet } from "@/lib/types";
 import { KitchenBoard } from "./kitchen-board";
 
 export default async function KitchenPage() {
-  const profile = await requireRole(["kitchen", "admin", "branch_manager"]);
+  const profile = await requireRole(["kitchen", "admin", "branch_manager", "cashier", "waiter"]);
   const supabase = await createClient();
   const outletFilter = getOutletFilter(profile);
   const rid = getRestaurantFilter(profile);

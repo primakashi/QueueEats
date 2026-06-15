@@ -69,8 +69,8 @@ export function CloseSessionModal({ session, onClose }: Props) {
         return;
       }
       toast.success("Sesi kasir ditutup");
-      router.refresh();
       onClose();
+      router.push("/waiter");
     });
   }
 

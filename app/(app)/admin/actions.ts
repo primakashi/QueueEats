@@ -16,15 +16,46 @@ type Result<T = undefined> =
 export async function createCategory(formData: FormData): Promise<Result> {
   const profile = await requireRole(["admin", "branch_manager"]);
   const name = String(formData.get("name") ?? "").trim();
-  const sortOrder = Number(formData.get("sort_order") ?? 0);
   if (!name) return { ok: false, error: "Nama wajib diisi" };
   const restaurant_id = getRestaurantFilter(profile);
 
   const supabase = await createClient();
+  // Auto-append to end of list.
+  let maxQ = supabase
+    .from("menu_categories")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  if (restaurant_id) maxQ = maxQ.eq("restaurant_id", restaurant_id);
+  const { data: lastRow } = await maxQ.maybeSingle();
+  const sort_order = ((lastRow?.sort_order as number) ?? -1) + 1;
+
   const { error } = await supabase
     .from("menu_categories")
-    .insert({ name, sort_order: Number.isFinite(sortOrder) ? sortOrder : 0, restaurant_id });
+    .insert({ name, sort_order, restaurant_id });
   if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin/categories");
+  revalidatePath("/admin/menu");
+  revalidatePath("/waiter/new");
+  return { ok: true };
+}
+
+export async function reorderCategories(orderedIds: string[]): Promise<Result> {
+  const profile = await requireRole(["admin", "branch_manager"]);
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    return { ok: false, error: "Urutan tidak valid" };
+  }
+  const rid = getRestaurantFilter(profile);
+  const supabase = await createClient();
+
+  // Update each category's sort_order to its position in the array.
+  for (let i = 0; i < orderedIds.length; i++) {
+    let q = supabase.from("menu_categories").update({ sort_order: i }).eq("id", orderedIds[i]);
+    if (rid) q = q.eq("restaurant_id", rid);
+    const { error } = await q;
+    if (error) return { ok: false, error: error.message };
+  }
+
   revalidatePath("/admin/categories");
   revalidatePath("/admin/menu");
   revalidatePath("/waiter/new");
@@ -35,12 +66,11 @@ export async function updateCategory(formData: FormData): Promise<Result> {
   const profile = await requireRole(["admin", "branch_manager"]);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
-  const sortOrder = Number(formData.get("sort_order") ?? 0);
   if (!id || !name) return { ok: false, error: "Data tidak lengkap" };
 
   const rid = getRestaurantFilter(profile);
   const supabase = await createClient();
-  let q = supabase.from("menu_categories").update({ name, sort_order: Number.isFinite(sortOrder) ? sortOrder : 0 }).eq("id", id);
+  let q = supabase.from("menu_categories").update({ name }).eq("id", id);
   if (rid) q = q.eq("restaurant_id", rid);
   const { error } = await q;
   if (error) return { ok: false, error: error.message };

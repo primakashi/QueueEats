@@ -444,10 +444,39 @@ function CartPanel(props: {
   setOrderChannel: (v: OrderChannel) => void;
   channels: OrderChannelConfig[];
 }) {
+  const directChannels = props.channels.filter((ch) => ch.kind === "direct");
+  const onlineChannels = props.channels.filter((ch) => ch.kind === "online");
+
+  // Derive current kind from the active channel.
+  const currentChannelKind = props.channels.find((ch) => ch.id === props.orderChannel)?.kind ?? "direct";
+
+  function selectDirect(type: "dine_in" | "takeaway") {
+    props.setServiceType(type);
+    // Pick a matching direct channel if available; prefer one whose name contains the type hint.
+    const hint = type === "dine_in" ? ["dine", "makan", "tempat"] : ["takeaway", "bungkus", "take"];
+    const match =
+      directChannels.find((ch) =>
+        hint.some((h) => ch.name.toLowerCase().includes(h)),
+      ) ?? directChannels[0];
+    props.setOrderChannel(match?.id ?? "direct");
+  }
+
+  function selectOnline(channelId: string) {
+    props.setServiceType("takeaway");
+    props.setOrderChannel(channelId);
+  }
+
+  function switchKind(kind: "direct" | "online") {
+    if (kind === "direct") {
+      selectDirect("dine_in");
+    } else {
+      const first = onlineChannels[0];
+      if (first) selectOnline(first.id);
+    }
+  }
+
   const tableSelectValue =
-    props.selectedTableId.trim() === ""
-      ? TABLE_NONE
-      : props.selectedTableId;
+    props.selectedTableId.trim() === "" ? TABLE_NONE : props.selectedTableId;
   const tableTriggerLabel =
     tableSelectValue === TABLE_NONE
       ? "Pilih meja"
@@ -484,60 +513,79 @@ function CartPanel(props: {
           </div>
         )}
 
-        <div className="space-y-1.5">
-          <Label htmlFor="cart-channel">Saluran pesanan</Label>
-          <Select
-            value={props.orderChannel}
-            onValueChange={(v) => { if (v) props.setOrderChannel(v); }}
-          >
-            <SelectTrigger id="cart-channel" className="w-full min-w-0">
-              <SelectValue>
-                {props.channels.find((ch) => ch.id === props.orderChannel)?.name ?? props.orderChannel}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {props.channels.map((ch) => (
-                <SelectItem key={ch.id} value={ch.id}>
-                  {ch.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
+        {/* Tipe pesanan: Direct / Online */}
         <div className="space-y-2">
           <Label>Tipe pesanan</Label>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => props.setServiceType("dine_in")}
-              className={cn(
-                "flex-1 px-3 h-10 rounded-md text-sm font-medium border transition-colors",
-                props.serviceType === "dine_in"
-                  ? "bg-primary text-primary-foreground border-transparent"
-                  : "bg-background hover:bg-muted",
-              )}
-            >
-              Makan di tempat
-            </button>
-            <button
-              type="button"
-              onClick={() => props.setServiceType("takeaway")}
-              className={cn(
-                "flex-1 px-3 h-10 rounded-md text-sm font-medium border transition-colors",
-                props.serviceType === "takeaway"
-                  ? "bg-primary text-primary-foreground border-transparent"
-                  : "bg-background hover:bg-muted",
-              )}
-            >
-              Bungkus
-            </button>
-            
+            {(["direct", "online"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => switchKind(k)}
+                className={cn(
+                  "flex-1 px-3 h-10 rounded-md text-sm font-medium border transition-colors",
+                  currentChannelKind === k
+                    ? "bg-primary text-primary-foreground border-transparent"
+                    : "bg-background hover:bg-muted",
+                )}
+              >
+                {k === "direct" ? "Langsung" : "Online"}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* Sumber pesanan */}
+        <div className="space-y-2">
+          <Label>Sumber pesanan</Label>
+          {currentChannelKind === "direct" ? (
+            <div className="flex gap-2">
+              {(["dine_in", "takeaway"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => selectDirect(t)}
+                  className={cn(
+                    "flex-1 px-3 h-10 rounded-md text-sm font-medium border transition-colors",
+                    props.serviceType === t
+                      ? "bg-primary text-primary-foreground border-transparent"
+                      : "bg-background hover:bg-muted",
+                  )}
+                >
+                  {t === "dine_in" ? "Dine-in" : "Takeaway"}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {onlineChannels.map((ch) => (
+                <button
+                  key={ch.id}
+                  type="button"
+                  onClick={() => selectOnline(ch.id)}
+                  className={cn(
+                    "px-3 h-10 rounded-md text-sm font-medium border transition-colors",
+                    props.orderChannel === ch.id
+                      ? "bg-primary text-primary-foreground border-transparent"
+                      : "bg-background hover:bg-muted",
+                  )}
+                >
+                  {ch.name}
+                </button>
+              ))}
+              {onlineChannels.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Belum ada saluran online. Tambah di Manajemen → Kanal.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Meja — only for dine-in */}
         {props.serviceType === "dine_in" && (
           <div className="space-y-1">
-            <Label htmlFor="table-select">Meja</Label>
+            <Label htmlFor="table-select">Nomor meja <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <Select
               value={tableSelectValue}
               onValueChange={(v) =>
@@ -555,7 +603,7 @@ function CartPanel(props: {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={TABLE_NONE}>
-                  Isi atau pilih meja…
+                  Pilih meja…
                 </SelectItem>
                 {FLOOR_SECTIONS.map((section) => (
                   <SelectGroup key={section.id}>
@@ -573,6 +621,7 @@ function CartPanel(props: {
             </Select>
           </div>
         )}
+
         <div className="space-y-1">
           <Label htmlFor="cust">Pelanggan</Label>
           <Input

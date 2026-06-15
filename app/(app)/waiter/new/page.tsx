@@ -5,14 +5,14 @@ import type { MenuCategory, MenuItem, OrderChannelConfig, Outlet } from "@/lib/t
 import { NewOrderClient } from "./new-order-client";
 
 export default async function NewOrderPage() {
-  const profile = await requireRole(["waiter", "admin", "branch_manager"]);
+  const profile = await requireRole(["waiter", "cashier", "admin", "branch_manager"]);
   const supabase = await createClient();
   const rid = getRestaurantFilter(profile);
 
   let itemsQ = supabase.from("menu_items").select("*").eq("is_available", true);
   let catsQ = supabase.from("menu_categories").select("*");
   let outletsQ = supabase.from("outlets").select("id, name, is_temporary").eq("is_archived", false);
-  let channelsQ = supabase.from("order_channels").select("id, name, sort_order, is_active").eq("is_active", true);
+  let channelsQ = supabase.from("order_channels").select("id, name, sort_order, is_active, kind").eq("is_active", true);
   if (rid) {
     itemsQ = itemsQ.eq("restaurant_id", rid);
     catsQ = catsQ.eq("restaurant_id", rid);

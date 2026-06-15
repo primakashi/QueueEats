@@ -25,7 +25,7 @@ import { autoApplyDailyDiscounts } from "./edit-actions";
 type Props = { params: Promise<{ orderId: string }> };
 
 export default async function CashierOrderPage({ params }: Props) {
-  const profile = await requireRole(["cashier", "admin", "branch_manager"]);
+  const profile = await requireRole(["cashier", "admin", "branch_manager", "waiter"]);
   const { orderId } = await params;
   const supabase = await createClient();
   const rid = getRestaurantFilter(profile);

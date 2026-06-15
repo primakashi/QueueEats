@@ -318,10 +318,14 @@ function DiscountForm({
               onValueChange={(v) => setMenuItemId(!v || v === NONE ? "" : v)}
             >
               <SelectTrigger id="d-menu-item">
-                <SelectValue placeholder="Pilih item…" />
+                <SelectValue placeholder="Pilih menu">
+                  {!menuItemId || menuItemId === NONE
+                    ? "Pilih menu"
+                    : menuItems.find((m) => m.id === menuItemId)?.name ?? "Pilih menu"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE}>—</SelectItem>
+                <SelectItem value={NONE}>Pilih menu</SelectItem>
                 {menuItems.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
                     {m.name}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Plus, Trash2, Check, X, Pencil } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { Plus, Trash2, Check, X, Pencil, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   createCategory,
   deleteCategory,
+  reorderCategories,
   updateCategory,
 } from "@/app/(app)/admin/actions";
 import { useRouter } from "next/navigation";
@@ -17,7 +18,8 @@ import type { MenuCategory } from "@/lib/types";
 type Busy =
   | { kind: "create" }
   | { kind: "update"; id: string }
-  | { kind: "delete"; id: string };
+  | { kind: "delete"; id: string }
+  | { kind: "reorder" };
 
 export function CategoriesManager({
   categories,
@@ -28,10 +30,15 @@ export function CategoriesManager({
   const [pending, start] = useTransition();
   const [busy, setBusy] = useState<Busy | null>(null);
   const [newName, setNewName] = useState("");
-  const [newSort, setNewSort] = useState("0");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [editSort, setEditSort] = useState("0");
+  // Local optimistic order; resets when server data changes.
+  const [order, setOrder] = useState<MenuCategory[]>(categories);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOrder(categories);
+  }, [categories]);
 
   function submitNew(e: React.FormEvent) {
     e.preventDefault();
@@ -40,7 +47,6 @@ export function CategoriesManager({
     start(async () => {
       const fd = new FormData();
       fd.set("name", newName);
-      fd.set("sort_order", newSort);
       const res = await createCategory(fd);
       if (!res.ok) {
         toast.error(res.error);
@@ -48,7 +54,6 @@ export function CategoriesManager({
         return;
       }
       setNewName("");
-      setNewSort("0");
       setBusy(null);
       router.refresh();
     });
@@ -57,7 +62,6 @@ export function CategoriesManager({
   function beginEdit(c: MenuCategory) {
     setEditingId(c.id);
     setEditName(c.name);
-    setEditSort(String(c.sort_order));
   }
 
   function saveEdit() {
@@ -68,7 +72,6 @@ export function CategoriesManager({
       const fd = new FormData();
       fd.set("id", id);
       fd.set("name", editName);
-      fd.set("sort_order", editSort);
       const res = await updateCategory(fd);
       if (!res.ok) {
         toast.error(res.error);
@@ -96,6 +99,48 @@ export function CategoriesManager({
     });
   }
 
+  function persistOrder(next: MenuCategory[]) {
+    // Compare against last-known server state (categories prop), not local order.
+    const baselineIds = categories.map((c) => c.id).join(",");
+    const nextIds = next.map((c) => c.id).join(",");
+    if (baselineIds === nextIds) return;
+    setBusy({ kind: "reorder" });
+    start(async () => {
+      const res = await reorderCategories(next.map((c) => c.id));
+      if (!res.ok) {
+        toast.error(res.error);
+        setOrder(categories);
+        setBusy(null);
+        return;
+      }
+      setBusy(null);
+      router.refresh();
+    });
+  }
+
+  function handleDragStart(id: string) {
+    setDraggingId(id);
+  }
+
+  function handleDragOver(e: React.DragEvent, overId: string) {
+    e.preventDefault();
+    if (!draggingId || draggingId === overId) return;
+    setOrder((current) => {
+      const from = current.findIndex((c) => c.id === draggingId);
+      const to = current.findIndex((c) => c.id === overId);
+      if (from < 0 || to < 0) return current;
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
+
+  function handleDragEnd() {
+    setDraggingId(null);
+    persistOrder(order);
+  }
+
   return (
     <div className="space-y-5">
       <form onSubmit={submitNew} className="flex gap-2 items-end">
@@ -105,14 +150,6 @@ export function CategoriesManager({
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="mis. Minuman"
-          />
-        </div>
-        <div className="w-24 space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">Urut</label>
-          <Input
-            value={newSort}
-            onChange={(e) => setNewSort(e.target.value)}
-            type="number"
           />
         </div>
         <Button
@@ -130,12 +167,12 @@ export function CategoriesManager({
       </form>
 
       <div className="border rounded-md divide-y">
-        {categories.length === 0 ? (
+        {order.length === 0 ? (
           <div className="p-6 text-sm text-muted-foreground text-center">
             Belum ada kategori
           </div>
         ) : (
-          categories.map((c) =>
+          order.map((c) =>
             editingId === c.id ? (
               <div key={c.id} className="p-3 flex gap-2 items-center">
                 <Input
@@ -143,20 +180,12 @@ export function CategoriesManager({
                   onChange={(e) => setEditName(e.target.value)}
                   className="flex-1"
                 />
-                <Input
-                  value={editSort}
-                  onChange={(e) => setEditSort(e.target.value)}
-                  type="number"
-                  className="w-20"
-                />
                 <Button
                   size="icon"
                   variant="ghost"
                   onClick={saveEdit}
                   disabled={pending}
-                  aria-busy={
-                    busy?.kind === "update" && busy.id === c.id
-                  }
+                  aria-busy={busy?.kind === "update" && busy.id === c.id}
                   aria-label="Simpan"
                 >
                   {busy?.kind === "update" && busy.id === c.id ? (
@@ -176,13 +205,18 @@ export function CategoriesManager({
                 </Button>
               </div>
             ) : (
-              <div key={c.id} className="p-3 flex items-center gap-3">
-                <div className="flex-1">
-                  <div className="font-medium">{c.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Urutan: {c.sort_order}
-                  </div>
-                </div>
+              <div
+                key={c.id}
+                draggable
+                onDragStart={() => handleDragStart(c.id)}
+                onDragOver={(e) => handleDragOver(e, c.id)}
+                onDragEnd={handleDragEnd}
+                className={`p-3 flex items-center gap-3 cursor-move ${
+                  draggingId === c.id ? "opacity-50 bg-muted/40" : ""
+                }`}
+              >
+                <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 font-medium">{c.name}</div>
                 <Button
                   size="icon"
                   variant="ghost"
@@ -211,6 +245,11 @@ export function CategoriesManager({
           )
         )}
       </div>
+      {busy?.kind === "reorder" && (
+        <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <Spinner /> Menyimpan urutan…
+        </div>
+      )}
     </div>
   );
 }
