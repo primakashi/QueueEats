@@ -17,14 +17,18 @@ export async function getOpenSession(
   outletId: string | null,
   restaurantId?: string | null,
 ): Promise<CashierSession | null> {
+  if (!outletId && !restaurantId) return null;
   const supabase = await createClient();
   let query = supabase
     .from("cashier_sessions")
     .select("*")
     .eq("session_date", todayDate())
     .eq("status", "open");
-  if (outletId) query = query.eq("outlet_id", outletId);
-  else if (restaurantId) query = query.eq("restaurant_id", restaurantId);
+  if (outletId) {
+    query = query.eq("outlet_id", outletId);
+  } else if (restaurantId) {
+    query = query.eq("restaurant_id", restaurantId).is("outlet_id", null);
+  }
 
   const { data } = await query.maybeSingle();
   return (data as CashierSession | null);
@@ -35,14 +39,18 @@ export async function openSession(formData: FormData): Promise<Result<CashierSes
   const rawOutlet = String(formData.get("outlet_id") ?? "").trim();
   const outletId = getOutletFilter(profile) ?? (rawOutlet || null);
   const openingCash = Math.max(0, Number(formData.get("opening_cash") ?? 0));
+  const restaurantId = getRestaurantFilter(profile);
+
+  if (!outletId && !restaurantId) {
+    return { ok: false, error: "Outlet atau restoran tidak ditemukan" };
+  }
 
   const supabase = await createClient();
 
-  // Prevent duplicate open session
-  const existing = await getOpenSession(outletId);
+  // Prevent duplicate open session — must be scoped by outlet (cabang),
+  // or by restaurant when the restaurant has no outlets.
+  const existing = await getOpenSession(outletId, restaurantId);
   if (existing) return { ok: false, error: "Sudah ada sesi yang terbuka hari ini" };
-
-  const restaurantId = getRestaurantFilter(profile);
 
   const { data, error } = await supabase
     .from("cashier_sessions")
