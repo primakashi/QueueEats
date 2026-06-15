@@ -14,11 +14,21 @@ export function OpenSessionGate({ outletId }: { outletId: string | null }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [rawValue, setRawValue] = useState(0);
+  const [displayValue, setDisplayValue] = useState("0");
+
+  function handleCashInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/\D/g, "");
+    const num = digits === "" ? 0 : parseInt(digits, 10);
+    setRawValue(num);
+    setDisplayValue(num === 0 && digits === "" ? "" : num.toLocaleString("id-ID"));
+  }
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
+    fd.set("opening_cash", String(rawValue));
     if (outletId) fd.set("outlet_id", outletId);
     start(async () => {
       const res = await openSession(fd);
@@ -49,11 +59,10 @@ export function OpenSessionGate({ outletId }: { outletId: string | null }) {
               <Label htmlFor="opening-cash">Modal awal (Rp)</Label>
               <Input
                 id="opening-cash"
-                name="opening_cash"
-                type="number"
-                min={0}
-                step={1000}
-                defaultValue={0}
+                type="text"
+                inputMode="numeric"
+                value={displayValue}
+                onChange={handleCashInput}
                 placeholder="0"
                 required
                 disabled={pending}
