@@ -15,6 +15,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -56,6 +63,8 @@ export function ReconciliationBoard({
   const [selectedOutletId, setSelectedOutletId] = useState<string>("");
   const [received, setReceived] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
+  const [waDialogOpen, setWaDialogOpen] = useState(false);
+  const [waPhone, setWaPhone] = useState("");
 
   // Load persisted received amounts from localStorage
   useEffect(() => {
@@ -171,8 +180,11 @@ export function ReconciliationBoard({
 
   function sendToWhatsApp() {
     const text = encodeURIComponent(buildWhatsAppText());
-    // wa.me without a number opens chat picker — user chooses recipient.
-    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+    const digits = waPhone.replace(/\D/g, "");
+    const number = digits.startsWith("0") ? "62" + digits.slice(1) : digits;
+    window.open(`https://wa.me/${number}?text=${text}`, "_blank", "noopener,noreferrer");
+    setWaDialogOpen(false);
+    setWaPhone("");
   }
 
   const outletOptions = outlets.map((o) => ({ value: o.id, label: o.name }));
@@ -314,7 +326,7 @@ export function ReconciliationBoard({
         </Button>
         <Button
           size="sm"
-          onClick={sendToWhatsApp}
+          onClick={() => setWaDialogOpen(true)}
           disabled={filtered.length === 0}
           className="gap-2 bg-[#25D366] hover:bg-[#1da750] text-white"
         >
@@ -322,6 +334,39 @@ export function ReconciliationBoard({
           Kirim ke WhatsApp
         </Button>
       </div>
+
+      <Dialog open={waDialogOpen} onOpenChange={setWaDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Kirim Rekap ke WhatsApp</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5 py-2">
+            <Label htmlFor="wa-phone">Nomor WhatsApp</Label>
+            <Input
+              id="wa-phone"
+              type="tel"
+              placeholder="08xx atau +62xx"
+              value={waPhone}
+              onChange={(e) => setWaPhone(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && waPhone.trim()) sendToWhatsApp(); }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setWaDialogOpen(false); setWaPhone(""); }}>
+              Batal
+            </Button>
+            <Button
+              onClick={sendToWhatsApp}
+              disabled={!waPhone.trim()}
+              className="gap-2 bg-[#25D366] hover:bg-[#1da750] text-white"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Kirim
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Breakdown table */}
       <Card className="p-0 overflow-hidden">
