@@ -20,6 +20,7 @@ import {
 import { paymentColor, statusColor } from "@/lib/status";
 import { PaymentPanel } from "./payment-panel";
 import { EditableOrderItems } from "./order-edit";
+import { autoApplyDailyDiscounts } from "./edit-actions";
 
 type Props = { params: Promise<{ orderId: string }> };
 
@@ -28,6 +29,10 @@ export default async function CashierOrderPage({ params }: Props) {
   const { orderId } = await params;
   const supabase = await createClient();
   const rid = getRestaurantFilter(profile);
+
+  // Auto-apply any active daily-scope discounts before rendering so the
+  // cashier doesn't have to add them manually.
+  await autoApplyDailyDiscounts(orderId);
 
   let menuQuery = supabase.from("menu_items").select("id, name, price, is_available").eq("is_available", true);
   if (rid) menuQuery = menuQuery.eq("restaurant_id", rid);
