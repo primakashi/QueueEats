@@ -32,7 +32,7 @@ export async function createOrder(
 
   const supabase = await createClient();
 
-  const serviceType: OrderServiceType = input.service_type ?? "takeaway";
+  const serviceType: OrderServiceType = input.service_type ?? "dine_in";
   const tableTrimmed =
     typeof input.table_number === "string"
       ? input.table_number.trim()
@@ -67,6 +67,13 @@ export async function createOrder(
   // Stamp restaurant_id if the DB trigger didn't catch it (e.g. order has no outlet_id)
   if (restaurantId && !order.restaurant_id) {
     await supabase.from("orders").update({ restaurant_id: restaurantId }).eq("id", order.id);
+  }
+
+  // The create_order RPC ignores service_type in the payload and falls back to
+  // the column default ('takeaway'), so we patch it here from the caller intent.
+  if (order.service_type !== serviceType) {
+    await supabase.from("orders").update({ service_type: serviceType }).eq("id", order.id);
+    order.service_type = serviceType;
   }
 
   // Apply outlet tax/service charge to total if rates are configured
