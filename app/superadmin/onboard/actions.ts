@@ -15,6 +15,7 @@ export async function onboardRestaurant(
   const ownerPassword = String(formData.get("owner_password") ?? "");
   const outletName = String(formData.get("outlet_name") ?? "").trim();
   const outletLocation = String(formData.get("outlet_location") ?? "").trim();
+  const subscriptionEndDate = String(formData.get("subscription_end_date") ?? "").trim() || null;
 
   if (!restaurantName) return { ok: false, error: "Nama restoran wajib diisi" };
   if (!ownerName) return { ok: false, error: "Nama owner wajib diisi" };
@@ -27,7 +28,7 @@ export async function onboardRestaurant(
   // 1. Create restaurant (use adminClient to bypass RLS)
   const { data: restaurant, error: rErr } = await adminClient
     .from("restaurants")
-    .insert({ name: restaurantName })
+    .insert({ name: restaurantName, subscription_end_date: subscriptionEndDate })
     .select()
     .single();
   if (rErr || !restaurant) return { ok: false, error: rErr?.message ?? "Gagal membuat restoran" };

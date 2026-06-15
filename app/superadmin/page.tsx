@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -24,12 +25,14 @@ export default async function SuperAdminPage() {
   // Fetch owner + outlet counts per restaurant
   const ids = (restaurants ?? []).map((r) => r.id as string);
 
+  const adminClient = createAdminClient();
+
   const [{ data: owners }, { data: outletCounts }] = await Promise.all(
     ids.length
       ? [
           supabase
             .from("profiles")
-            .select("restaurant_id, full_name, created_at")
+            .select("id, restaurant_id, full_name, created_at")
             .in("restaurant_id", ids)
             .eq("role", "owner"),
           supabase
@@ -41,9 +44,25 @@ export default async function SuperAdminPage() {
       : [{ data: [] }, { data: [] }],
   );
 
-  const ownerByRestaurant = new Map<string, string>();
+  // Fetch emails from auth.users for all owners
+  const ownerIds = (owners ?? []).map((o) => o.id as string);
+  const emailByUserId = new Map<string, string>();
+  if (ownerIds.length) {
+    const { data: usersPage } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+    for (const u of usersPage?.users ?? []) {
+      if (ownerIds.includes(u.id) && u.email) {
+        emailByUserId.set(u.id, u.email);
+      }
+    }
+  }
+
+  type OwnerInfo = { name: string; email: string };
+  const ownerByRestaurant = new Map<string, OwnerInfo>();
   for (const o of owners ?? []) {
-    ownerByRestaurant.set(o.restaurant_id as string, o.full_name as string);
+    ownerByRestaurant.set(o.restaurant_id as string, {
+      name: o.full_name as string,
+      email: emailByUserId.get(o.id as string) ?? "—",
+    });
   }
 
   const outletCountByRestaurant = new Map<string, number>();
@@ -76,6 +95,7 @@ export default async function SuperAdminPage() {
               <TableRow>
                 <TableHead>Nama Restoran</TableHead>
                 <TableHead>Owner</TableHead>
+                <TableHead className="hidden md:table-cell">Email Owner</TableHead>
                 <TableHead className="text-center">Outlet</TableHead>
                 <TableHead>Langganan</TableHead>
                 <TableHead className="hidden sm:table-cell">Bergabung</TableHead>
@@ -86,7 +106,10 @@ export default async function SuperAdminPage() {
                 <TableRow key={r.id as string}>
                   <TableCell className="font-medium">{r.name as string}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {ownerByRestaurant.get(r.id as string) ?? "—"}
+                    {ownerByRestaurant.get(r.id as string)?.name ?? "—"}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                    {ownerByRestaurant.get(r.id as string)?.email ?? "—"}
                   </TableCell>
                   <TableCell className="text-center tabular-nums">
                     {outletCountByRestaurant.get(r.id as string) ?? 0}

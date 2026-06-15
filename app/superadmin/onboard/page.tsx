@@ -55,6 +55,16 @@ export default function OnboardPage() {
                   disabled={pending}
                 />
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="subscription-end">Langganan Aktif Hingga</Label>
+                <Input
+                  id="subscription-end"
+                  name="subscription_end_date"
+                  type="date"
+                  disabled={pending}
+                />
+                <p className="text-xs text-muted-foreground">Kosongkan jika belum ditentukan.</p>
+              </div>
             </div>
 
             <Separator />
