@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Wallet } from "lucide-react";
+import { Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +43,15 @@ export function OpenSessionGate({ outletId }: { outletId: string | null }) {
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/90 backdrop-blur-sm p-4">
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm relative">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="absolute top-3 right-3 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          aria-label="Tutup"
+        >
+          <X className="h-4 w-4" />
+        </button>
         <CardContent className="pt-6 space-y-5">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0">
