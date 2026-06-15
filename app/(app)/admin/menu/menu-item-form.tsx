@@ -120,7 +120,9 @@ export function MenuItemForm({
                     onValueChange={(v) => setCategoryId(v ?? "")}
                   >
                     <SelectTrigger id="category">
-                      <SelectValue placeholder="Pilih kategori" />
+                      <SelectValue placeholder="Pilih kategori">
+                        {categories.find((c) => c.id === categoryId)?.name ?? "Pilih kategori"}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((c) => (

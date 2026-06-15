@@ -143,11 +143,13 @@ export function StaffTable({
   outlets,
   callerRole,
   callerOutletId,
+  emailMap,
 }: {
   profiles: Profile[];
   outlets: Pick<Outlet, "id" | "name">[];
   callerRole: UserRole;
   callerOutletId: string | null;
+  emailMap: Record<string, string>;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -217,9 +219,10 @@ export function StaffTable({
           <TableHeader>
             <TableRow>
               <TableHead>Nama</TableHead>
+              <TableHead className="hidden sm:table-cell">Email</TableHead>
               <TableHead>Peran</TableHead>
               {isHq && <TableHead className="hidden md:table-cell">Outlet</TableHead>}
-              <TableHead className="hidden sm:table-cell">Bergabung</TableHead>
+              <TableHead className="hidden lg:table-cell">Bergabung</TableHead>
               <TableHead className="w-20" />
             </TableRow>
           </TableHeader>
@@ -227,6 +230,9 @@ export function StaffTable({
             {profiles.map((p) => (
               <TableRow key={p.id} aria-busy={busyId === p.id}>
                 <TableCell className="font-medium">{p.full_name}</TableCell>
+                <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                  {emailMap[p.id] ?? "—"}
+                </TableCell>
                 <TableCell>
                   {p.role === "owner" ? (
                     <span className="text-sm text-muted-foreground">{ROLE_LABEL[p.role]}</span>
@@ -255,7 +261,7 @@ export function StaffTable({
                     {p.outlet_id ? (outletMap[p.outlet_id] ?? "—") : <span className="italic">Semua outlet</span>}
                   </TableCell>
                 )}
-                <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
                   {formatDateTime(p.created_at)}
                 </TableCell>
                 <TableCell>
