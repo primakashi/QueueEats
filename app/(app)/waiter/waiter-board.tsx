@@ -27,6 +27,7 @@ import { statusColor, paymentColor } from "@/lib/status";
 import {
   ORDER_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
+  type OrderChannelKind,
   type OrderStatus,
   type OrderWithItems,
 } from "@/lib/types";
@@ -94,7 +95,13 @@ const SKIP_KITCHEN: { next: OrderStatus; label: string } = {
 type ServiceFilter = "all" | "dine_in" | "takeaway";
 type PaymentFilter = "all" | "unpaid" | "paid";
 
-export function WaiterBoard({ initialOrders }: { initialOrders: OrderWithItems[] }) {
+export function WaiterBoard({
+  initialOrders,
+  channelKindByName,
+}: {
+  initialOrders: OrderWithItems[];
+  channelKindByName: Record<string, OrderChannelKind>;
+}) {
   const router = useRouter();
   const [view, setView] = useState<"card" | "list">("card");
   const [statusFilter, setStatusFilter] = useState<Set<OrderStatus>>(new Set());
@@ -267,6 +274,7 @@ export function WaiterBoard({ initialOrders }: { initialOrders: OrderWithItems[]
               isBusy={busyId === o.id}
               isPending={pending}
               onAdvance={advanceStatus}
+              channelKindByName={channelKindByName}
             />
           ))}
         </div>
@@ -279,6 +287,7 @@ export function WaiterBoard({ initialOrders }: { initialOrders: OrderWithItems[]
               isBusy={busyId === o.id}
               isPending={pending}
               onAdvance={advanceStatus}
+              channelKindByName={channelKindByName}
             />
           ))}
         </div>
@@ -292,24 +301,39 @@ function OrderCard({
   isBusy,
   isPending,
   onAdvance,
+  channelKindByName,
 }: {
   order: OrderWithItems;
   isBusy: boolean;
   isPending: boolean;
   onAdvance: (id: string, next: OrderStatus) => void;
+  channelKindByName: Record<string, OrderChannelKind>;
 }) {
   const advance = NEXT_STATUS[o.status];
   const { printed, print } = usePrintTicket(o.id);
+  const channelKind = o.order_channel
+    ? channelKindByName[o.order_channel.toLowerCase()] ?? null
+    : null;
+  const tipeLabel =
+    channelKind === "online" ? "Online" : channelKind === "direct" ? "Langsung" : null;
+  const sourceLabel =
+    o.order_channel ?? (o.service_type === "takeaway" ? "Takeaway" : "Dine-in");
+  const isDineIn = o.service_type !== "takeaway";
   return (
     <Card className={`p-3 gap-0 flex flex-col transition-opacity ${isBusy ? "opacity-60" : ""}`}>
       <div className="flex items-start justify-between gap-2 mb-2">
-        <div>
-          <div className="text-sm font-semibold tabular-nums">{o.order_number}</div>
-          <div className="text-xs text-muted-foreground">
-            {formatTime(o.created_at)}
-            {o.service_type === "takeaway" ? " · Bungkus" : " · Dine-in"}
-            {o.table_number ? ` · Meja ${o.table_number}` : ""}
-            {o.customer_name ? ` · ${o.customer_name}` : ""}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <div className="text-sm font-semibold tabular-nums">{o.order_number}</div>
+            <div className="text-xs text-muted-foreground truncate">
+              {formatTime(o.created_at)}
+              {o.customer_name ? ` · ${o.customer_name}` : ""}
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground truncate mt-0.5">
+            {tipeLabel ? `${tipeLabel} · ` : ""}
+            {sourceLabel}
+            {isDineIn && o.table_number ? ` · Meja ${o.table_number}` : ""}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -393,11 +417,13 @@ function OrderRow({
   isBusy,
   isPending,
   onAdvance,
+  channelKindByName,
 }: {
   order: OrderWithItems;
   isBusy: boolean;
   isPending: boolean;
   onAdvance: (id: string, next: OrderStatus) => void;
+  channelKindByName: Record<string, OrderChannelKind>;
 }) {
   const advance = NEXT_STATUS[o.status];
   const itemSummary = o.order_items
@@ -407,6 +433,14 @@ function OrderRow({
   const more = o.order_items.length > 3 ? ` +${o.order_items.length - 3}` : "";
   const hasItemNotes = o.order_items.some((i) => i.notes);
   const { printed, print } = usePrintTicket(o.id);
+  const channelKind = o.order_channel
+    ? channelKindByName[o.order_channel.toLowerCase()] ?? null
+    : null;
+  const tipeLabel =
+    channelKind === "online" ? "Online" : channelKind === "direct" ? "Langsung" : null;
+  const sourceLabel =
+    o.order_channel ?? (o.service_type === "takeaway" ? "Takeaway" : "Dine-in");
+  const isDineIn = o.service_type !== "takeaway";
 
   return (
     <Card className={`px-4 py-3 gap-0 transition-opacity ${isBusy ? "opacity-60" : ""}`}>
@@ -425,8 +459,10 @@ function OrderRow({
         <div className="font-semibold tabular-nums w-16 shrink-0">{o.order_number}</div>
         <div className="text-xs text-muted-foreground shrink-0">
           {formatTime(o.created_at)}
-          {o.table_number ? ` · Meja ${o.table_number}` : ""}
-          {o.service_type === "takeaway" ? " · Bungkus" : ""}
+          {o.customer_name ? ` · ${o.customer_name}` : ""}
+          {tipeLabel ? ` · ${tipeLabel}` : ""}
+          {` · ${sourceLabel}`}
+          {isDineIn && o.table_number ? ` · Meja ${o.table_number}` : ""}
         </div>
         <div className="flex-1 min-w-0 text-sm text-muted-foreground truncate">
           {itemSummary}{more}

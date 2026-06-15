@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole, getOutletFilter, getRestaurantFilter } from "@/lib/auth";
 import type { CashierSession, CashMovement, CashMovementCategory, CashMovementType } from "@/lib/types";
 
@@ -18,33 +19,31 @@ export async function getOpenSession(
   restaurantId?: string | null,
 ): Promise<CashierSession | null> {
   if (!outletId && !restaurantId) return null;
-  const supabase = await createClient();
-  // Pick the most recently opened session — multiple concurrent open sessions
-  // are allowed (no per-day limit), so we return the latest.
+  // Admin (service-role) client: the user-scoped client is filtered by RLS,
+  // which prevents account A from seeing a session opened by account B even
+  // when they're in the same restaurant. The page already authenticated the
+  // caller and we constrain the query to their outlet/restaurant scope, so
+  // bypassing RLS here only enables the sharing the product spec requires.
+  const admin = createAdminClient();
+
   const baseQuery = () =>
-    supabase
+    admin
       .from("cashier_sessions")
       .select("*")
-      .eq("session_date", todayDate())
       .eq("status", "open")
       .order("opened_at", { ascending: false })
       .limit(1);
 
-  // 1. Outlet-specific session (cashier / branch_manager case).
-  if (outletId) {
-    const { data } = await baseQuery().eq("outlet_id", outletId);
-    const row = data?.[0];
-    if (row) return row as CashierSession;
+  if (restaurantId) {
+    const { data, error } = await baseQuery().eq("restaurant_id", restaurantId);
+    if (error) console.error("getOpenSession restaurant query failed", error);
+    if (data?.[0]) return data[0] as CashierSession;
   }
 
-  // 2. HQ user (admin/owner) has no outlet filter — find the most recently
-  //    opened session for this restaurant regardless of outlet. This covers
-  //    both restaurant-level sessions (outlet_id IS NULL) and sessions the
-  //    HQ user just opened for a specific outlet via the picker.
-  if (restaurantId) {
-    const { data } = await baseQuery().eq("restaurant_id", restaurantId);
-    const row = data?.[0];
-    if (row) return row as CashierSession;
+  if (outletId) {
+    const { data, error } = await baseQuery().eq("outlet_id", outletId);
+    if (error) console.error("getOpenSession outlet query failed", error);
+    if (data?.[0]) return data[0] as CashierSession;
   }
 
   return null;
@@ -96,23 +95,25 @@ export async function addCashMovement(
   if (!["cash_in", "cash_out"].includes(type)) return { ok: false, error: "Tipe tidak valid" };
   if (!amount || amount <= 0) return { ok: false, error: "Jumlah harus lebih dari 0" };
 
-  const supabase = await createClient();
+  // See getOpenSession for why the admin client is used.
+  const admin = createAdminClient();
+  const restaurantId = getRestaurantFilter(profile);
 
-  // Verify session belongs to this user's outlet and is open
-  const sessionQuery = supabase
+  const { data: session } = await admin
     .from("cashier_sessions")
-    .select("id, status, outlet_id")
+    .select("id, status, outlet_id, restaurant_id")
     .eq("id", sessionId)
-    .eq("status", "open");
-  const { data: session } = await sessionQuery.maybeSingle();
+    .eq("status", "open")
+    .maybeSingle();
   if (!session) return { ok: false, error: "Sesi tidak ditemukan atau sudah ditutup" };
-  if (outletFilter && session.outlet_id !== outletFilter) {
+  if (restaurantId && session.restaurant_id !== restaurantId) {
+    return { ok: false, error: "Tidak diizinkan" };
+  }
+  if (!restaurantId && outletFilter && session.outlet_id !== outletFilter) {
     return { ok: false, error: "Tidak diizinkan" };
   }
 
-  const restaurantId = getRestaurantFilter(profile);
-
-  const { error } = await supabase.from("cash_movements").insert({
+  const { error } = await admin.from("cash_movements").insert({
     session_id: sessionId,
     outlet_id: session.outlet_id,
     restaurant_id: restaurantId,
@@ -134,25 +135,30 @@ export async function closeSession(
 ): Promise<Result> {
   const profile = await requireRole(["cashier", "admin", "branch_manager", "owner"]);
   const outletFilter = getOutletFilter(profile);
+  const restaurantId = getRestaurantFilter(profile);
 
   const actualClosingCash = Number(formData.get("actual_closing_cash") ?? 0);
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
-  const supabase = await createClient();
+  // See getOpenSession for why the admin client is used.
+  const admin = createAdminClient();
 
-  const { data: session } = await supabase
+  const { data: session } = await admin
     .from("cashier_sessions")
-    .select("id, status, outlet_id")
+    .select("id, status, outlet_id, restaurant_id")
     .eq("id", sessionId)
     .eq("status", "open")
     .maybeSingle();
 
   if (!session) return { ok: false, error: "Sesi tidak ditemukan atau sudah ditutup" };
-  if (outletFilter && session.outlet_id !== outletFilter) {
+  if (restaurantId && session.restaurant_id !== restaurantId) {
+    return { ok: false, error: "Tidak diizinkan" };
+  }
+  if (!restaurantId && outletFilter && session.outlet_id !== outletFilter) {
     return { ok: false, error: "Tidak diizinkan" };
   }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from("cashier_sessions")
     .update({
       status: "closed",
@@ -172,32 +178,31 @@ export async function getSessionSummary(sessionId: string): Promise<{
   movements: CashMovement[];
   cashSales: number;
 }> {
-  const supabase = await createClient();
+  // See getOpenSession: shared sessions require service-role reads so all
+  // kasir users see the same totals regardless of who opened the session.
+  const admin = createAdminClient();
 
   const [{ data: movements }, { data: session }] = await Promise.all([
-    supabase
+    admin
       .from("cash_movements")
       .select("*")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true }),
-    supabase
+    admin
       .from("cashier_sessions")
-      .select("outlet_id, session_date")
+      .select("outlet_id, opened_at")
       .eq("id", sessionId)
       .single(),
   ]);
 
   let cashSales = 0;
   if (session) {
-    const dayStart = `${session.session_date}T00:00:00.000Z`;
-    const dayEnd = `${session.session_date}T23:59:59.999Z`;
-    let ordersQuery = supabase
+    let ordersQuery = admin
       .from("orders")
       .select("total")
       .eq("payment_method", "cash")
       .eq("payment_status", "paid")
-      .gte("updated_at", dayStart)
-      .lte("updated_at", dayEnd);
+      .gte("updated_at", session.opened_at);
     if (session.outlet_id) ordersQuery = ordersQuery.eq("outlet_id", session.outlet_id);
     const { data: cashOrders } = await ordersQuery;
     cashSales = (cashOrders ?? []).reduce((sum, o) => sum + (o.total as number), 0);

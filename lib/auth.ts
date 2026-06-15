@@ -113,7 +113,6 @@ export function homeForRole(role: UserRole): string {
     case "kitchen":
       return "/kitchen";
     case "cashier":
-      return "/cashier";
     case "waiter":
     default:
       return "/waiter";
