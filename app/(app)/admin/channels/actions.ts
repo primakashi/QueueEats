@@ -38,7 +38,7 @@ async function uniqueChannelId(
 }
 
 export async function createChannel(formData: FormData): Promise<Result<OrderChannelConfig>> {
-  const profile = await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "owner"]);
   const name = String(formData.get("name") ?? "").trim();
   const rawKind = String(formData.get("kind") ?? "").trim();
   const kind = rawKind === "online" ? "online" : rawKind === "direct" ? "direct" : null;
@@ -67,7 +67,7 @@ export async function createChannel(formData: FormData): Promise<Result<OrderCha
 }
 
 export async function updateChannel(formData: FormData): Promise<Result> {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "owner"]);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const rawKind = String(formData.get("kind") ?? "").trim();
@@ -88,7 +88,7 @@ export async function updateChannel(formData: FormData): Promise<Result> {
 }
 
 export async function toggleChannelActive(id: string, is_active: boolean): Promise<Result> {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "owner"]);
   const supabase = await createClient();
   const { error } = await supabase
     .from("order_channels")
@@ -101,7 +101,7 @@ export async function toggleChannelActive(id: string, is_active: boolean): Promi
 }
 
 export async function deleteChannel(id: string): Promise<Result> {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "owner"]);
   const supabase = await createClient();
   const { error } = await supabase.from("order_channels").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
