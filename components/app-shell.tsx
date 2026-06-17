@@ -21,7 +21,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ScrollText,
-  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -40,7 +39,7 @@ import { signOut } from "@/app/login/actions";
 import type { Profile, UserRole } from "@/lib/types";
 import { ROLE_LABEL } from "@/lib/types";
 
-type NavSection = "Operasional" | "Katalog & Promosi" | "Laporan & Rekonsiliasi" | "Manajemen";
+type NavSection = "Operasional" | "Katalog & Promosi" | "Administrasi" | "Manajemen";
 
 type NavItem = {
   section: NavSection;
@@ -53,12 +52,12 @@ type NavItem = {
 const NAV_SECTION_ORDER: NavSection[] = [
   "Operasional",
   "Katalog & Promosi",
-  "Laporan & Rekonsiliasi",
+  "Administrasi",
   "Manajemen",
 ];
 
 /** Nav targets that use `loading.tsx` in-page instead of a sidebar link spinner. */
-const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels", "/admin/changelog", "/admin/cashier-sessions", "/admin/discounts", "/admin/stok"]);
+const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels", "/admin/log", "/admin/discounts", "/admin/stok"]);
 
 // Per access matrix: cashier and waiter both get the broader "Kasir + Waitress" access.
 const OPS_ROLES: UserRole[] = ["admin", "branch_manager", "cashier", "waiter"];
@@ -74,18 +73,17 @@ const NAV_ITEMS: NavItem[] = [
   // Katalog & Promosi
   { section: "Katalog & Promosi", href: "/admin/menu", label: "Menu", icon: UtensilsCrossed, roles: CATALOG_ROLES },
   { section: "Katalog & Promosi", href: "/admin/discounts", label: "Diskon", icon: Tag, roles: [...CATALOG_ROLES, "owner"] },
-  // { section: "Katalog & Promosi", href: "/admin/stok", label: "Stok", icon: Boxes, roles: [...CATALOG_ROLES, "kitchen"] },
+  { section: "Katalog & Promosi", href: "/admin/stok", label: "Stok", icon: Boxes, roles: [...CATALOG_ROLES, "kitchen"] },
 
-  // Laporan & Rekonsiliasi
-  { section: "Laporan & Rekonsiliasi", href: "/admin/sales", label: "Penjualan", icon: BarChart3, roles: ["admin", "owner", "finance", "branch_manager", "cashier", "waiter"] },
-  { section: "Laporan & Rekonsiliasi", href: "/admin/reconciliation", label: "Rekonsiliasi", icon: Scale, roles: ["admin", "owner", "finance", "branch_manager"] },
+  // Administrasi
+  { section: "Administrasi", href: "/admin/users", label: "Staf", icon: Users, roles: ["admin", "owner", "branch_manager"] },
+  { section: "Administrasi", href: "/admin/outlets", label: "Outlet", icon: Building2, roles: ["admin", "owner"] },
+  { section: "Administrasi", href: "/admin/channels", label: "Kanal & Pembayaran", icon: Radio, roles: ["admin", "owner"] },
+  { section: "Administrasi", href: "/admin/log", label: "Log", icon: ScrollText, roles: ["admin", "owner", "finance", "branch_manager"] },
 
   // Manajemen
-  { section: "Manajemen", href: "/admin/users", label: "Staf", icon: Users, roles: ["admin", "owner", "branch_manager"] },
-  { section: "Manajemen", href: "/admin/outlets", label: "Outlet", icon: Building2, roles: ["admin", "owner"] },
-  { section: "Manajemen", href: "/admin/channels", label: "Saluran Pesanan", icon: Radio, roles: ["admin", "owner"] },
-  { section: "Manajemen", href: "/admin/cashier-sessions", label: "Log Kasir", icon: Wallet, roles: ["admin", "owner", "finance", "branch_manager"] },
-  { section: "Manajemen", href: "/admin/changelog", label: "Log Perubahan", icon: ScrollText, roles: ["admin", "owner"] },
+  { section: "Manajemen", href: "/admin/sales", label: "Penjualan", icon: BarChart3, roles: ["admin", "owner", "finance", "branch_manager", "cashier", "waiter"] },
+  { section: "Manajemen", href: "/admin/reconciliation", label: "Rekonsiliasi", icon: Scale, roles: ["admin", "owner", "finance", "branch_manager"] },
 ];
 
 export function AppShell({

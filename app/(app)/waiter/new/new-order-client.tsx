@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
@@ -21,7 +21,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { formatIDR } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { MenuCategory, MenuItem, OrderChannel, OrderChannelConfig, Outlet } from "@/lib/types";
+import type { DailyStock, MenuCategory, MenuItem, OrderChannel, OrderChannelConfig, Outlet } from "@/lib/types";
 import { startRouteProgress } from "@/components/route-progress";
 import { FullScreenLoading } from "@/components/full-screen-loading";
 import {
@@ -53,11 +53,13 @@ export function NewOrderClient({
   categories,
   outlets,
   channels,
+  dailyStocks,
 }: {
   items: MenuItem[];
   categories: MenuCategory[];
   outlets: Pick<Outlet, "id" | "name" | "is_temporary">[];
   channels: OrderChannelConfig[];
+  dailyStocks: DailyStock[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -75,11 +77,30 @@ export function NewOrderClient({
   const [outletId, setOutletId] = useState<string>(outlets[0]?.id ?? "");
   const [orderChannel, setOrderChannel] = useState<OrderChannel>(() => channels[0]?.id ?? "direct");
 
-  useEffect(() => {
+  // Wrap the setter so callers don't need to remember to reset the table when
+  // they toggle dine-in/takeaway. Previously this was a useEffect, but the
+  // React 19 lint rule (and best practice) prefers handler-driven resets.
+  function handleServiceTypeChange(t: "dine_in" | "takeaway") {
+    setServiceType(t);
     setSelectedTableId("");
-  }, [serviceType]);
+  }
 
   const itemMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+
+  // Stock lookup keyed by `${outletId}|${menuItemId}`. Items without a row are
+  // untracked (unlimited); items with a row are gated by current_stock + is_active.
+  const stockMap = useMemo(() => {
+    const m = new Map<string, { current: number; active: boolean }>();
+    for (const s of dailyStocks) {
+      m.set(`${s.outlet_id}|${s.menu_item_id}`, { current: s.current_stock, active: s.is_active });
+    }
+    return m;
+  }, [dailyStocks]);
+
+  function stockFor(itemId: string): { current: number; active: boolean } | null {
+    if (!outletId) return null;
+    return stockMap.get(`${outletId}|${itemId}`) ?? null;
+  }
   const filteredItems = useMemo(() => {
     let list = items;
     if (selectedCategory === "uncategorized") {
@@ -108,8 +129,22 @@ export function NewOrderClient({
   }, 0);
 
   function addToCart(itemId: string) {
+    const stock = stockFor(itemId);
+    if (stock && !stock.active) {
+      toast.error("Item dinonaktifkan untuk hari ini");
+      return;
+    }
+    if (stock && stock.current <= 0) {
+      toast.error("Stok habis untuk hari ini");
+      return;
+    }
     setCart((c) => {
       const existing = c.find((l) => l.itemId === itemId);
+      const currentQty = existing?.quantity ?? 0;
+      if (stock && currentQty + 1 > stock.current) {
+        toast.error(`Sisa stok hanya ${stock.current}`);
+        return c;
+      }
       if (existing) {
         return c.map((l) =>
           l.itemId === itemId ? { ...l, quantity: l.quantity + 1 } : l,
@@ -246,14 +281,20 @@ export function NewOrderClient({
             {filteredItems.map((it) => {
               const qty =
                 cart.find((l) => l.itemId === it.id)?.quantity ?? 0;
+              const stock = stockFor(it.id);
+              const disabled = !!stock && (!stock.active || stock.current <= 0);
+              const lowStock = !!stock && stock.active && stock.current > 0 && stock.current <= 5;
               return (
                 <button
                   key={it.id}
                   type="button"
                   onClick={() => addToCart(it.id)}
+                  disabled={disabled}
+                  aria-disabled={disabled}
                   className={cn(
                     "group text-left rounded-lg border bg-card hover:border-primary hover:shadow-sm active:scale-[0.98] transition overflow-hidden touch-manipulation",
                     qty > 0 && "ring-2 ring-primary border-transparent",
+                    disabled && "opacity-50 cursor-not-allowed hover:border-border hover:shadow-none active:scale-100",
                   )}
                 >
                   <div className="relative aspect-square bg-muted">
@@ -263,7 +304,7 @@ export function NewOrderClient({
                         alt={it.name}
                         fill
                         sizes="(max-width:640px) 50vw, 25vw"
-                        className="object-cover"
+                        className={cn("object-cover", disabled && "grayscale")}
                       />
                     ) : (
                       <div className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">
@@ -273,6 +314,16 @@ export function NewOrderClient({
                     {qty > 0 && (
                       <div className="absolute top-2 right-2 h-7 min-w-7 rounded-full bg-primary text-primary-foreground grid place-items-center text-xs font-semibold px-2">
                         {qty}
+                      </div>
+                    )}
+                    {disabled && (
+                      <div className="absolute top-2 left-2 inline-flex items-center rounded-md bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+                        {!stock?.active ? "Nonaktif" : "Habis"}
+                      </div>
+                    )}
+                    {!disabled && lowStock && (
+                      <div className="absolute top-2 left-2 inline-flex items-center rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+                        Sisa {stock!.current}
                       </div>
                     )}
                   </div>
@@ -299,7 +350,7 @@ export function NewOrderClient({
             itemMap={itemMap}
             total={total}
             serviceType={serviceType}
-            setServiceType={setServiceType}
+            setServiceType={handleServiceTypeChange}
             selectedTableId={selectedTableId}
             setSelectedTableId={setSelectedTableId}
             customerName={customerName}
@@ -354,7 +405,7 @@ export function NewOrderClient({
                 itemMap={itemMap}
                 total={total}
                 serviceType={serviceType}
-                setServiceType={setServiceType}
+                setServiceType={handleServiceTypeChange}
                 selectedTableId={selectedTableId}
                 setSelectedTableId={setSelectedTableId}
                 customerName={customerName}

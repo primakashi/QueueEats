@@ -86,7 +86,7 @@ export default async function SuperAdminPage() {
 
       {(restaurants ?? []).length === 0 ? (
         <div className="p-12 text-center text-sm text-muted-foreground border rounded-xl bg-background">
-          Belum ada restoran. Klik "Onboard Restoran" untuk memulai.
+          Belum ada restoran. Klik &quot;Onboard Restoran&quot; untuk memulai.
         </div>
       ) : (
         <div className="rounded-xl border bg-background overflow-hidden">

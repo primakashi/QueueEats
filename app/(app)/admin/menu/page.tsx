@@ -108,13 +108,18 @@ export default async function AdminMenuPage() {
       </div>
 
       <div>
-        <div className="mb-4">
-          <h2 className="text-base font-semibold">Kategori</h2>
-          <p className="text-sm text-muted-foreground">Kelola kategori item menu</p>
+        <div className="mb-4 flex items-end justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-lg font-semibold">Kategori</h2>
+            <p className="text-sm text-muted-foreground">Kelola kategori item menu — seret untuk mengurutkan</p>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {cats.length} kategori
+          </div>
         </div>
-        <div className="max-w-lg">
+        <Card className="p-5 max-w-3xl">
           <CategoriesManager categories={cats} />
-        </div>
+        </Card>
       </div>
     </div>
   );

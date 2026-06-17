@@ -3,6 +3,41 @@
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { DEFAULT_PAYMENT_METHOD_SEED } from "@/lib/types";
+
+async function seedPaymentMethods(
+  adminClient: ReturnType<typeof createAdminClient>,
+  restaurantId: string,
+): Promise<void> {
+  for (let i = 0; i < DEFAULT_PAYMENT_METHOD_SEED.length; i++) {
+    const seed = DEFAULT_PAYMENT_METHOD_SEED[i]!;
+    const { data: method, error } = await adminClient
+      .from("payment_methods")
+      .insert({
+        restaurant_id: restaurantId,
+        slug: seed.slug,
+        name: seed.name,
+        description: seed.description,
+        kind: seed.kind,
+        color: seed.color,
+        sort_order: i,
+      })
+      .select("id")
+      .single();
+    if (error || !method) continue;
+    if (!seed.providers) continue;
+    const rows = seed.providers.map((p, idx) => ({
+      payment_method_id: method.id as string,
+      restaurant_id: restaurantId,
+      slug: p.slug,
+      name: p.name,
+      description: p.description,
+      color: p.color,
+      sort_order: idx,
+    }));
+    await adminClient.from("payment_providers").insert(rows);
+  }
+}
 
 export async function onboardRestaurant(
   formData: FormData,
@@ -78,6 +113,11 @@ export async function onboardRestaurant(
     await adminClient.auth.admin.deleteUser(authData.user.id);
     return { ok: false, error: outletErr.message };
   }
+
+  // 5. Seed default payment methods (best-effort; failure does not abort onboarding
+  // because the migration also seeds for existing restaurants and the admin can
+  // re-add methods manually if needed).
+  await seedPaymentMethods(adminClient, restaurantId);
 
   redirect("/superadmin");
 }

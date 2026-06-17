@@ -1,789 +1,1207 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  BarChart3,
-  ChevronDown,
-  Download,
-  ShoppingBag,
-  TrendingUp,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { formatIDR } from "@/lib/format";
-import { ORDER_CHANNEL_LABEL, PAYMENT_DESTINATIONS } from "@/lib/types";
-import type { OrderChannelConfig, Outlet } from "@/lib/types";
-import type { SalesOrder } from "./page";
+import { ORDER_CHANNEL_LABEL } from "@/lib/types";
+import type {
+  MenuCategory,
+  MenuItem,
+  OrderChannelConfig,
+  Outlet,
+} from "@/lib/types";
+import type { SalesOrder, SalesCashierSession } from "./page";
+import styles from "./sales.module.css";
 
-const COLOR_PRIMARY = "#6366f1";
-const COLOR_EMERALD = "#10b981";
-const COLOR_AMBER = "#f59e0b";
-const OUTLET_COLORS = [COLOR_PRIMARY, COLOR_EMERALD, COLOR_AMBER, "#ef4444", "#8b5cf6"];
+type Granularity = "day" | "hour" | "month";
+type ChartType = "bar" | "line";
+type Preset = "today" | "yesterday" | "7d" | "30d" | "thismonth" | "lastmonth" | "custom";
 
-type Granularity = "day" | "week" | "month" | "hour";
+const ALL = "ALL";
 
-function toInputDateValue(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+const SLOTS = [
+  { label: "Pagi (07–11)", from: 7, to: 10, color: "#A7AE86" },
+  { label: "Siang (11–14)", from: 11, to: 13, color: "#6E7B4F" },
+  { label: "Sore (14–17)", from: 14, to: 16, color: "#454E2F" },
+  { label: "Malam (17–21)", from: 17, to: 23, color: "#241C15" },
+] as const;
 
-function parseInputDate(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  const dt = new Date(y!, m! - 1, d!);
-  dt.setHours(0, 0, 0, 0);
-  return dt;
-}
+const DOW_SHORT = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+const MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const MON_FULL = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+];
 
-function addDays(input: Date, diff: number): Date {
-  const d = new Date(input);
-  d.setDate(d.getDate() + diff);
-  return d;
-}
-
-function pad2(n: number): string {
+function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-function formatShortIDR(value: number): string {
-  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}M`;
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}jt`;
-  if (value >= 1_000) return `${Math.round(value / 1_000)}rb`;
-  return String(Math.round(value));
+function fmt(n: number): string {
+  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 }
 
-function safeInputDate(s: string, fallback: Date): Date {
-  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return fallback;
-  return parseInputDate(s);
+function fmtN(n: number): string {
+  return Math.round(n).toLocaleString("id-ID");
 }
 
-type TooltipItem = { name?: string; value?: number; color?: string };
-
-function ChartTooltip({
-  active,
-  payload,
-  label,
-  formatter,
-}: {
-  active?: boolean;
-  payload?: TooltipItem[];
-  label?: string | number;
-  formatter?: (value: number, name?: string) => string;
-}) {
-  if (!active || !payload || payload.length === 0) return null;
-  return (
-    <div className="rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-md">
-      {label !== undefined && <div className="font-medium mb-1">{label}</div>}
-      {payload.map((p, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span aria-hidden className="inline-block size-2 rounded-full" style={{ background: p.color }} />
-          <span className="text-muted-foreground">{p.name ?? ""}</span>
-          <span className="font-medium tabular-nums">
-            {formatter && typeof p.value === "number" ? formatter(p.value, p.name) : p.value}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
+function compact(n: number): string {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}M`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}jt`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}rb`;
+  return String(Math.round(n));
 }
 
-function MultiSelectFilter({
-  label,
-  options,
-  selected,
-  onToggle,
-}: {
-  label: string;
-  options: { value: string; label: string }[];
-  selected: Set<string>;
-  onToggle: (value: string) => void;
-}) {
-  const activeCount = selected.size;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="h-9 gap-1.5" />}>
-        <span>{label}</span>
-        {activeCount > 0 && (
-          <Badge variant="secondary" className="rounded-full px-1.5 text-xs">
-            {activeCount}
-          </Badge>
-        )}
-        <ChevronDown className="size-3.5 opacity-60" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-48">
-        {options.map((opt) => (
-          <DropdownMenuCheckboxItem
-            key={opt.value}
-            checked={selected.has(opt.value)}
-            onCheckedChange={() => onToggle(opt.value)}
-            closeOnClick={false}
-          >
-            {opt.label}
-          </DropdownMenuCheckboxItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+function toInput(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function filterOrders(
-  orders: SalesOrder[],
-  opts: {
-    dateFrom: Date;
-    dateTo: Date;
-    granularity: Granularity;
-    hourDay?: Date;
-    outlets: Set<string>;
-    channels: Set<string>;
-    paymentMethods: Set<string>;
-    destinations: Set<string>;
-    statusFilter: "all" | "paid";
-  },
-): SalesOrder[] {
-  const fromMs = new Date(opts.dateFrom).setHours(0, 0, 0, 0);
-  const toMs = opts.granularity === "hour" && opts.hourDay
-    ? new Date(opts.hourDay).setHours(23, 59, 59, 999)
-    : new Date(opts.dateTo).setHours(23, 59, 59, 999);
-
-  return orders.filter((o) => {
-    const t = new Date(o.created_at).getTime();
-    if (t < fromMs || t > toMs) return false;
-
-    if (opts.granularity === "hour" && opts.hourDay) {
-      const d = new Date(o.created_at);
-      const hd = opts.hourDay;
-      if (
-        d.getFullYear() !== hd.getFullYear() ||
-        d.getMonth() !== hd.getMonth() ||
-        d.getDate() !== hd.getDate()
-      ) return false;
-    }
-
-    if (opts.outlets.size > 0) {
-      if (!o.outlet_id || !opts.outlets.has(o.outlet_id)) return false;
-    }
-    if (opts.channels.size > 0) {
-      const ch = o.order_channel ?? "direct";
-      if (!opts.channels.has(ch)) return false;
-    }
-    if (opts.paymentMethods.size > 0) {
-      const pm = o.payment_method ?? "";
-      if (!opts.paymentMethods.has(pm)) return false;
-    }
-    if (opts.destinations.size > 0) {
-      const dest = o.payment_destination ?? "";
-      if (!opts.destinations.has(dest)) return false;
-    }
-    if (opts.statusFilter === "paid" && o.payment_status !== "paid") return false;
-    return true;
-  });
+function fromInput(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y!, m! - 1, d!);
 }
 
-type ChartRow = { label: string; revenue: number; orders: number; full: string };
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
 
-function aggregateByDay(orders: SalesOrder[]): ChartRow[] {
-  const map = new Map<string, { revenue: number; orders: number; label: string }>();
-  for (const o of orders) {
-    const d = new Date(o.created_at);
-    const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-    const short = d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
-    const full = d.toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-    const cur = map.get(key);
-    if (cur) {
-      cur.revenue += o.total;
-      cur.orders += 1;
-    } else {
-      map.set(key, { revenue: o.total, orders: 1, label: short });
+function shortDate(d: Date): string {
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+}
+
+function prettyDate(d: Date): string {
+  return `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MON_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function slotOf(h: number) {
+  for (const s of SLOTS) if (h >= s.from && h <= s.to) return s;
+  return SLOTS[3];
+}
+
+function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function endOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}
+
+type FilterState = {
+  from: Date;
+  to: Date;
+  product: string;
+  pay: string;
+  channel: string;
+  outlet: string;
+};
+
+function passSales(o: SalesOrder, f: FilterState, channelLabelOf: (id: string | null) => string): boolean {
+  const t = new Date(o.created_at).getTime();
+  const fromT = f.from.getTime();
+  const toT = new Date(f.to).setHours(23, 59, 59, 999);
+  if (t < fromT || t > toT) return false;
+  if (o.payment_status !== "paid") return false;
+  if (f.outlet !== ALL && o.outlet_id !== f.outlet) return false;
+  if (f.pay !== ALL && o.payment_method !== f.pay) return false;
+  if (f.channel !== ALL && channelLabelOf(o.order_channel) !== f.channel) return false;
+  if (f.product !== ALL && !o.items.some((it) => it.menu_item_id === f.product)) return false;
+  return true;
+}
+
+function lineVal(o: SalesOrder, product: string): number {
+  if (product === ALL) return o.total;
+  let sum = 0;
+  for (const it of o.items) if (it.menu_item_id === product) sum += it.price * it.quantity;
+  return sum;
+}
+
+function lineQty(o: SalesOrder, product: string): number {
+  if (product === ALL) return o.items.reduce((s, it) => s + it.quantity, 0);
+  let q = 0;
+  for (const it of o.items) if (it.menu_item_id === product) q += it.quantity;
+  return q;
+}
+
+type Bucket = { key: string; label: string; full: string; v: number; n: number };
+
+function buckets(sales: SalesOrder[], gran: Granularity, f: FilterState): Bucket[] {
+  if (gran === "hour") {
+    const map = new Map<number, { v: number; n: number }>();
+    for (let h = 7; h <= 22; h++) map.set(h, { v: 0, n: 0 });
+    for (const o of sales) {
+      const h = new Date(o.created_at).getHours();
+      const b = map.get(h);
+      if (b) {
+        b.v += lineVal(o, f.product);
+        b.n += 1;
+      }
     }
-    const entry = map.get(key)!;
-    entry.label = short;
-    void full;
+    return [...map.entries()].map(([h, o]) => ({
+      key: String(h),
+      label: `${pad(h)}.00`,
+      full: `${pad(h)}:00`,
+      v: o.v,
+      n: o.n,
+    }));
+  }
+
+  if (gran === "day") {
+    const map = new Map<string, { v: number; n: number; d: Date }>();
+    let d = new Date(f.from);
+    while (d <= f.to) {
+      const k = toInput(d);
+      map.set(k, { v: 0, n: 0, d: new Date(d) });
+      d = addDays(d, 1);
+    }
+    for (const o of sales) {
+      const ts = new Date(o.created_at);
+      const k = toInput(ts);
+      const b = map.get(k);
+      if (b) {
+        b.v += lineVal(o, f.product);
+        b.n += 1;
+      }
+    }
+    return [...map.entries()].map(([k, o]) => ({
+      key: k,
+      label: shortDate(o.d),
+      full: prettyDate(o.d),
+      v: o.v,
+      n: o.n,
+    }));
+  }
+
+  // month
+  const map = new Map<string, { v: number; n: number }>();
+  for (const o of sales) {
+    const ts = new Date(o.created_at);
+    const k = `${ts.getFullYear()}-${pad(ts.getMonth() + 1)}`;
+    const b = map.get(k) ?? { v: 0, n: 0 };
+    b.v += lineVal(o, f.product);
+    b.n += 1;
+    map.set(k, b);
   }
   return [...map.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([key, v]) => {
-      const d = parseInputDate(key);
+    .map(([k, o]) => {
+      const m = Number(k.slice(5, 7));
       return {
-        label: v.label,
-        revenue: v.revenue,
-        orders: v.orders,
-        full: d.toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
+        key: k,
+        label: MON_SHORT[m - 1]!,
+        full: `${MON_FULL[m - 1]} ${k.slice(0, 4)}`,
+        v: o.v,
+        n: o.n,
       };
     });
-}
-
-function aggregateByHour(orders: SalesOrder[]): ChartRow[] {
-  const map = new Map<number, { revenue: number; orders: number }>();
-  for (const o of orders) {
-    const h = new Date(o.created_at).getHours();
-    const cur = map.get(h);
-    if (cur) { cur.revenue += o.total; cur.orders += 1; }
-    else map.set(h, { revenue: o.total, orders: 1 });
-  }
-  return [...map.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([h, v]) => ({
-      label: `${pad2(h)}:00`,
-      revenue: v.revenue,
-      orders: v.orders,
-      full: `${pad2(h)}:00 - ${pad2((h + 1) % 24)}:00`,
-    }));
-}
-
-function getISOWeek(d: Date): { year: number; week: number } {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  return { year: date.getUTCFullYear(), week: Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7) };
-}
-
-function aggregateByWeek(orders: SalesOrder[]): ChartRow[] {
-  const map = new Map<string, { revenue: number; orders: number; label: string; full: string }>();
-  for (const o of orders) {
-    const d = new Date(o.created_at);
-    const { year, week } = getISOWeek(d);
-    const key = `${year}-W${String(week).padStart(2, "0")}`;
-    const cur = map.get(key);
-    if (cur) { cur.revenue += o.total; cur.orders += 1; }
-    else map.set(key, { revenue: o.total, orders: 1, label: `W${week}`, full: `Minggu ${week}, ${year}` });
-  }
-  return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([, v]) => ({ label: v.label, revenue: v.revenue, orders: v.orders, full: v.full }));
-}
-
-function aggregateByMonth(orders: SalesOrder[]): ChartRow[] {
-  const map = new Map<string, { revenue: number; orders: number }>();
-  for (const o of orders) {
-    const d = new Date(o.created_at);
-    const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
-    const cur = map.get(key);
-    if (cur) { cur.revenue += o.total; cur.orders += 1; }
-    else map.set(key, { revenue: o.total, orders: 1 });
-  }
-  return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([key, v]) => {
-      const [y, m] = key.split("-");
-      const d = new Date(Number(y), Number(m) - 1, 1);
-      const label = d.toLocaleDateString("id-ID", { month: "short", year: "2-digit" });
-      const full = d.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
-      return { label, revenue: v.revenue, orders: v.orders, full };
-    });
-}
-
-function aggregateBestSellers(orders: SalesOrder[]): { name: string; qty: number; revenue: number }[] {
-  const map = new Map<string, { qty: number; revenue: number }>();
-  for (const o of orders) {
-    for (const it of o.items) {
-      const cur = map.get(it.name);
-      if (cur) { cur.qty += it.quantity; cur.revenue += it.price * it.quantity; }
-      else map.set(it.name, { qty: it.quantity, revenue: it.price * it.quantity });
-    }
-  }
-  return [...map.entries()]
-    .map(([name, v]) => ({ name, ...v }))
-    .sort((a, b) => b.qty - a.qty);
-}
-
-function outletShare(orders: SalesOrder[], outlets: Pick<Outlet, "id" | "name">[]): { name: string; value: number }[] {
-  const outletMap = new Map(outlets.map((o) => [o.id, o.name]));
-  const map = new Map<string, number>();
-  for (const o of orders) {
-    const name = o.outlet_name ?? outletMap.get(o.outlet_id ?? "") ?? "Tidak diketahui";
-    map.set(name, (map.get(name) ?? 0) + o.total);
-  }
-  return [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 }
 
 export function SalesDashboard({
   orders,
   outlets,
   channels,
+  categories,
+  menuItems,
+  sessions,
   initialOutlet,
+  lockedOutletId,
+  lockedOutletName,
 }: {
   orders: SalesOrder[];
   outlets: Pick<Outlet, "id" | "name">[];
   channels: OrderChannelConfig[];
+  categories: MenuCategory[];
+  menuItems: MenuItem[];
+  sessions: SalesCashierSession[];
   initialOutlet?: string;
+  lockedOutletId: string | null;
+  lockedOutletName: string | null;
 }) {
-  const today = useMemo(() => new Date(), []);
-  const defaultStart = useMemo(() => addDays(today, -13), [today]);
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
-  const [granularity, setGranularity] = useState<Granularity>("day");
-  const [dateFromStr, setDateFromStr] = useState(() => toInputDateValue(defaultStart));
-  const [dateToStr, setDateToStr] = useState(() => toInputDateValue(today));
-  const [hourDayStr, setHourDayStr] = useState(() => toInputDateValue(today));
-  const [statusFilter, setStatusFilter] = useState<"all" | "paid">("paid");
+  const channelLabelOf = useMemo(() => {
+    const map = new Map(channels.map((c) => [c.id, c.name]));
+    return (id: string | null): string => {
+      if (!id) return "Langsung";
+      return map.get(id) ?? ORDER_CHANNEL_LABEL[id] ?? id;
+    };
+  }, [channels]);
 
-  const [selectedOutlets, setSelectedOutlets] = useState<Set<string>>(
-    () => initialOutlet ? new Set([initialOutlet]) : new Set(),
-  );
-  const [selectedChannels, setSelectedChannels] = useState<Set<string>>(new Set());
-  const [selectedMethods, setSelectedMethods] = useState<Set<string>>(new Set());
-  const [selectedDestinations, setSelectedDestinations] = useState<Set<string>>(new Set());
+  const categoryNameOf = useMemo(() => {
+    const cats = new Map(categories.map((c) => [c.id, c.name]));
+    const items = new Map(menuItems.map((m) => [m.id, m.category_id]));
+    return (menuItemId: string | null): string => {
+      if (!menuItemId) return "—";
+      const cid = items.get(menuItemId);
+      if (!cid) return "—";
+      return cats.get(cid) ?? "—";
+    };
+  }, [categories, menuItems]);
 
-  function toggleFilter(set: Set<string>, value: string, setter: (s: Set<string>) => void) {
-    const next = new Set(set);
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
-    setter(next);
-  }
+  const [preset, setPreset] = useState<Preset>("30d");
+  const [from, setFrom] = useState<Date>(() => addDays(today, -29));
+  const [to, setTo] = useState<Date>(today);
+  const [gran, setGran] = useState<Granularity>("day");
+  const [chartType, setChartType] = useState<ChartType>("bar");
+  const [product, setProduct] = useState<string>(ALL);
+  const [pay, setPay] = useState<string>(ALL);
+  const [channel, setChannel] = useState<string>(ALL);
+  const [outletF, setOutletF] = useState<string>(initialOutlet ?? ALL);
 
-  function applyPreset(days: number) {
-    setGranularity("day");
-    setDateFromStr(toInputDateValue(addDays(today, -(days - 1))));
-    setDateToStr(toInputDateValue(today));
-  }
-
-  const filtered = useMemo(() => {
-    const hourDay = safeInputDate(hourDayStr, today);
-    const dateFrom = granularity === "hour" ? hourDay : safeInputDate(dateFromStr, defaultStart);
-    const dateTo = granularity === "hour" ? hourDay : safeInputDate(dateToStr, today);
-    return filterOrders(orders, {
-      dateFrom,
-      dateTo,
-      granularity,
-      hourDay: granularity === "hour" ? hourDay : undefined,
-      outlets: selectedOutlets,
-      channels: selectedChannels,
-      paymentMethods: selectedMethods,
-      destinations: selectedDestinations,
-      statusFilter,
-    });
-  }, [orders, granularity, dateFromStr, dateToStr, hourDayStr, selectedOutlets, selectedChannels, selectedMethods, selectedDestinations, statusFilter, today, defaultStart]);
-
-  const totals = useMemo(() => ({
-    revenue: filtered.reduce((s, o) => s + o.total, 0),
-    orders: filtered.length,
-  }), [filtered]);
-
-  const averageTicket = totals.orders > 0 ? totals.revenue / totals.orders : 0;
-
-  const chartData = useMemo(() => {
-    if (granularity === "hour") return aggregateByHour(filtered);
-    if (granularity === "week") return aggregateByWeek(filtered);
-    if (granularity === "month") return aggregateByMonth(filtered);
-    return aggregateByDay(filtered);
-  }, [filtered, granularity]);
-
-  const bestSellers = useMemo(() => aggregateBestSellers(filtered), [filtered]);
-
-  const outletShareData = useMemo(() => outletShare(filtered, outlets), [filtered, outlets]);
-
-  const outletOptions = useMemo(() =>
-    outlets.map((o) => ({ value: o.id, label: o.name })),
-    [outlets],
-  );
-  const channelOptions = channels.map((ch) => ({ value: ch.id, label: ch.name }));
-  const methodOptions = [
-    { value: "qris", label: "QRIS" },
-    { value: "cash", label: "Tunai" },
-    { value: "edc", label: "EDC / Kartu" },
-  ];
-  const destinationOptions = PAYMENT_DESTINATIONS.map((d) => ({ value: d, label: d }));
-
-  const tableOrders = useMemo(() =>
-    [...filtered].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-    [filtered],
-  );
-
-  async function downloadExcel() {
-    const XLSX = await import("xlsx");
-    const sheetRows = tableOrders.map((o) => ({
-      "No. Pesanan": o.order_number,
-      Waktu: new Date(o.created_at).toLocaleString("id-ID"),
-      Outlet: o.outlet_name ?? "-",
-      Channel: channels.find((ch) => ch.id === o.order_channel)?.name ?? ORDER_CHANNEL_LABEL[o.order_channel ?? ""] ?? o.order_channel ?? "-",
-      "Metode Bayar": o.payment_method ?? "-",
-      "Tujuan Bayar": o.payment_destination ?? "-",
-      Status: o.payment_status,
-      Total: o.total,
-    }));
-    const ws = XLSX.utils.json_to_sheet(sheetRows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Penjualan");
-    XLSX.writeFile(wb, `penjualan-${toInputDateValue(new Date())}.xlsx`);
-  }
-
-  const hasActiveFilters =
-    selectedOutlets.size > 0 ||
-    selectedChannels.size > 0 ||
-    selectedMethods.size > 0 ||
-    selectedDestinations.size > 0;
-
-  return (
-    <div className="space-y-6">
-      {/* Filter bar */}
-      <Card className="p-5 space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-          <div className="space-y-1.5">
-            <Label>Kelompok</Label>
-            <div className="flex gap-1 flex-wrap">
-              {([["day","Per hari"],["week","Per minggu"],["month","Per bulan"],["hour","Per jam"]] as [Granularity, string][]).map(([g, label]) => (
-                <Button key={g} size="sm" variant={granularity === g ? "default" : "outline"} onClick={() => setGranularity(g)}>
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {granularity === "hour" ? (
-            <div className="space-y-1.5">
-              <Label htmlFor="sales-hour-day">Tanggal</Label>
-              <Input id="sales-hour-day" type="date" value={hourDayStr} onChange={(e) => setHourDayStr(e.target.value)} className="w-40" />
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="sales-from">Dari</Label>
-                <Input id="sales-from" type="date" value={dateFromStr} onChange={(e) => setDateFromStr(e.target.value)} className="w-40" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="sales-to">Sampai</Label>
-                <Input id="sales-to" type="date" value={dateToStr} onChange={(e) => setDateToStr(e.target.value)} className="w-40" />
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 lg:ml-auto flex-wrap">
-            <Button size="sm" variant="outline" onClick={() => applyPreset(1)}>Hari ini</Button>
-            <Button size="sm" variant="outline" onClick={() => applyPreset(7)}>7 hari</Button>
-            <Button size="sm" variant="outline" onClick={() => applyPreset(30)}>30 hari</Button>
-            <Button
-              size="sm"
-              variant={statusFilter === "paid" ? "default" : "outline"}
-              onClick={() => setStatusFilter(s => s === "paid" ? "all" : "paid")}
-            >
-              {statusFilter === "paid" ? "Lunas saja" : "Semua status"}
-            </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={downloadExcel}>
-              <Download className="size-4 mr-1" /> Excel
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs text-muted-foreground font-medium">Filter sumber:</span>
-          {outletOptions.length > 0 && (
-            <MultiSelectFilter
-              label="Outlet"
-              options={outletOptions}
-              selected={selectedOutlets}
-              onToggle={(v) => toggleFilter(selectedOutlets, v, setSelectedOutlets)}
-            />
-          )}
-          <MultiSelectFilter
-            label="Channel"
-            options={channelOptions}
-            selected={selectedChannels}
-            onToggle={(v) => toggleFilter(selectedChannels, v, setSelectedChannels)}
-          />
-          <MultiSelectFilter
-            label="Metode bayar"
-            options={methodOptions}
-            selected={selectedMethods}
-            onToggle={(v) => toggleFilter(selectedMethods, v, setSelectedMethods)}
-          />
-          <MultiSelectFilter
-            label="Tujuan bayar"
-            options={destinationOptions}
-            selected={selectedDestinations}
-            onToggle={(v) => toggleFilter(selectedDestinations, v, setSelectedDestinations)}
-          />
-          {hasActiveFilters && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-xs h-9"
-              onClick={() => {
-                setSelectedOutlets(new Set());
-                setSelectedChannels(new Set());
-                setSelectedMethods(new Set());
-                setSelectedDestinations(new Set());
-              }}
-            >
-              Hapus semua filter
-            </Button>
-          )}
-        </div>
-      </Card>
-
-      {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card className="p-4 gap-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <TrendingUp className="size-4" /> Total pendapatan
-          </div>
-          <div className="text-2xl font-semibold">{formatIDR(totals.revenue)}</div>
-          <div className="text-xs text-muted-foreground">{totals.orders} transaksi</div>
-        </Card>
-        <Card className="p-4 gap-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <ShoppingBag className="size-4" /> Total pesanan
-          </div>
-          <div className="text-2xl font-semibold tabular-nums">{totals.orders.toLocaleString("id-ID")}</div>
-        </Card>
-        <Card className="p-4 gap-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <BarChart3 className="size-4" /> Rata-rata nilai order
-          </div>
-          <div className="text-2xl font-semibold">{formatIDR(Math.round(averageTicket))}</div>
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Card className="p-4 xl:col-span-2">
-          <div className="font-medium mb-1">Tren pendapatan</div>
-          <p className="text-xs text-muted-foreground mb-4">
-            {{ day: "Per hari", week: "Per minggu", month: "Per bulan", hour: "Per jam" }[granularity]} · {totals.orders} pesanan
-          </p>
-          {chartData.length === 0 ? (
-            <div className="h-64 grid place-items-center text-sm text-muted-foreground">
-              Tidak ada data untuk filter ini.
-            </div>
-          ) : (
-            <div className="h-64 -ml-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="g-revenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={COLOR_PRIMARY} stopOpacity={0.4} />
-                      <stop offset="95%" stopColor={COLOR_PRIMARY} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" strokeOpacity={0.1} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.7 }} axisLine={false} tickLine={false} minTickGap={20} />
-                  <YAxis tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.7 }} axisLine={false} tickLine={false} width={64} tickFormatter={(v: number) => formatShortIDR(v)} />
-                  <Tooltip cursor={{ stroke: COLOR_PRIMARY, strokeOpacity: 0.3 }} content={<ChartTooltip formatter={(v) => formatIDR(Math.round(v))} />} />
-                  <Area type="monotone" dataKey="revenue" name="Pendapatan" stroke={COLOR_PRIMARY} strokeWidth={2.25} fill="url(#g-revenue)" isAnimationActive={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Card>
-
-        <Card className="p-4">
-          <div className="font-medium mb-1">Komposisi per outlet</div>
-          <p className="text-xs text-muted-foreground mb-2">Berdasarkan filter aktif.</p>
-          {outletShareData.length === 0 ? (
-            <div className="h-56 grid place-items-center text-sm text-muted-foreground">
-              Tidak ada data outlet.
-            </div>
-          ) : (
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={outletShareData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2} isAnimationActive={false}>
-                    {outletShareData.map((_, i) => (
-                      <Cell key={i} fill={OUTLET_COLORS[i % OUTLET_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<ChartTooltip formatter={(v) => formatIDR(Math.round(v))} />} />
-                  <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Bar charts for channel and payment destination */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card className="p-4">
-          <div className="font-medium mb-1">Pendapatan per saluran</div>
-          <ChannelBar orders={filtered} channels={channels} />
-        </Card>
-        <Card className="p-4">
-          <div className="font-medium mb-1">Pendapatan per Sumber Pembayaran</div>
-          <DestinationBar orders={filtered} />
-        </Card>
-      </div>
-
-      {/* Best sellers */}
-      {bestSellers.length > 0 && (
-        <Card className="p-4">
-          <div className="font-medium mb-1">Produk terlaris</div>
-          <p className="text-xs text-muted-foreground mb-4">Berdasarkan filter aktif · {bestSellers.reduce((s, i) => s + i.qty, 0)} item terjual</p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="pb-2 pr-4 font-medium w-8">#</th>
-                  <th className="pb-2 pr-4 font-medium">Produk</th>
-                  <th className="pb-2 pr-4 font-medium text-right">Qty terjual</th>
-                  <th className="pb-2 font-medium text-right">Pendapatan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bestSellers.slice(0, 10).map((item, i) => (
-                  <tr key={item.name} className="border-b last:border-0">
-                    <td className="py-2 pr-4 text-muted-foreground tabular-nums">{i + 1}</td>
-                    <td className="py-2 pr-4">{item.name}</td>
-                    <td className="py-2 pr-4 text-right tabular-nums font-medium">{item.qty.toLocaleString("id-ID")}</td>
-                    <td className="py-2 text-right tabular-nums">{formatIDR(item.revenue)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* Transaction table */}
-      <Card className="p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b">
-          <div className="font-medium">Rincian transaksi</div>
-          <p className="text-xs text-muted-foreground">{tableOrders.length} pesanan cocok dengan filter</p>
-        </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>No. Pesanan</TableHead>
-              <TableHead>Waktu</TableHead>
-              <TableHead>Outlet</TableHead>
-              <TableHead>Channel</TableHead>
-              <TableHead>Tujuan Bayar</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tableOrders.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
-                  Tidak ada transaksi untuk filter ini.
-                </TableCell>
-              </TableRow>
-            ) : (
-              tableOrders.map((o) => (
-                <TableRow key={o.id}>
-                  <TableCell className="font-mono text-xs">{o.order_number}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(o.created_at).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                  </TableCell>
-                  <TableCell className="text-sm">{o.outlet_name ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                  <TableCell className="text-sm">
-                    {channels.find((ch) => ch.id === o.order_channel)?.name ?? ORDER_CHANNEL_LABEL[o.order_channel ?? ""] ?? o.order_channel ?? "-"}
-                  </TableCell>
-                  <TableCell className="text-sm">{o.payment_destination ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                  <TableCell>
-                    <Badge variant={o.payment_status === "paid" ? "default" : "outline"} className="text-xs">
-                      {o.payment_status === "paid" ? "Lunas" : o.payment_status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums font-medium">{formatIDR(o.total)}</TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-          {tableOrders.length > 0 && (
-            <TableFooter>
-              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableCell colSpan={6} className="font-medium">Total ({tableOrders.length} transaksi)</TableCell>
-                <TableCell className="text-right tabular-nums font-medium">{formatIDR(totals.revenue)}</TableCell>
-              </TableRow>
-            </TableFooter>
-          )}
-        </Table>
-      </Card>
-    </div>
-  );
-}
-
-function ChannelBar({ orders, channels }: { orders: SalesOrder[]; channels: OrderChannelConfig[] }) {
-  const channelName = (id: string | null) => {
-    if (!id) return "Langsung";
-    return channels.find((ch) => ch.id === id)?.name ?? ORDER_CHANNEL_LABEL[id] ?? id;
-  };
-
-  const data = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const o of orders) {
-      const ch = channelName(o.order_channel);
-      map.set(ch, (map.get(ch) ?? 0) + o.total);
+  function applyPreset(p: Preset) {
+    setPreset(p);
+    if (p === "today") {
+      setFrom(today);
+      setTo(today);
+    } else if (p === "yesterday") {
+      const y = addDays(today, -1);
+      setFrom(y);
+      setTo(y);
+    } else if (p === "7d") {
+      setFrom(addDays(today, -6));
+      setTo(today);
+    } else if (p === "30d") {
+      setFrom(addDays(today, -29));
+      setTo(today);
+    } else if (p === "thismonth") {
+      setFrom(startOfMonth(today));
+      setTo(today);
+    } else if (p === "lastmonth") {
+      const last = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      setFrom(last);
+      setTo(endOfMonth(last));
     }
-    return [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, channels]);
-
-  if (data.length === 0) {
-    return <div className="h-48 grid place-items-center text-sm text-muted-foreground">Tidak ada data.</div>;
   }
 
-  return (
-    <div className="h-48">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={[...data].reverse()} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="currentColor" strokeOpacity={0.08} />
-          <XAxis type="number" tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.7 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => formatShortIDR(v)} />
-          <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.85 }} axisLine={false} tickLine={false} width={100} />
-          <Tooltip cursor={{ fill: "currentColor", fillOpacity: 0.05 }} content={<ChartTooltip formatter={(v) => formatIDR(Math.round(v))} />} />
-          <Bar dataKey="value" name="Pendapatan" fill={COLOR_EMERALD} radius={[0, 6, 6, 0]} isAnimationActive={false} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
+  function reset() {
+    setProduct(ALL);
+    setPay(ALL);
+    setChannel(ALL);
+    if (!lockedOutletId) setOutletF(ALL);
+    setGran("day");
+    setChartType("bar");
+    applyPreset("30d");
+  }
 
-function DestinationBar({ orders }: { orders: SalesOrder[] }) {
-  const data = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const o of orders) {
-      const dest = o.payment_destination ?? "Tidak ditentukan";
-      map.set(dest, (map.get(dest) ?? 0) + o.total);
-    }
-    return [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  const filter: FilterState = useMemo(() => ({
+    from,
+    to,
+    product,
+    pay,
+    channel,
+    outlet: lockedOutletId ?? outletF,
+  }), [from, to, product, pay, channel, outletF, lockedOutletId]);
+
+  const sales = useMemo(
+    () => orders.filter((o) => passSales(o, filter, channelLabelOf)),
+    [orders, filter, channelLabelOf],
+  );
+
+  const days = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86400000) + 1);
+  const single = toInput(from) === toInput(to);
+
+  const omzet = useMemo(() => sales.reduce((s, o) => s + lineVal(o, filter.product), 0), [sales, filter.product]);
+  const orderCount = sales.length;
+  const itemCount = useMemo(() => sales.reduce((s, o) => s + lineQty(o, filter.product), 0), [sales, filter.product]);
+  const aov = orderCount > 0 ? omzet / orderCount : 0;
+  const perDay = days > 0 ? omzet / days : 0;
+  const fset = product !== ALL || pay !== ALL || channel !== ALL || (!lockedOutletId && outletF !== ALL);
+
+  const bk = useMemo(() => buckets(sales, gran, filter), [sales, gran, filter]);
+
+  const periodLabel = single
+    ? prettyDate(from)
+    : `${prettyDate(from)} – ${prettyDate(to)} (${days} hari)`;
+
+  // Channel options derived from data
+  const channelOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const o of orders) set.add(channelLabelOf(o.order_channel));
+    return [...set].sort();
+  }, [orders, channelLabelOf]);
+
+  // Payment method options derived from data
+  const payOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const o of orders) if (o.payment_method) set.add(o.payment_method);
+    return [...set].sort();
   }, [orders]);
 
-  if (data.length === 0) {
-    return <div className="h-48 grid place-items-center text-sm text-muted-foreground">Tidak ada data.</div>;
+  function exportPDF() {
+    doExport({
+      sales,
+      filter,
+      gran,
+      single,
+      days,
+      omzet,
+      orderCount,
+      itemCount,
+      aov,
+      perDay,
+      periodLabel,
+      outletName: lockedOutletName ?? outlets.find((o) => o.id === outletF)?.name ?? "Semua Outlet",
+      channelLabelOf,
+      categoryNameOf,
+      menuItems,
+      sessions,
+    });
   }
 
   return (
-    <div className="h-48">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={[...data].reverse()} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="currentColor" strokeOpacity={0.08} />
-          <XAxis type="number" tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.7 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => formatShortIDR(v)} />
-          <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "currentColor", fillOpacity: 0.85 }} axisLine={false} tickLine={false} width={130} />
-          <Tooltip cursor={{ fill: "currentColor", fillOpacity: 0.05 }} content={<ChartTooltip formatter={(v) => formatIDR(Math.round(v))} />} />
-          <Bar dataKey="value" name="Pendapatan" fill={COLOR_AMBER} radius={[0, 6, 6, 0]} isAnimationActive={false} />
-        </BarChart>
-      </ResponsiveContainer>
+    <div className={styles.root}>
+      <header className={styles.header}>
+        <div className={styles.mast}>
+          <div className={styles.brand}>solusi<b>saji</b></div>
+          <div className={styles.ctx}>
+            <span className={styles.role}>Laporan Penjualan</span>
+            {lockedOutletName && (
+              <span className={styles.lock}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="5" y="11" width="14" height="9" rx="2" />
+                  <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                </svg>
+                <span>{lockedOutletName}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.wrap}>
+        <div className={styles.h1 + " " + styles.serif}>Penjualan Outlet</div>
+        <p className={styles.sub}>
+          {lockedOutletName
+            ? "Akses terkunci ke satu outlet · laporan harian & bulanan untuk diserahkan ke pemilik"
+            : "Rekap penjualan lintas outlet · filter periode, channel, metode, dan produk"}
+        </p>
+
+        {/* FILTER CARD */}
+        <div className={styles.filtercard}>
+          <div className={styles.frow}>
+            <div>
+              <span className={styles.flabel}>Periode</span>
+              <div className={styles.presets}>
+                {([
+                  ["today", "Hari ini"],
+                  ["yesterday", "Kemarin"],
+                  ["7d", "7 hari"],
+                  ["30d", "30 hari"],
+                  ["thismonth", "Bulan ini"],
+                  ["lastmonth", "Bulan lalu"],
+                ] as [Preset, string][]).map(([p, label]) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`${styles.chip} ${preset === p ? styles.chipOn : ""}`}
+                    onClick={() => applyPreset(p)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className={styles.daterange}>
+              <div className={styles.field}>
+                <span className={styles.flabel}>Dari</span>
+                <input
+                  type="date"
+                  className={styles.input}
+                  value={toInput(from)}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    setPreset("custom");
+                    setFrom(fromInput(e.target.value));
+                  }}
+                />
+              </div>
+              <div className={styles.field}>
+                <span className={styles.flabel}>Sampai</span>
+                <input
+                  type="date"
+                  className={styles.input}
+                  value={toInput(to)}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    setPreset("custom");
+                    setTo(fromInput(e.target.value));
+                  }}
+                />
+              </div>
+            </div>
+            <div className={styles.activelabel}>
+              <b>{single ? prettyDate(from) : `${shortDate(from)} – ${shortDate(to)}`}</b> · {days} hari
+            </div>
+          </div>
+
+          <div className={styles.frow}>
+            <div>
+              <span className={styles.flabel}>Kelompok grafik</span>
+              <div className={styles.seg}>
+                {([["day", "Per hari"], ["hour", "Per jam"], ["month", "Per bulan"]] as [Granularity, string][]).map(([g, label]) => (
+                  <button
+                    key={g}
+                    type="button"
+                    className={gran === g ? styles.segOn : ""}
+                    onClick={() => setGran(g)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <span className={styles.flabel}>Tipe grafik</span>
+              <div className={styles.seg}>
+                {([["bar", "Batang"], ["line", "Garis"]] as [ChartType, string][]).map(([t, label]) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={chartType === t ? styles.segOn : ""}
+                    onClick={() => setChartType(t)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {!lockedOutletId && outlets.length > 0 && (
+              <div className={styles.field}>
+                <span className={styles.flabel}>Outlet</span>
+                <select className={styles.select} value={outletF} onChange={(e) => setOutletF(e.target.value)}>
+                  <option value={ALL}>Semua outlet</option>
+                  {outlets.map((o) => (
+                    <option key={o.id} value={o.id}>{o.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className={styles.field}>
+              <span className={styles.flabel}>Produk</span>
+              <select className={styles.select} value={product} onChange={(e) => setProduct(e.target.value)}>
+                <option value={ALL}>Semua produk</option>
+                {menuItems.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className={styles.field}>
+              <span className={styles.flabel}>Metode bayar</span>
+              <select className={styles.select} value={pay} onChange={(e) => setPay(e.target.value)}>
+                <option value={ALL}>Semua metode</option>
+                {payOptions.map((p) => (
+                  <option key={p} value={p}>{p.toUpperCase()}</option>
+                ))}
+              </select>
+            </div>
+            <div className={styles.field}>
+              <span className={styles.flabel}>Channel pesanan</span>
+              <select className={styles.select} value={channel} onChange={(e) => setChannel(e.target.value)}>
+                <option value={ALL}>Semua channel</option>
+                {channelOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <button type="button" className={styles.reset} onClick={reset}>Reset</button>
+            <button type="button" className={`${styles.reset} ${styles.resetPrimary}`} onClick={exportPDF}>
+              ⇣ Export PDF
+            </button>
+          </div>
+        </div>
+
+        {/* SUMMARY KPIs */}
+        <div className={styles.note}>
+          Ringkasan penjualan <span className={styles.noteSm}>{fset ? "· terfilter" : ""}</span>
+        </div>
+        <div className={styles.kpis}>
+          <Kpi k="Omzet" n={fmt(omzet)} d={`${fmt(perDay)}/hari rata-rata`} />
+          <Kpi k="Total pesanan" n={fmtN(orderCount)} d="transaksi" />
+          <Kpi k="Item terjual" n={fmtN(itemCount)} d="qty" />
+          <Kpi k="Rata-rata order" n={fmt(aov)} d="per pesanan" />
+        </div>
+
+        {/* CHART */}
+        <div className={styles.chartcard}>
+          <div className={styles.chartHeader}>
+            <h4>
+              {gran === "hour" ? "Tren penjualan per jam"
+                : gran === "day" ? "Tren penjualan harian"
+                : "Tren penjualan bulanan"}
+            </h4>
+            <div className={`${styles.charttools} ${styles.mono}`}>
+              {bk.length} {gran === "hour" ? "jam" : gran === "day" ? "hari" : "bulan"} · total {fmt(bk.reduce((s, b) => s + b.v, 0))}
+            </div>
+          </div>
+          <TrendChart bk={bk} type={chartType} gran={gran} />
+        </div>
+
+        {/* BREAKDOWNS */}
+        <div className={styles.grid2} style={{ marginTop: 11 }}>
+          <div className={styles.rcard}>
+            <h4>Per metode bayar</h4>
+            <div className={styles.csub}>Rupiah & jumlah transaksi</div>
+            <Bars data={aggByPay(sales, filter.product)} />
+          </div>
+          <div className={styles.rcard}>
+            <h4>Per channel pesanan</h4>
+            <div className={styles.csub}>Rupiah & jumlah pesanan</div>
+            <Bars data={aggByChannel(sales, filter.product, channelLabelOf)} />
+          </div>
+        </div>
+
+        {/* CASH RECAP */}
+        <div className={styles.note}>
+          Rekap kas
+          <span className={styles.noteSm}>
+            {single ? "— rekap laci kasir untuk tanggal ini" : "— akumulasi seluruh shift pada periode"}
+          </span>
+        </div>
+        <div className={styles.cashcard}>
+          <CashRecap sessions={sessions} from={from} to={to} outlet={filter.outlet} single={single} />
+        </div>
+
+        {/* TIME SLOTS */}
+        <div className={styles.note}>
+          Penjualan per kelompok jam <span className={styles.noteSm}>— berdasarkan jam transaksi</span>
+        </div>
+        <div className={styles.grid2}>
+          <div className={styles.rcard}>
+            <h4>Omzet per shift</h4>
+            <div className={styles.csub}>Rupiah & jumlah pesanan per kelompok jam</div>
+            <SlotBars sales={sales} product={filter.product} />
+          </div>
+          <div className={styles.rcard}>
+            <h4>Komposisi shift</h4>
+            <div className={styles.csub}>% kontribusi per kelompok jam</div>
+            <SlotPie sales={sales} product={filter.product} />
+          </div>
+        </div>
+
+        {/* PER MENU */}
+        <div className={styles.note}>
+          Rekap penjualan per menu <span className={styles.noteSm}>— per item menu, berdasarkan filter aktif</span>
+        </div>
+        <div className={styles.tcard}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Menu</th>
+                <th>Kategori</th>
+                <th className={styles.num}>Qty terjual</th>
+                <th className={styles.num}>Pendapatan (Rp)</th>
+                <th className={styles.num}>% Pendapatan</th>
+                <th className={styles.num}>Rata-rata/pesanan</th>
+              </tr>
+            </thead>
+            <tbody>
+              <MenuRows sales={sales} categoryNameOf={categoryNameOf} />
+            </tbody>
+          </table>
+        </div>
+
+        {/* TRANSACTIONS */}
+        <div className={styles.note}>
+          Daftar transaksi <span className={styles.noteSm}>· {fmtN(sales.length)} transaksi{sales.length > 120 ? ` (menampilkan 120 teratas)` : ""}</span>
+        </div>
+        <div className={styles.tcard}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>No. Pesanan</th>
+                <th>Tanggal</th>
+                <th>Waktu</th>
+                <th>Channel</th>
+                <th>Item</th>
+                <th>Metode</th>
+                <th className={styles.num}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <TxRows sales={sales} channelLabelOf={channelLabelOf} />
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
+}
+
+function Kpi({ k, n, d }: { k: string; n: string; d: string }) {
+  return (
+    <div className={styles.kpi}>
+      <div className={styles.kpiK}>{k}</div>
+      <div className={`${styles.kpiN} ${styles.serif}`}>{n}</div>
+      <div className={styles.kpiD}>{d}</div>
+    </div>
+  );
+}
+
+function TrendChart({ bk, type, gran }: { bk: Bucket[]; type: ChartType; gran: Granularity }) {
+  if (!bk.length || bk.every((b) => b.v === 0)) {
+    return <div className={styles.empty}>Tidak ada penjualan pada periode/filter ini.</div>;
+  }
+  const W = 860, H = 270, pl = 58, pr = 16, pt = 16, pb = 38;
+  const plotW = W - pl - pr, plotH = H - pt - pb;
+  const rawMax = Math.max(...bk.map((b) => b.v));
+  const step = Math.pow(10, Math.floor(Math.log10(rawMax || 1)));
+  const niceMax = Math.ceil(rawMax / step) * step || rawMax || 1;
+  const y = (v: number) => pt + plotH - (v / niceMax) * plotH;
+  const n = bk.length, bw = plotW / n;
+
+  const gridLines = [];
+  for (let i = 0; i <= 4; i++) {
+    const gv = (niceMax * i) / 4;
+    const yy = y(gv);
+    gridLines.push(
+      <g key={i}>
+        <line x1={pl} y1={yy} x2={W - pr} y2={yy} stroke="rgba(36,28,21,.08)" />
+        <text x={pl - 8} y={yy + 3} textAnchor="end" fontFamily="var(--sales-mono)" fontSize="9" fill="#6E665B">
+          {compact(gv)}
+        </text>
+      </g>,
+    );
+  }
+
+  const labStep = Math.max(1, Math.ceil(n / (gran === "day" ? Math.min(n, 12) : n)));
+  const xLabels = bk.map((b, i) => {
+    if (i % labStep !== 0 && n > 14) return null;
+    const x = pl + i * bw + bw / 2;
+    return (
+      <text key={i} x={x} y={H - 14} textAnchor="middle" fontFamily="var(--sales-mono)" fontSize="9" fill="#6E665B">
+        {b.label}
+      </text>
+    );
+  });
+
+  let body: React.ReactNode = null;
+  if (type === "bar") {
+    const w = Math.max(2, Math.min(bw * 0.66, 46));
+    body = bk.map((b, i) => {
+      const x = pl + i * bw + (bw - w) / 2;
+      const h = plotH - (y(b.v) - pt);
+      return (
+        <rect
+          key={i}
+          className={styles.barRect}
+          x={x.toFixed(1)}
+          y={y(b.v).toFixed(1)}
+          width={w.toFixed(1)}
+          height={Math.max(0, h).toFixed(1)}
+          rx="2.5"
+          fill="#6E7B4F"
+        >
+          <title>{`${b.full} — ${fmt(b.v)} · ${b.n} pesanan`}</title>
+        </rect>
+      );
+    });
+  } else {
+    const pts = bk.map((b, i) => `${(pl + i * bw + bw / 2).toFixed(1)},${y(b.v).toFixed(1)}`).join(" ");
+    const area = `${pl + bw / 2},${pt + plotH} ${pts} ${pl + (n - 1) * bw + bw / 2},${pt + plotH}`;
+    body = (
+      <>
+        <polygon points={area} fill="rgba(110,123,79,.12)" />
+        <polyline points={pts} fill="none" stroke="#6E7B4F" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+        {bk.map((b, i) => {
+          const x = pl + i * bw + bw / 2;
+          return (
+            <circle key={i} cx={x.toFixed(1)} cy={y(b.v).toFixed(1)} r={n > 40 ? 2 : 3.4} fill="#6E7B4F">
+              <title>{`${b.full} — ${fmt(b.v)} · ${b.n} pesanan`}</title>
+            </circle>
+          );
+        })}
+      </>
+    );
+  }
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className={styles.chartSvg} role="img" aria-label="Grafik penjualan">
+      {gridLines}
+      {body}
+      {xLabels}
+    </svg>
+  );
+}
+
+type BarRow = { label: string; v: number; n: number; color?: string };
+
+function aggByPay(sales: SalesOrder[], product: string): BarRow[] {
+  const map = new Map<string, { v: number; n: number }>();
+  for (const o of sales) {
+    const k = (o.payment_method ?? "lain").toUpperCase();
+    const e = map.get(k) ?? { v: 0, n: 0 };
+    e.v += lineVal(o, product);
+    e.n += 1;
+    map.set(k, e);
+  }
+  return [...map.entries()].map(([label, v]) => ({ label, ...v })).sort((a, b) => b.v - a.v);
+}
+
+function aggByChannel(sales: SalesOrder[], product: string, labelOf: (id: string | null) => string): BarRow[] {
+  const map = new Map<string, { v: number; n: number }>();
+  for (const o of sales) {
+    const k = labelOf(o.order_channel);
+    const e = map.get(k) ?? { v: 0, n: 0 };
+    e.v += lineVal(o, product);
+    e.n += 1;
+    map.set(k, e);
+  }
+  return [...map.entries()].map(([label, v]) => ({ label, ...v })).sort((a, b) => b.v - a.v);
+}
+
+function Bars({ data }: { data: BarRow[] }) {
+  if (data.length === 0) return <div className={styles.empty}>—</div>;
+  const max = Math.max(...data.map((d) => d.v), 1);
+  return (
+    <>
+      {data.map((d) => (
+        <div className={styles.bar} key={d.label}>
+          <span className={styles.barLab}>{d.label}</span>
+          <div className={styles.barTrack}>
+            <div className={styles.barFill} style={{ width: `${(d.v / max * 100).toFixed(1)}%`, background: d.color }} />
+          </div>
+          <span className={styles.barVal}>{fmt(d.v)}</span>
+          <span className={styles.barCt}>{d.n} trx</span>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function SlotBars({ sales, product }: { sales: SalesOrder[]; product: string }) {
+  const data = SLOTS.map((s) => ({ ...s, v: 0, n: 0 }));
+  for (const o of sales) {
+    const h = new Date(o.created_at).getHours();
+    const sl = slotOf(h);
+    const d = data.find((x) => x.label === sl.label);
+    if (d) {
+      d.v += lineVal(o, product);
+      d.n += 1;
+    }
+  }
+  return <Bars data={data.map((d) => ({ label: d.label, v: d.v, n: d.n, color: d.color }))} />;
+}
+
+function SlotPie({ sales, product }: { sales: SalesOrder[]; product: string }) {
+  const data = SLOTS.map((s) => ({ ...s, v: 0, n: 0 }));
+  for (const o of sales) {
+    const sl = slotOf(new Date(o.created_at).getHours());
+    const d = data.find((x) => x.label === sl.label);
+    if (d) {
+      d.v += lineVal(o, product);
+      d.n += 1;
+    }
+  }
+  const total = data.reduce((s, d) => s + d.v, 0);
+  if (total === 0) return <div className={styles.slotPie}><div className={styles.empty}>—</div></div>;
+
+  const size = 240, cx = size / 2, cy = size / 2, r = 100;
+  let cum = 0;
+  const paths: React.ReactNode[] = [];
+  for (const d of data) {
+    const pct = d.v / total;
+    if (pct === 0) continue;
+    const a0 = cum * Math.PI * 2 - Math.PI / 2;
+    const a1 = (cum + pct) * Math.PI * 2 - Math.PI / 2;
+    const large = pct > 0.5 ? 1 : 0;
+    const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+    paths.push(
+      <path
+        key={d.label}
+        d={`M${cx},${cy} L${x0.toFixed(1)},${y0.toFixed(1)} A${r},${r} 0 ${large} 1 ${x1.toFixed(1)},${y1.toFixed(1)} Z`}
+        fill={d.color}
+      >
+        <title>{`${d.label}: ${(pct * 100).toFixed(1)}%`}</title>
+      </path>,
+    );
+    cum += pct;
+  }
+  return (
+    <div className={styles.slotPie}>
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} style={{ flexShrink: 0 }}>
+        {paths}
+        <circle cx={cx} cy={cy} r={30} fill="var(--surface)" />
+      </svg>
+      <div className={styles.slotLegend}>
+        {data.filter((d) => d.v > 0).map((d) => (
+          <div key={d.label} className={styles.slotLegendRow}>
+            <span className={styles.slotLegendChip} style={{ background: d.color }} />
+            <span className={styles.slotLegendName}>{d.label.split("(")[0]!.trim()}</span>
+            <span className={styles.mono} style={{ fontSize: 10 }}>{((d.v / total) * 100).toFixed(0)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CashRecap({
+  sessions,
+  from,
+  to,
+  outlet,
+  single,
+}: {
+  sessions: SalesCashierSession[];
+  from: Date;
+  to: Date;
+  outlet: string;
+  single: boolean;
+}) {
+  const fromKey = toInput(from);
+  const toKey = toInput(to);
+  const filtered = sessions.filter((s) => {
+    if (s.session_date < fromKey || s.session_date > toKey) return false;
+    if (outlet !== ALL && s.outlet_id !== outlet) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    return <div className={styles.empty} style={{ padding: "16px 0" }}>Tidak ada sesi kasir pada periode ini.</div>;
+  }
+
+  if (single && filtered.length === 1) {
+    const s = filtered[0]!;
+    const expected = s.opening_cash + s.cash_in - s.cash_out + s.cash_sales;
+    const actual = s.actual_closing_cash;
+    const sel = actual != null ? actual - expected : null;
+    const selClass = sel == null || sel === 0 ? styles.selOk : styles.selBad;
+    const selTxt = sel == null
+      ? "Sesi belum ditutup"
+      : `${sel > 0 ? "+ " : sel < 0 ? "− " : ""}${fmt(Math.abs(sel))}`;
+    return (
+      <>
+        <div className={styles.cashrow}>
+          <span className={styles.cashLbl}>Modal awal (kas pembuka)</span>
+          <span className={styles.cashAmt}>{fmt(s.opening_cash)}</span>
+        </div>
+        <div className={styles.cashrow}>
+          <span className={styles.cashLbl}>
+            Kas masuk <small>penjualan tunai + setoran</small>
+          </span>
+          <span className={`${styles.cashAmt} ${styles.selOk}`}>+ {fmt(s.cash_sales + s.cash_in)}</span>
+        </div>
+        <div className={styles.cashrow}>
+          <span className={styles.cashLbl}>
+            Kas keluar <small>pengeluaran operasional</small>
+          </span>
+          <span className={`${styles.cashAmt} ${styles.selBad}`}>− {fmt(s.cash_out)}</span>
+        </div>
+        <div className={`${styles.cashrow} ${styles.cashTot} ${styles.cashTotHi}`}>
+          <span className={styles.cashLbl}>Kas seharusnya di laci</span>
+          <span className={styles.cashAmt}>{fmt(expected)}</span>
+        </div>
+        <div className={styles.cashrow}>
+          <span className={styles.cashLbl}>Kas aktual (dihitung kasir)</span>
+          <span className={styles.cashAmt}>{actual != null ? fmt(actual) : "—"}</span>
+        </div>
+        <div className={`${styles.cashrow} ${styles.cashTot}`}>
+          <span className={styles.cashLbl}>Selisih</span>
+          <span className={`${styles.cashAmt} ${selClass}`}>{selTxt}</span>
+        </div>
+      </>
+    );
+  }
+
+  // Multi-day rollup
+  let masuk = 0, masukSales = 0, keluar = 0, sel = 0, withActual = 0;
+  for (const s of filtered) {
+    masuk += s.cash_in;
+    masukSales += s.cash_sales;
+    keluar += s.cash_out;
+    if (s.actual_closing_cash != null) {
+      sel += s.actual_closing_cash - (s.opening_cash + s.cash_in - s.cash_out + s.cash_sales);
+      withActual += 1;
+    }
+  }
+  const selClass = sel === 0 ? styles.selOk : styles.selBad;
+  const selTxt = `${sel > 0 ? "+ " : sel < 0 ? "− " : ""}${fmt(Math.abs(sel))}`;
+  return (
+    <>
+      <div className={styles.cashrow}>
+        <span className={styles.cashLbl}>Jumlah shift / hari</span>
+        <span className={styles.cashAmt}>{filtered.length} sesi</span>
+      </div>
+      <div className={styles.cashrow}>
+        <span className={styles.cashLbl}>
+          Total kas masuk <small>penjualan tunai</small>
+        </span>
+        <span className={`${styles.cashAmt} ${styles.selOk}`}>+ {fmt(masukSales)}</span>
+      </div>
+      <div className={styles.cashrow}>
+        <span className={styles.cashLbl}>
+          Setoran tambahan <small>top-up & koreksi</small>
+        </span>
+        <span className={`${styles.cashAmt} ${styles.selOk}`}>+ {fmt(masuk)}</span>
+      </div>
+      <div className={styles.cashrow}>
+        <span className={styles.cashLbl}>
+          Total kas keluar <small>pengeluaran operasional</small>
+        </span>
+        <span className={`${styles.cashAmt} ${styles.selBad}`}>− {fmt(keluar)}</span>
+      </div>
+      <div className={`${styles.cashrow} ${styles.cashTot} ${styles.cashTotHi}`}>
+        <span className={styles.cashLbl}>Arus kas bersih (tunai)</span>
+        <span className={styles.cashAmt}>{fmt(masukSales + masuk - keluar)}</span>
+      </div>
+      <div className={`${styles.cashrow} ${styles.cashTot}`}>
+        <span className={styles.cashLbl}>
+          Total selisih laci <small>{withActual}/{filtered.length} sesi ditutup</small>
+        </span>
+        <span className={`${styles.cashAmt} ${selClass}`}>{withActual === 0 ? "—" : selTxt}</span>
+      </div>
+    </>
+  );
+}
+
+function MenuRows({
+  sales,
+  categoryNameOf,
+}: {
+  sales: SalesOrder[];
+  categoryNameOf: (id: string | null) => string;
+}) {
+  const map = new Map<string, { name: string; qty: number; val: number; orders: Set<string>; menuId: string | null }>();
+  for (const o of sales) {
+    for (const it of o.items) {
+      const key = it.menu_item_id ?? `__${it.name}`;
+      const e = map.get(key) ?? { name: it.name, qty: 0, val: 0, orders: new Set<string>(), menuId: it.menu_item_id };
+      e.qty += it.quantity;
+      e.val += it.price * it.quantity;
+      e.orders.add(o.id);
+      map.set(key, e);
+    }
+  }
+  const rows = [...map.values()].sort((a, b) => b.val - a.val);
+  const totalVal = rows.reduce((s, r) => s + r.val, 0);
+  if (rows.length === 0) {
+    return (
+      <tr>
+        <td colSpan={6} className={styles.empty}>Tidak ada data.</td>
+      </tr>
+    );
+  }
+  return (
+    <>
+      {rows.map((r) => {
+        const pct = totalVal ? (r.val / totalVal * 100).toFixed(1) : "0";
+        const avg = r.orders.size ? r.val / r.orders.size : 0;
+        return (
+          <tr key={r.name}>
+            <td className={styles.rowname}>{r.name}</td>
+            <td style={{ color: "var(--muted)", fontSize: 12 }}>{categoryNameOf(r.menuId)}</td>
+            <td className={styles.num}>{fmtN(r.qty)}</td>
+            <td className={styles.num}>{fmt(r.val)}</td>
+            <td className={styles.num}>{pct}%</td>
+            <td className={styles.num}>{fmt(avg)}</td>
+          </tr>
+        );
+      })}
+    </>
+  );
+}
+
+function TxRows({
+  sales,
+  channelLabelOf,
+}: {
+  sales: SalesOrder[];
+  channelLabelOf: (id: string | null) => string;
+}) {
+  if (sales.length === 0) {
+    return (
+      <tr>
+        <td colSpan={7} className={styles.empty}>Tidak ada transaksi untuk filter ini.</td>
+      </tr>
+    );
+  }
+  const list = sales.slice(0, 120);
+  return (
+    <>
+      {list.map((o) => {
+        const d = new Date(o.created_at);
+        const items = o.items.map((it) => `${it.name} ×${it.quantity}`).join(", ");
+        return (
+          <tr key={o.id}>
+            <td className={styles.mono} style={{ fontSize: 11 }}>{o.order_number}</td>
+            <td style={{ color: "var(--muted)", whiteSpace: "nowrap" }}>{shortDate(d)}</td>
+            <td style={{ color: "var(--muted)" }}>{`${pad(d.getHours())}.${pad(d.getMinutes())}`}</td>
+            <td>{channelLabelOf(o.order_channel)}</td>
+            <td className={styles.txitems}>{items || "—"}</td>
+            <td><span className={styles.paytag}>{(o.payment_method ?? "—").toUpperCase()}</span></td>
+            <td className={styles.num}>{fmt(o.total)}</td>
+          </tr>
+        );
+      })}
+    </>
+  );
+}
+
+function doExport(args: {
+  sales: SalesOrder[];
+  filter: FilterState;
+  gran: Granularity;
+  single: boolean;
+  days: number;
+  omzet: number;
+  orderCount: number;
+  itemCount: number;
+  aov: number;
+  perDay: number;
+  periodLabel: string;
+  outletName: string;
+  channelLabelOf: (id: string | null) => string;
+  categoryNameOf: (id: string | null) => string;
+  menuItems: MenuItem[];
+  sessions: SalesCashierSession[];
+}) {
+  const { sales, filter, days, omzet, orderCount, itemCount, aov, perDay, periodLabel, outletName, channelLabelOf, categoryNameOf } = args;
+
+  // Per shift
+  const slotData = SLOTS.map((s) => ({ ...s, v: 0, n: 0 }));
+  for (const o of sales) {
+    const sl = slotOf(new Date(o.created_at).getHours());
+    const d = slotData.find((x) => x.label === sl.label);
+    if (d) {
+      d.v += lineVal(o, filter.product);
+      d.n += 1;
+    }
+  }
+
+  // Per menu
+  const menuMap = new Map<string, { name: string; qty: number; val: number; menuId: string | null }>();
+  for (const o of sales) {
+    for (const it of o.items) {
+      const k = it.menu_item_id ?? `__${it.name}`;
+      const e = menuMap.get(k) ?? { name: it.name, qty: 0, val: 0, menuId: it.menu_item_id };
+      e.qty += it.quantity;
+      e.val += it.price * it.quantity;
+      menuMap.set(k, e);
+    }
+  }
+  const menuRows = [...menuMap.values()].sort((a, b) => b.val - a.val);
+  const menuTotal = menuRows.reduce((s, r) => s + r.val, 0);
+
+  // Payment + channel breakdowns
+  const payRows = aggByPay(sales, filter.product);
+  const chanRows = aggByChannel(sales, filter.product, channelLabelOf);
+  const payMax = Math.max(...payRows.map((r) => r.v), 1);
+  const chanMax = Math.max(...chanRows.map((r) => r.v), 1);
+
+  // Top 5 menu
+  const top5 = menuRows.slice(0, 5);
+
+  // Transactions (cap)
+  const txCap = 200;
+  const txData = sales.slice(0, txCap);
+
+  const filename = `Laporan_Penjualan_${outletName.replace(/\s+/g, "-")}_${toInput(filter.from).replace(/-/g, "")}-${toInput(filter.to).replace(/-/g, "")}.pdf`;
+
+  const w = window.open("", "_blank");
+  if (!w) {
+    alert("Popup diblokir. Izinkan popup untuk export PDF.");
+    return;
+  }
+
+  const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(filename)}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;color:#241C15;line-height:1.5;padding:28px 32px;max-width:800px;margin:0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #241C15;padding-bottom:14px;margin-bottom:16px}
+.brand{font-family:'Fraunces',serif;font-size:20px;font-weight:500}
+.brand b{color:#6E7B4F}
+.meta{text-align:right;font-size:11px;color:#6E665B;font-family:'Space Mono',monospace}
+h1{font-family:'Fraunces',serif;font-weight:400;font-size:22px;margin:0 0 4px}
+.period{font-size:13px;color:#6E665B;margin-bottom:16px}
+.section{margin-top:20px}
+.stitle{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#B56A1C;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.stitle::before{content:"";width:14px;height:2px;background:#B56A1C}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.kpi{border:1px solid rgba(36,28,21,.13);border-radius:8px;padding:10px 12px}
+.kpi .k{font-size:10px;color:#6E665B}.kpi .n{font-family:'Fraunces',serif;font-size:20px;margin-top:2px}.kpi .d{font-size:10px;color:#6E665B;margin-top:1px}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+th{text-align:left;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:#6E665B;font-weight:400;padding:4px 6px 4px 0;border-bottom:1px solid rgba(36,28,21,.13)}
+td{padding:5px 6px 5px 0;border-bottom:1px solid rgba(36,28,21,.06);vertical-align:top}
+.num{text-align:right;font-family:'Space Mono',monospace;font-size:11px;white-space:nowrap}
+.rowname{font-weight:500}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{border:1px solid rgba(36,28,21,.13);border-radius:8px;padding:10px 12px}
+.card h4{font-size:12px;font-weight:600;margin-bottom:6px}
+.bar-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px}
+.bar-row .lab{width:90px;flex-shrink:0;color:#4a4137;font-size:11px}
+.bar-row .track{flex:1;height:12px;background:#EDE7D9;border-radius:3px;position:relative;overflow:hidden}
+.bar-row .fill{position:absolute;inset:0 auto 0 0;border-radius:3px;background:#6E7B4F}
+.bar-row .val{min-width:80px;text-align:right;font-family:'Space Mono',monospace;font-size:10px}
+.stamp{font-family:'Space Mono',monospace;font-size:9px;color:#6E665B;text-align:center;margin-top:24px;padding-top:10px;border-top:1px solid rgba(36,28,21,.13)}
+@media print{body{padding:20px}@page{margin:16mm 14mm;size:A4}}
+.highlight{background:#F7F3EA;border-radius:8px;padding:12px 14px;margin-bottom:12px;display:flex;gap:20px;flex-wrap:wrap}
+.highlight .hlabel{font-size:10px;color:#6E665B;text-transform:uppercase;letter-spacing:.04em;font-family:'Space Mono',monospace}
+.highlight .hval{font-family:'Fraunces',serif;font-size:26px;letter-spacing:-.01em}
+.highlight .hsub{font-size:11px;color:#6E665B}
+.pbreak{page-break-before:always}
+.txitems{font-size:10px;color:#6E665B;line-height:1.3;max-width:200px}
+.paytag{font-size:9px;background:#EDE7D9;padding:1px 6px;border-radius:4px;white-space:nowrap}
+</style></head><body>
+<div class="header">
+  <div><div class="brand">solusi<b>saji</b></div><div style="font-size:11px;color:#6E665B;margin-top:2px">Laporan Penjualan</div></div>
+  <div class="meta">Dicetak: ${new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}<br>${escapeHtml(outletName)}</div>
+</div>
+
+<h1>Laporan Penjualan</h1>
+<div class="period">${escapeHtml(periodLabel)}</div>
+
+<div class="highlight">
+  <div style="flex:1;min-width:160px"><div class="hlabel">Total Omzet</div><div class="hval">${fmt(omzet)}</div><div class="hsub">${fmtN(orderCount)} pesanan · ${fmtN(itemCount)} item</div></div>
+  <div style="flex:1;min-width:120px"><div class="hlabel">Rata-rata/hari</div><div class="hval">${fmt(perDay)}</div><div class="hsub">${days} hari periode</div></div>
+  <div style="flex:1;min-width:120px"><div class="hlabel">Rata-rata/pesanan</div><div class="hval">${fmt(aov)}</div><div class="hsub">average order value</div></div>
+</div>
+
+<div class="section"><div class="stitle">Top 5 Menu Terlaris</div>
+<table><thead><tr><th>Menu</th><th class="num">Qty</th><th class="num">Pendapatan</th><th class="num">%</th></tr></thead><tbody>
+${top5.map((r) => `<tr><td class="rowname">${escapeHtml(r.name)}</td><td class="num">${fmtN(r.qty)}</td><td class="num">${fmt(r.val)}</td><td class="num">${menuTotal ? (r.val / menuTotal * 100).toFixed(1) : "0"}%</td></tr>`).join("")}
+</tbody></table></div>
+
+<div class="section"><div class="stitle">Penjualan per Kelompok Jam</div>
+<table><thead><tr><th>Shift</th><th class="num">Omzet</th><th class="num">Pesanan</th><th class="num">%</th></tr></thead><tbody>
+${slotData.map((d) => `<tr><td>${escapeHtml(d.label)}</td><td class="num">${fmt(d.v)}</td><td class="num">${d.n}</td><td class="num">${omzet ? (d.v / omzet * 100).toFixed(1) : "0"}%</td></tr>`).join("")}
+</tbody></table></div>
+
+<div class="section duo"><div class="card"><h4>Per Metode Bayar</h4>
+${payRows.map((r) => `<div class="bar-row"><span class="lab">${escapeHtml(r.label)}</span><div class="track"><div class="fill" style="width:${(r.v / payMax * 100).toFixed(1)}%"></div></div><span class="val">${fmt(r.v)} · ${r.n}</span></div>`).join("") || '<div style="font-size:11px;color:#6E665B">—</div>'}
+</div><div class="card"><h4>Per Channel</h4>
+${chanRows.map((r) => `<div class="bar-row"><span class="lab">${escapeHtml(r.label)}</span><div class="track"><div class="fill" style="width:${(r.v / chanMax * 100).toFixed(1)}%"></div></div><span class="val">${fmt(r.v)} · ${r.n}</span></div>`).join("") || '<div style="font-size:11px;color:#6E665B">—</div>'}
+</div></div>
+
+<div class="pbreak"></div>
+
+<div class="section"><div class="stitle">Rekap Penjualan per Menu</div>
+<table><thead><tr><th>Menu</th><th>Kategori</th><th class="num">Qty</th><th class="num">Pendapatan</th><th class="num">% Pendapatan</th></tr></thead><tbody>
+${menuRows.map((r) => `<tr><td class="rowname">${escapeHtml(r.name)}</td><td style="color:#6E665B;font-size:11px">${escapeHtml(categoryNameOf(r.menuId))}</td><td class="num">${fmtN(r.qty)}</td><td class="num">${fmt(r.val)}</td><td class="num">${menuTotal ? (r.val / menuTotal * 100).toFixed(1) : "0"}%</td></tr>`).join("")}
+</tbody></table></div>
+
+<div class="section"><div class="stitle">Daftar Transaksi${sales.length > txCap ? ` (${txCap} dari ${fmtN(sales.length)})` : ""}</div>
+<table style="font-size:11px"><thead><tr><th>No. Pesanan</th><th>Tanggal</th><th>Waktu</th><th>Channel</th><th>Item</th><th>Metode</th><th class="num">Total</th></tr></thead><tbody>
+${txData.map((o) => {
+    const d = new Date(o.created_at);
+    const items = o.items.map((it) => `${it.name} ×${it.quantity}`).join(", ");
+    return `<tr><td style="font-family:'Space Mono';font-size:10px">${escapeHtml(o.order_number)}</td><td style="color:#6E665B;white-space:nowrap">${shortDate(d)}</td><td style="color:#6E665B">${pad(d.getHours())}.${pad(d.getMinutes())}</td><td>${escapeHtml(channelLabelOf(o.order_channel))}</td><td class="txitems">${escapeHtml(items || "—")}</td><td><span class="paytag">${escapeHtml((o.payment_method ?? "—").toUpperCase())}</span></td><td class="num">${fmt(o.total)}</td></tr>`;
+  }).join("")}
+</tbody></table></div>
+
+<div class="stamp">SOLUSI SAJI · Dokumen ini dihasilkan otomatis oleh sistem.</div>
+
+<script>window.onload=function(){setTimeout(function(){window.print();},250);};</script>
+</body></html>`;
+
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 }

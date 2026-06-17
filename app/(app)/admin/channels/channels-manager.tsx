@@ -1,13 +1,25 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Home,
+  MapPin,
+  MessageCircle,
+  Smartphone,
+  Flag,
+  ShoppingCart,
+  Utensils,
+  Globe,
+  Radio,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +33,29 @@ import {
   type OrderChannelKind,
 } from "@/lib/types";
 import { createChannel, updateChannel, toggleChannelActive, deleteChannel } from "./actions";
+import { Toggle } from "./toggle";
+
+type IconStyle = { icon: React.ComponentType<{ className?: string }>; bg: string };
+
+const CHANNEL_ICONS: Record<string, IconStyle> = {
+  "dine-in": { icon: Home, bg: "bg-zinc-900" },
+  "dine_in": { icon: Home, bg: "bg-zinc-900" },
+  "dinein": { icon: Home, bg: "bg-zinc-900" },
+  takeaway: { icon: MapPin, bg: "bg-zinc-500" },
+  whatsapp: { icon: MessageCircle, bg: "bg-emerald-500" },
+  gofood: { icon: Smartphone, bg: "bg-emerald-600" },
+  grabfood: { icon: Flag, bg: "bg-emerald-600" },
+  shopeefood: { icon: ShoppingCart, bg: "bg-orange-500" },
+};
+
+function iconForChannel(channel: OrderChannelConfig): IconStyle {
+  const key = channel.name.toLowerCase().replace(/\s+/g, "");
+  if (CHANNEL_ICONS[key]) return CHANNEL_ICONS[key];
+  if (CHANNEL_ICONS[channel.id]) return CHANNEL_ICONS[channel.id];
+  if (channel.kind === "direct") return { icon: Utensils, bg: "bg-zinc-700" };
+  if (channel.kind === "online") return { icon: Globe, bg: "bg-sky-600" };
+  return { icon: Radio, bg: "bg-slate-500" };
+}
 
 function ChannelForm({
   channel,
@@ -33,8 +68,7 @@ function ChannelForm({
   const [kind, setKind] = useState<OrderChannelKind>(channel?.kind ?? "online");
   const [name, setName] = useState(channel?.name ?? "");
 
-  const presets = CHANNEL_PRESETS[kind];
-  const availablePresets = useMemo(() => presets, [presets]);
+  const availablePresets = useMemo(() => CHANNEL_PRESETS[kind], [kind]);
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -116,6 +150,8 @@ function ChannelRow({ channel }: { channel: OrderChannelConfig }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
 
+  const { icon: Icon, bg } = iconForChannel(channel);
+
   function toggle() {
     start(async () => {
       const res = await toggleChannelActive(channel.id, !channel.is_active);
@@ -140,17 +176,29 @@ function ChannelRow({ channel }: { channel: OrderChannelConfig }) {
     });
   }
 
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3">
-      <div className="flex items-center gap-3 min-w-0">
-        <span className="font-medium truncate">{channel.name}</span>
-        {!channel.is_active && <Badge variant="outline">Nonaktif</Badge>}
-      </div>
+  const channelDesc = channelDescription(channel);
 
-      <div className="flex items-center gap-1.5 shrink-0">
+  return (
+    <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3">
+      <div className={`h-10 w-10 rounded-lg ${bg} text-white grid place-items-center shrink-0`}>
+        <Icon className="size-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold truncate">{channel.name}</div>
+        {channelDesc && (
+          <div className="text-xs text-muted-foreground truncate">{channelDesc}</div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Toggle
+          checked={channel.is_active}
+          onChange={toggle}
+          disabled={pending}
+          ariaLabel={channel.is_active ? "Nonaktifkan" : "Aktifkan"}
+        />
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
           <DialogTrigger render={<Button size="icon" variant="ghost" aria-label="Edit" />}>
-            <Pencil className="size-3.5" />
+            <Pencil className="size-4" />
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -159,17 +207,6 @@ function ChannelRow({ channel }: { channel: OrderChannelConfig }) {
             <ChannelForm channel={channel} onSuccess={() => setEditOpen(false)} />
           </DialogContent>
         </Dialog>
-
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={toggle}
-          disabled={pending}
-          aria-busy={pending}
-        >
-          {channel.is_active ? "Nonaktifkan" : "Aktifkan"}
-        </Button>
-
         <Button
           size="icon"
           variant="ghost"
@@ -180,14 +217,25 @@ function ChannelRow({ channel }: { channel: OrderChannelConfig }) {
           aria-busy={pending}
           onBlur={() => setConfirmDelete(false)}
         >
-          <Trash2 className="size-3.5" />
+          <Trash2 className="size-4" />
         </Button>
-        {confirmDelete && (
-          <span className="text-xs text-destructive">Klik lagi untuk hapus</span>
-        )}
       </div>
     </div>
   );
+}
+
+function channelDescription(channel: OrderChannelConfig): string | null {
+  const lower = channel.name.toLowerCase();
+  if (lower.includes("dine")) return "Makan di tempat";
+  if (lower.includes("takeaway") || lower.includes("bawa pulang")) return "Bawa pulang";
+  if (lower.includes("whatsapp")) return "Pesan via chat";
+  if (lower.includes("gofood")) return "Gojek delivery";
+  if (lower.includes("grab")) return "Grab delivery";
+  if (lower.includes("shopee")) return "Shopee delivery";
+  if (lower.includes("tiktok")) return "TikTok Shop";
+  if (channel.kind === "direct") return "Pesanan langsung";
+  if (channel.kind === "online") return "Pesanan online";
+  return null;
 }
 
 const GROUP_LABEL: Record<"direct" | "online" | "uncategorized", string> = {
@@ -230,7 +278,7 @@ export function ChannelsManager({ channels }: { channels: OrderChannelConfig[] }
 
       {channels.length === 0 ? (
         <Card className="p-10 text-center text-muted-foreground text-sm">
-          Belum ada saluran. Klik "Tambah saluran" untuk memulai.
+          Belum ada saluran. Klik &quot;Tambah saluran&quot; untuk memulai.
         </Card>
       ) : (
         (["direct", "online", "uncategorized"] as const).map((kind) => {

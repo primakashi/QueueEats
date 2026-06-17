@@ -57,8 +57,98 @@ export type Restaurant = {
   is_active: boolean;
   subscription_end_date: string | null;
   subscription_notes: string | null;
+  tax_rate: number;
+  service_charge_rate: number;
+  service_charge_channels: string[];
+  round_total: boolean;
   created_at: string;
 };
+
+export type PaymentMethodKind = "simple" | "provider";
+
+export type PaymentMethodConfig = {
+  id: string;
+  restaurant_id: string | null;
+  slug: string;
+  name: string;
+  description: string | null;
+  kind: PaymentMethodKind;
+  icon: string | null;
+  color: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PaymentProviderConfig = {
+  id: string;
+  payment_method_id: string;
+  restaurant_id: string | null;
+  slug: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PaymentMethodWithProviders = PaymentMethodConfig & {
+  providers: PaymentProviderConfig[];
+};
+
+/** Default payment-method seed used when onboarding a new restaurant. */
+export const DEFAULT_PAYMENT_METHOD_SEED: ReadonlyArray<{
+  slug: string;
+  name: string;
+  description: string;
+  kind: PaymentMethodKind;
+  color: string;
+  providers?: ReadonlyArray<{ slug: string; name: string; description: string | null; color: string }>;
+}> = [
+  { slug: "cash", name: "Cash", description: "Pembayaran tunai langsung", kind: "simple", color: "#16a34a" },
+  {
+    slug: "qris",
+    name: "QRIS",
+    description: "Scan QR untuk pembayaran digital",
+    kind: "provider",
+    color: "#6366f1",
+    providers: [
+      { slug: "gopay", name: "GoPay", description: "Gojek", color: "#16a34a" },
+      { slug: "ovo", name: "OVO", description: "Grab / Tokopedia", color: "#7c3aed" },
+      { slug: "shopeepay", name: "ShopeePay", description: "Shopee", color: "#f97316" },
+      { slug: "dana", name: "DANA", description: null, color: "#2563eb" },
+    ],
+  },
+  {
+    slug: "transfer",
+    name: "Transfer Bank",
+    description: "Transfer via rekening bank",
+    kind: "provider",
+    color: "#0ea5e9",
+    providers: [
+      { slug: "bca", name: "BCA", description: null, color: "#1e3a8a" },
+      { slug: "mandiri", name: "Mandiri", description: null, color: "#1d4ed8" },
+      { slug: "bri", name: "BRI", description: null, color: "#0369a1" },
+      { slug: "bni", name: "BNI", description: null, color: "#ea580c" },
+    ],
+  },
+  { slug: "kartu", name: "Kartu", description: "Debit dan kredit via EDC", kind: "simple", color: "#475569" },
+  {
+    slug: "online_delivery",
+    name: "Online Delivery",
+    description: "Pembayaran via platform delivery",
+    kind: "provider",
+    color: "#f97316",
+    providers: [
+      { slug: "gofood", name: "GoFood", description: "Gojek delivery", color: "#16a34a" },
+      { slug: "grabfood", name: "GrabFood", description: "Grab delivery", color: "#16a34a" },
+      { slug: "shopeefood", name: "ShopeeFood", description: "Shopee delivery", color: "#f97316" },
+    ],
+  },
+];
 
 export type DiscountScope = "menu_item" | "transaction" | "daily";
 export type DiscountValueType = "amount" | "percent";
@@ -129,8 +219,75 @@ export type MenuItem = {
   image_url: string | null;
   is_available: boolean;
   sort_order: number;
+  default_daily_quota: number | null;
+  low_stock_threshold: number;
   created_at: string;
   updated_at: string;
+};
+
+export type StockMovementReason =
+  | "opening"
+  | "add"
+  | "remove"
+  | "sale"
+  | "cancel_restore"
+  | "adjust"
+  | "disable"
+  | "enable"
+  | "confirm";
+
+export type DailyStock = {
+  id: string;
+  outlet_id: string;
+  menu_item_id: string;
+  restaurant_id: string | null;
+  stock_date: string;
+  daily_quota: number | null;
+  opening_stock: number;
+  current_stock: number;
+  is_active: boolean;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StockMovement = {
+  id: string;
+  daily_stock_id: string;
+  outlet_id: string | null;
+  restaurant_id: string | null;
+  menu_item_id: string | null;
+  change: number;
+  resulting_stock: number;
+  reason: StockMovementReason;
+  order_id: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type MenuStockOverride = {
+  id: string;
+  menu_item_id: string;
+  outlet_id: string;
+  daily_quota: number | null;
+  low_stock_threshold: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export const STOCK_REASON_LABEL: Record<StockMovementReason, string> = {
+  opening: "Stok awal",
+  add: "Tambah",
+  remove: "Kurangi",
+  sale: "Penjualan",
+  cancel_restore: "Pembatalan",
+  adjust: "Koreksi",
+  disable: "Nonaktifkan",
+  enable: "Aktifkan",
+  confirm: "Konfirmasi",
 };
 
 export type Outlet = {
@@ -166,6 +323,8 @@ export type Order = {
   tax_amount: number;
   service_charge_amount: number;
   discount_amount: number;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
   created_at: string;
   updated_at: string;
 };

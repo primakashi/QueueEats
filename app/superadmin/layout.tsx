@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { signOut } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";

@@ -24,7 +24,7 @@ export async function createOrder(
   | { ok: true; order: Order }
   | { ok: false; error: string }
 > {
-  const profile = await requireRole(["waiter", "admin", "branch_manager"]);
+  const profile = await requireRole(["waiter", "cashier", "admin", "branch_manager"]);
   const restaurantId = getRestaurantFilter(profile);
   if (!input.items || input.items.length === 0) {
     return { ok: false, error: "Keranjang kosong" };
@@ -76,20 +76,56 @@ export async function createOrder(
     order.service_type = serviceType;
   }
 
-  // Apply outlet tax/service charge to total if rates are configured
-  if (input.outlet_id) {
-    const { data: outlet } = await supabase
-      .from("outlets")
-      .select("tax_rate, service_charge_rate")
-      .eq("id", input.outlet_id)
+  // Decrement today's daily_stock for each ordered item (per outlet). Stock
+  // tracking is opt-in: rows only exist when the kasir has opened stok for the
+  // day, so this is a best-effort decrement that no-ops for untracked items.
+  if (order.outlet_id) {
+    const stockDate = new Date().toLocaleDateString("en-CA");
+    const itemIds = input.items.map((i) => i.menu_item_id);
+    const { data: stockRows } = await supabase
+      .from("daily_stock")
+      .select("id, menu_item_id")
+      .eq("outlet_id", order.outlet_id)
+      .eq("stock_date", stockDate)
+      .in("menu_item_id", itemIds);
+    const stockByItem = new Map(
+      ((stockRows ?? []) as Array<{ id: string; menu_item_id: string }>).map((r) => [r.menu_item_id, r.id]),
+    );
+    for (const it of input.items) {
+      const dsId = stockByItem.get(it.menu_item_id);
+      if (!dsId) continue;
+      await supabase.rpc("adjust_daily_stock", {
+        p_daily_stock_id: dsId,
+        p_change: -it.quantity,
+        p_reason: "sale",
+        p_order_id: order.id,
+        p_notes: null,
+        p_actor: profile.id,
+      });
+    }
+  }
+
+  // Apply restaurant-level tax/service if configured. Service charge applies
+  // only when the order's channel is in service_charge_channels (empty = all).
+  const targetRestaurantId = restaurantId ?? order.restaurant_id;
+  if (targetRestaurantId) {
+    const { data: rest } = await supabase
+      .from("restaurants")
+      .select("tax_rate, service_charge_rate, service_charge_channels, round_total")
+      .eq("id", targetRestaurantId)
       .maybeSingle();
-    const taxRate = (outlet as { tax_rate?: number } | null)?.tax_rate ?? 0;
-    const serviceRate = (outlet as { service_charge_rate?: number } | null)?.service_charge_rate ?? 0;
-    if (taxRate > 0 || serviceRate > 0) {
+    const taxRate = (rest as { tax_rate?: number } | null)?.tax_rate ?? 0;
+    const serviceRate = (rest as { service_charge_rate?: number } | null)?.service_charge_rate ?? 0;
+    const svcChannels = ((rest as { service_charge_channels?: string[] } | null)?.service_charge_channels ?? []);
+    const roundTotal = (rest as { round_total?: boolean } | null)?.round_total ?? false;
+    const channelApplies = svcChannels.length === 0 || svcChannels.includes(order.order_channel ?? "");
+    const appliedServiceRate = channelApplies ? serviceRate : 0;
+    if (taxRate > 0 || appliedServiceRate > 0 || roundTotal) {
       const subtotal = order.subtotal ?? order.total;
       const tax_amount = Math.round(subtotal * taxRate);
-      const service_charge_amount = Math.round(subtotal * serviceRate);
-      const total = subtotal + tax_amount + service_charge_amount;
+      const service_charge_amount = Math.round(subtotal * appliedServiceRate);
+      const raw = subtotal + tax_amount + service_charge_amount;
+      const total = roundTotal ? Math.round(raw / 1000) * 1000 : raw;
       await supabase
         .from("orders")
         .update({ tax_amount, service_charge_amount, total })

@@ -36,7 +36,13 @@ export function CategoriesManager({
   const [order, setOrder] = useState<MenuCategory[]>(categories);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
+  // Mirror server-supplied categories into the local optimistic order whenever
+  // the prop changes (e.g. after a successful mutation + revalidate). Suppress
+  // the React 19 "no setState in effect" rule: the alternatives (useMemo with
+  // a separate "local reorder" buffer, or a key-on-parent reset) add more
+  // surface than the bug they prevent for this small list.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOrder(categories);
   }, [categories]);
 
@@ -144,18 +150,20 @@ export function CategoriesManager({
   return (
     <div className="space-y-5">
       <form onSubmit={submitNew} className="flex gap-2 items-end">
-        <div className="flex-1 space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">Nama</label>
+        <div className="flex-1 space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Nama kategori</label>
           <Input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="mis. Minuman"
+            className="h-10"
           />
         </div>
         <Button
           type="submit"
           disabled={pending}
           aria-busy={busy?.kind === "create"}
+          className="h-10"
         >
           {busy?.kind === "create" ? (
             <Spinner className="mr-1.5" />
@@ -166,19 +174,20 @@ export function CategoriesManager({
         </Button>
       </form>
 
-      <div className="border rounded-md divide-y">
-        {order.length === 0 ? (
-          <div className="p-6 text-sm text-muted-foreground text-center">
-            Belum ada kategori
-          </div>
-        ) : (
-          order.map((c) =>
+      {order.length === 0 ? (
+        <div className="border rounded-lg p-10 text-sm text-muted-foreground text-center">
+          Belum ada kategori. Tambah kategori pertama di atas.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {order.map((c) =>
             editingId === c.id ? (
-              <div key={c.id} className="p-3 flex gap-2 items-center">
+              <div key={c.id} className="rounded-lg border bg-card p-3 flex gap-2 items-center">
                 <Input
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="flex-1"
+                  className="flex-1 h-10"
+                  autoFocus
                 />
                 <Button
                   size="icon"
@@ -211,12 +220,12 @@ export function CategoriesManager({
                 onDragStart={() => handleDragStart(c.id)}
                 onDragOver={(e) => handleDragOver(e, c.id)}
                 onDragEnd={handleDragEnd}
-                className={`p-3 flex items-center gap-3 cursor-move ${
+                className={`rounded-lg border bg-card px-4 py-3 flex items-center gap-3 cursor-move transition-colors hover:border-foreground/20 ${
                   draggingId === c.id ? "opacity-50 bg-muted/40" : ""
                 }`}
               >
                 <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 font-medium">{c.name}</div>
+                <div className="flex-1 font-medium text-sm">{c.name}</div>
                 <Button
                   size="icon"
                   variant="ghost"
@@ -233,6 +242,7 @@ export function CategoriesManager({
                   disabled={pending}
                   aria-busy={busy?.kind === "delete" && busy.id === c.id}
                   aria-label="Hapus"
+                  className="text-destructive hover:text-destructive"
                 >
                   {busy?.kind === "delete" && busy.id === c.id ? (
                     <Spinner />
@@ -242,9 +252,9 @@ export function CategoriesManager({
                 </Button>
               </div>
             ),
-          )
-        )}
-      </div>
+          )}
+        </div>
+      )}
       {busy?.kind === "reorder" && (
         <div className="text-xs text-muted-foreground flex items-center gap-1.5">
           <Spinner /> Menyimpan urutan…

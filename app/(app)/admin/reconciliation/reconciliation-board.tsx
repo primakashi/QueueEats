@@ -66,11 +66,15 @@ export function ReconciliationBoard({
   const [waDialogOpen, setWaDialogOpen] = useState(false);
   const [waPhone, setWaPhone] = useState("");
 
-  // Load persisted received amounts from localStorage
+  // Load persisted received amounts from localStorage when the date / outlet
+  // selection changes. setState-in-effect is fine here because localStorage is
+  // an external system — see React 19 useSyncExternalStore docs for the
+  // alternative if this list ever grows past trivial.
   useEffect(() => {
     try {
       const key = storageKey(dateStr, selectedOutletId);
       const saved = localStorage.getItem(key);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setReceived(saved ? JSON.parse(saved) : {});
     } catch { setReceived({}); }
   }, [dateStr, selectedOutletId]);
@@ -372,7 +376,7 @@ export function ReconciliationBoard({
       <Card className="p-0 overflow-hidden">
         <div className="px-4 py-3 border-b">
           <div className="font-medium">Rekap per Sumber Pembayaran</div>
-          <p className="text-xs text-muted-foreground">Isi kolom "Diterima" dengan jumlah aktual dari setiap rekening/sumber.</p>
+          <p className="text-xs text-muted-foreground">Isi kolom &quot;Diterima&quot; dengan jumlah aktual dari setiap rekening/sumber.</p>
         </div>
         {rows.length === 0 ? (
           <div className="p-10 text-center text-sm text-muted-foreground">

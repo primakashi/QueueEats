@@ -29,8 +29,14 @@ type AuditLog = {
 
 const TABLE_LABEL: Record<string, string> = {
   menu_items: "Menu",
+  menu_categories: "Kategori Menu",
   outlets: "Outlet",
   profiles: "Staf",
+  order_channels: "Saluran Pesanan",
+  payment_methods: "Metode Pembayaran",
+  payment_providers: "Provider Pembayaran",
+  restaurants: "Restoran",
+  discounts: "Diskon",
 };
 
 const ACTION_LABEL: Record<string, string> = {
@@ -44,12 +50,21 @@ const FIELD_LABEL: Record<string, string> = {
   name: "Nama",
   tax_rate: "Pajak",
   service_charge_rate: "Biaya Layanan",
+  service_charge_channels: "Saluran Service Charge",
+  round_total: "Pembulatan",
   role: "Peran",
+  is_active: "Status aktif",
+  kind: "Tipe",
+  description: "Deskripsi",
+  default_daily_quota: "Kuota harian default",
+  value: "Nilai",
+  value_type: "Tipe nilai",
+  scope: "Cakupan",
 };
 
 function formatValue(field: string | null, value: string | null): string {
   if (value === null) return "—";
-  if (field === "price") {
+  if (field === "price" || field === "value") {
     const n = Number(value);
     return Number.isFinite(n)
       ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n)
@@ -58,6 +73,24 @@ function formatValue(field: string | null, value: string | null): string {
   if (field === "tax_rate" || field === "service_charge_rate") {
     const n = Number(value);
     return Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : value;
+  }
+  if (field === "is_active" || field === "round_total") {
+    if (value === "true" || value === "t") return "Aktif";
+    if (value === "false" || value === "f") return "Nonaktif";
+    return value;
+  }
+  if (field === "service_charge_channels") {
+    // jsonb / text[] arrives as JSON-stringified; render compactly.
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0) return "Semua saluran";
+        return parsed.join(", ");
+      }
+    } catch {
+      // fall through
+    }
+    return value;
   }
   return value;
 }

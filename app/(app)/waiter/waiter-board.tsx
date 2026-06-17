@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -73,15 +73,22 @@ function markPrinted(orderId: string) {
 }
 
 function usePrintTicket(orderId: string) {
-  const [printed, setPrinted] = useState(false);
-  useEffect(() => {
-    setPrinted(loadPrintedSet().has(orderId));
-  }, [orderId]);
+  // `printed` is derived from localStorage and re-reads whenever either the
+  // orderId changes or print() bumps the version. Bumping (instead of holding
+  // a separate boolean state) avoids the React 19 lint warnings around
+  // setState-in-effect and ref-mutation-during-render — both forbidden in
+  // favor of pure derived state.
+  const [bump, setBump] = useState(0);
+  const printed = useMemo(
+    () => (typeof window === "undefined" ? false : loadPrintedSet().has(orderId)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [orderId, bump],
+  );
   function print() {
     const url = `/kitchen/${orderId}/print${printed ? "?reprint=1" : ""}`;
     window.open(url, "_blank", "width=420,height=700,toolbar=0,menubar=0");
     markPrinted(orderId);
-    setPrinted(true);
+    setBump((b) => b + 1);
   }
   return { printed, print };
 }
@@ -107,7 +114,7 @@ export function WaiterBoard({
   const [statusFilter, setStatusFilter] = useState<Set<OrderStatus>>(new Set());
   const [serviceFilter, setServiceFilter] = useState<ServiceFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
-  const [pending, start] = useTransition();
+  const [, start] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -272,7 +279,6 @@ export function WaiterBoard({
               key={o.id}
               order={o}
               isBusy={busyId === o.id}
-              isPending={pending}
               onAdvance={advanceStatus}
               channelKindByName={channelKindByName}
             />
@@ -285,7 +291,6 @@ export function WaiterBoard({
               key={o.id}
               order={o}
               isBusy={busyId === o.id}
-              isPending={pending}
               onAdvance={advanceStatus}
               channelKindByName={channelKindByName}
             />
@@ -299,13 +304,11 @@ export function WaiterBoard({
 function OrderCard({
   order: o,
   isBusy,
-  isPending,
   onAdvance,
   channelKindByName,
 }: {
   order: OrderWithItems;
   isBusy: boolean;
-  isPending: boolean;
   onAdvance: (id: string, next: OrderStatus) => void;
   channelKindByName: Record<string, OrderChannelKind>;
 }) {
@@ -415,13 +418,11 @@ function OrderCard({
 function OrderRow({
   order: o,
   isBusy,
-  isPending,
   onAdvance,
   channelKindByName,
 }: {
   order: OrderWithItems;
   isBusy: boolean;
-  isPending: boolean;
   onAdvance: (id: string, next: OrderStatus) => void;
   channelKindByName: Record<string, OrderChannelKind>;
 }) {
