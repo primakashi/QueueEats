@@ -138,6 +138,25 @@ function ChannelForm({
         )}
       </div>
 
+      <div className="space-y-1.5">
+        <Label htmlFor="channel-commission">Komisi platform (%)</Label>
+        <Input
+          id="channel-commission"
+          name="commission_rate"
+          type="number"
+          min="0"
+          max="100"
+          step="0.1"
+          defaultValue={
+            channel ? Number((channel.commission_rate * 100).toFixed(2)).toString() : kind === "online" ? "20" : "0"
+          }
+          placeholder={kind === "online" ? "20" : "0"}
+        />
+        <p className="text-xs text-muted-foreground">
+          Potongan platform per pesanan. Dipakai untuk perhitungan profit di laporan pemilik.
+        </p>
+      </div>
+
       <Button type="submit" className="w-full" disabled={pending} aria-busy={pending}>
         {pending ? "Menyimpan…" : channel ? "Simpan perubahan" : "Tambah saluran"}
       </Button>

@@ -106,7 +106,7 @@ export function MenuItemForm({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Harga (IDR)</Label>
+                  <Label htmlFor="price">Harga jual (IDR)</Label>
                   <CurrencyInput
                     id="price"
                     name="price"
@@ -116,28 +116,41 @@ export function MenuItemForm({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="category">Kategori</Label>
-                  <Select
-                    value={categoryId}
-                    onValueChange={(v) => setCategoryId(v ?? UNCATEGORIZED)}
-                  >
-                    <SelectTrigger id="category">
-                      <SelectValue placeholder="Pilih kategori">
-                        {categoryId === UNCATEGORIZED
-                          ? "Lainnya"
-                          : categories.find((c) => c.id === categoryId)?.name ?? "Pilih kategori"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value={UNCATEGORIZED}>Lainnya</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="cost_price">HPP / Modal (IDR)</Label>
+                  <CurrencyInput
+                    id="cost_price"
+                    name="cost_price"
+                    defaultValue={item?.cost_price ?? 0}
+                    placeholder="12000"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Biaya bahan baku per unit. Dipakai untuk laporan profit pemilik.
+                  </p>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category">Kategori</Label>
+                <Select
+                  value={categoryId}
+                  onValueChange={(v) => setCategoryId(v ?? UNCATEGORIZED)}
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Pilih kategori">
+                      {categoryId === UNCATEGORIZED
+                        ? "Lainnya"
+                        : categories.find((c) => c.id === categoryId)?.name ?? "Pilih kategori"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={UNCATEGORIZED}>Lainnya</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

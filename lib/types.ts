@@ -20,6 +20,7 @@ export type OrderChannelConfig = {
   sort_order: number;
   is_active: boolean;
   kind: OrderChannelKind | null;
+  commission_rate: number;
 };
 
 export const CHANNEL_PRESETS: Record<OrderChannelKind, string[]> = {
@@ -216,6 +217,7 @@ export type MenuItem = {
   name: string;
   description: string | null;
   price: number;
+  cost_price: number | null;
   image_url: string | null;
   is_available: boolean;
   sort_order: number;

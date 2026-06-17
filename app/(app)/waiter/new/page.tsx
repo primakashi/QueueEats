@@ -18,7 +18,7 @@ export default async function NewOrderPage() {
   let itemsQ = supabase.from("menu_items").select("*").eq("is_available", true);
   let catsQ = supabase.from("menu_categories").select("*");
   let outletsQ = supabase.from("outlets").select("id, name, is_temporary").eq("is_archived", false);
-  let channelsQ = supabase.from("order_channels").select("id, name, sort_order, is_active, kind").eq("is_active", true);
+  let channelsQ = supabase.from("order_channels").select("id, name, sort_order, is_active, kind, commission_rate").eq("is_active", true);
   let stockQ = supabase
     .from("daily_stock")
     .select("id, outlet_id, menu_item_id, current_stock, is_active, daily_quota, opening_stock, stock_date, restaurant_id, confirmed_at, confirmed_by, created_by, created_at, updated_at")

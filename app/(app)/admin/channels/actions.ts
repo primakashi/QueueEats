@@ -46,11 +46,19 @@ async function uniqueChannelId(
 // Order channels
 // =============================================================================
 
+function parseCommission(raw: FormDataEntryValue | null): number {
+  if (raw == null || raw === "") return 0;
+  const pct = Number(raw);
+  if (!Number.isFinite(pct) || pct < 0) return 0;
+  return Math.min(1, pct / 100);
+}
+
 export async function createChannel(formData: FormData): Promise<Result<OrderChannelConfig>> {
   const profile = await requireRole(["admin", "owner"]);
   const name = String(formData.get("name") ?? "").trim();
   const rawKind = String(formData.get("kind") ?? "").trim();
   const kind = rawKind === "online" ? "online" : rawKind === "direct" ? "direct" : null;
+  const commission_rate = parseCommission(formData.get("commission_rate"));
 
   if (!name) return { ok: false, error: "Nama saluran wajib diisi" };
 
@@ -66,7 +74,7 @@ export async function createChannel(formData: FormData): Promise<Result<OrderCha
 
   const { data, error } = await supabase
     .from("order_channels")
-    .insert({ id, name, sort_order, restaurant_id, kind })
+    .insert({ id, name, sort_order, restaurant_id, kind, commission_rate })
     .select()
     .single();
 
@@ -81,6 +89,7 @@ export async function updateChannel(formData: FormData): Promise<Result> {
   const name = String(formData.get("name") ?? "").trim();
   const rawKind = String(formData.get("kind") ?? "").trim();
   const kind = rawKind === "online" ? "online" : rawKind === "direct" ? "direct" : null;
+  const commission_rate = parseCommission(formData.get("commission_rate"));
 
   if (!id) return { ok: false, error: "ID tidak ada" };
   if (!name) return { ok: false, error: "Nama saluran wajib diisi" };
@@ -88,7 +97,7 @@ export async function updateChannel(formData: FormData): Promise<Result> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("order_channels")
-    .update({ name, kind })
+    .update({ name, kind, commission_rate })
     .eq("id", id);
 
   if (error) return { ok: false, error: error.message };

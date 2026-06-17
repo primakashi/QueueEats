@@ -114,6 +114,8 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const price = Number(formData.get("price") ?? 0);
+  const costRaw = formData.get("cost_price");
+  const cost_price = costRaw == null || costRaw === "" ? null : Number(costRaw);
   const sortRaw = Number(formData.get("sort_order") ?? 0);
   const sort_order = Number.isFinite(sortRaw) ? Math.trunc(sortRaw) : 0;
   const category_id = String(formData.get("category_id") ?? "") || null;
@@ -123,6 +125,8 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
   if (!name) return { ok: false, error: "Nama wajib diisi" };
   if (!Number.isFinite(price) || price < 0)
     return { ok: false, error: "Harga harus angka tidak negatif" };
+  if (cost_price !== null && (!Number.isFinite(cost_price) || cost_price < 0))
+    return { ok: false, error: "HPP harus angka tidak negatif" };
 
   let image_url: string | null = null;
   try {
@@ -135,7 +139,7 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
   const supabase = await createClient();
   const { data: inserted, error } = await supabase
     .from("menu_items")
-    .insert({ name, description, price, sort_order, category_id, is_available, image_url, restaurant_id })
+    .insert({ name, description, price, cost_price, sort_order, category_id, is_available, image_url, restaurant_id })
     .select("id")
     .single();
   if (error) return { ok: false, error: error.message };
@@ -157,6 +161,8 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const price = Number(formData.get("price") ?? 0);
+  const costRaw = formData.get("cost_price");
+  const cost_price = costRaw == null || costRaw === "" ? null : Number(costRaw);
   const sortRaw = Number(formData.get("sort_order") ?? 0);
   const sort_order = Number.isFinite(sortRaw) ? Math.trunc(sortRaw) : 0;
   const category_id = String(formData.get("category_id") ?? "") || null;
@@ -167,6 +173,8 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
   if (!name) return { ok: false, error: "Nama wajib diisi" };
   if (!Number.isFinite(price) || price < 0)
     return { ok: false, error: "Harga harus angka tidak negatif" };
+  if (cost_price !== null && (!Number.isFinite(cost_price) || cost_price < 0))
+    return { ok: false, error: "HPP harus angka tidak negatif" };
 
   const rid = getRestaurantFilter(profile);
   const supabase = await createClient();
@@ -179,6 +187,7 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
     name,
     description,
     price,
+    cost_price,
     sort_order,
     category_id,
     is_available,

@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ScrollText,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -57,7 +58,7 @@ const NAV_SECTION_ORDER: NavSection[] = [
 ];
 
 /** Nav targets that use `loading.tsx` in-page instead of a sidebar link spinner. */
-const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels", "/admin/log", "/admin/discounts", "/admin/stok"]);
+const NAV_IN_PAGE_LOADING_HREFS = new Set(["/admin/users", "/admin/sales", "/admin/outlets", "/admin/reconciliation", "/admin/channels", "/admin/log", "/admin/discounts", "/admin/stok", "/admin/ringkasan-bisnis"]);
 
 // Per access matrix: cashier and waiter both get the broader "Kasir + Waitress" access.
 const OPS_ROLES: UserRole[] = ["admin", "branch_manager", "cashier", "waiter"];
@@ -82,6 +83,7 @@ const NAV_ITEMS: NavItem[] = [
   { section: "Administrasi", href: "/admin/log", label: "Log", icon: ScrollText, roles: ["admin", "owner", "finance", "branch_manager"] },
 
   // Manajemen
+  { section: "Manajemen", href: "/admin/ringkasan-bisnis", label: "Ringkasan Bisnis", icon: TrendingUp, roles: ["owner"] },
   { section: "Manajemen", href: "/admin/sales", label: "Penjualan", icon: BarChart3, roles: ["admin", "owner", "finance", "branch_manager", "cashier", "waiter"] },
   { section: "Manajemen", href: "/admin/reconciliation", label: "Rekonsiliasi", icon: Scale, roles: ["admin", "owner", "finance", "branch_manager"] },
 ];
