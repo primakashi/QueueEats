@@ -76,14 +76,18 @@ function enrich(
       const c = it.menu_item_id ? costByMenu.get(it.menu_item_id) ?? 0 : 0;
       cogs += c * it.quantity;
     }
+    // Net revenue excludes PPN & service charge (pass-through) and post-discount.
+    // Aggregator commission is charged on the menu price the customer actually paid,
+    // which matches subtotal − discount.
+    const net = Math.max(0, (o.subtotal ?? 0) - (o.discount_amount ?? 0));
     const channelKey = o.order_channel ?? "";
     const rate =
       commissionByChannelId.get(channelKey)
       ?? commissionByChannelName.get(channelKey.toLowerCase())
       ?? 0;
-    const commission = o.total * rate;
-    const contrib = o.total - cogs - commission;
-    return { order: o, gross: o.total, cogs, commission, contrib, itemCount };
+    const commission = net * rate;
+    const contrib = net - cogs - commission;
+    return { order: o, gross: net, cogs, commission, contrib, itemCount };
   });
 }
 
@@ -450,7 +454,7 @@ export function RingkasanBisnis({
           Ringkasan keuangan <span className={styles.noteSm}>{fset ? "· terfilter" : ""}</span>
         </div>
         <div className={`${styles.kpis} ${styles.kpisC6}`}>
-          <Kpi k="Omzet kotor" n={fmt(omzet)} d={`${fmt(perDay)}/hari`} />
+          <Kpi k="Omzet bersih" n={fmt(omzet)} d={`${fmt(perDay)}/hari · belum termasuk PPN`} />
           <Kpi k="Profit kontribusi" n={fmt(contrib)} d={`margin ${(margin * 100).toFixed(1)}%`} variant="profit" />
           <Kpi k="Komisi aplikasi" n={fmt(komisi)} d={`${omzet ? (komisi / omzet * 100).toFixed(1) : 0}% omzet`} variant="leak" />
           <Kpi k="HPP" n={fmt(cogs)} d={`${omzet ? (cogs / omzet * 100).toFixed(1) : 0}% omzet`} />

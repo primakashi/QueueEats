@@ -18,6 +18,8 @@ export type OwnerOrderItem = {
 export type OwnerOrder = {
   id: string;
   order_number: string;
+  subtotal: number;
+  discount_amount: number;
   total: number;
   payment_method: string | null;
   payment_destination: string | null;
@@ -50,6 +52,8 @@ export default async function RingkasanBisnisPage({ searchParams }: Props) {
     .select(`
       id,
       order_number,
+      subtotal,
+      discount_amount,
       total,
       payment_method,
       payment_destination,
@@ -99,6 +103,8 @@ export default async function RingkasanBisnisPage({ searchParams }: Props) {
   const orders: OwnerOrder[] = (ordersRaw ?? []).map((o: Record<string, unknown>) => ({
     id: o.id as string,
     order_number: o.order_number as string,
+    subtotal: (o.subtotal as number | null) ?? 0,
+    discount_amount: (o.discount_amount as number | null) ?? 0,
     total: o.total as number,
     payment_method: o.payment_method as string | null,
     payment_destination: o.payment_destination as string | null,

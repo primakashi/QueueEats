@@ -131,6 +131,7 @@ export default async function AdminLogPage({ searchParams }: Props) {
       .eq("payment_status", "paid")
       .gte("updated_at", `${minDate}T00:00:00.000Z`);
     if (outletFilter) cashSalesQ = cashSalesQ.eq("outlet_id", outletFilter);
+    else if (rid) cashSalesQ = cashSalesQ.eq("restaurant_id", rid);
     const { data: cashOrdersRaw } = await cashSalesQ;
     const cashOrders = (cashOrdersRaw ?? []) as Array<{ outlet_id: string | null; total: number; updated_at: string }>;
 
