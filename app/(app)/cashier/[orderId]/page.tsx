@@ -21,6 +21,7 @@ import { paymentColor, statusColor } from "@/lib/status";
 import { PaymentPanel } from "./payment-panel";
 import { EditableOrderItems } from "./order-edit";
 import { autoApplyDailyDiscounts } from "./edit-actions";
+import { AddonOrderButton, ReopenButton } from "./revise-actions";
 
 type Props = { params: Promise<{ orderId: string }> };
 
@@ -67,14 +68,33 @@ export default async function CashierOrderPage({ params }: Props) {
   });
 
   const isPaid = typed.payment_status === "paid";
+  const isCompleted = typed.status === "completed";
+  const canReopen = isCompleted && !isPaid;
+  const canAddon = typed.status !== "cancelled";
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
         <Button variant="ghost" size="sm" render={<Link href="/cashier" />}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Kembali ke kasir
         </Button>
+        <div className="flex gap-2">
+          {canReopen && <ReopenButton orderId={typed.id} />}
+          {canAddon && <AddonOrderButton parentId={typed.id} />}
+        </div>
       </div>
+      {typed.parent_order_id && (
+        <div className="mb-3 text-xs text-muted-foreground">
+          Pesanan tambahan dari{" "}
+          <Link
+            href={`/cashier/${typed.parent_order_id}`}
+            className="font-medium text-foreground underline underline-offset-2"
+          >
+            pesanan induk
+          </Link>
+          .
+        </div>
+      )}
       <PageHeader
         title={typed.order_number}
         description={`Dibuat ${formatDateTime(typed.created_at)}`}

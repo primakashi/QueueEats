@@ -92,7 +92,6 @@ export async function POST(req: NextRequest) {
         .update({
           payment_status: "paid",
           payment_method: "qris",
-          status: "completed",
         })
         .eq("id", payment.order_id);
     }

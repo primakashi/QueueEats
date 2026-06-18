@@ -30,6 +30,7 @@ import {
   type OrderChannelKind,
   type OrderStatus,
   type OrderWithItems,
+  type OrderWorkflowMode,
 } from "@/lib/types";
 import { updateOrderStatus } from "./waiter-actions";
 import { openPrintWindow } from "@/lib/print";
@@ -115,9 +116,13 @@ type PaymentFilter = "all" | "unpaid" | "paid";
 export function WaiterBoard({
   initialOrders,
   channelKindByName,
+  acceptanceByChannelName = {},
+  orderWorkflow = "standard",
 }: {
   initialOrders: OrderWithItems[];
   channelKindByName: Record<string, OrderChannelKind>;
+  acceptanceByChannelName?: Record<string, boolean>;
+  orderWorkflow?: OrderWorkflowMode;
 }) {
   const router = useRouter();
   const [view, setView] = useState<"card" | "list">("card");
@@ -173,6 +178,11 @@ export function WaiterBoard({
       if (!res.ok) toast.error(res.error);
       setBusyId(null);
     });
+  }
+
+  function requiresAcceptanceFor(channelName: string | null): boolean {
+    if (!channelName) return false;
+    return !!acceptanceByChannelName[channelName.toLowerCase()];
   }
 
   return (
@@ -291,6 +301,8 @@ export function WaiterBoard({
               isBusy={busyId === o.id}
               onAdvance={advanceStatus}
               channelKindByName={channelKindByName}
+              requiresAcceptance={requiresAcceptanceFor(o.order_channel)}
+              orderWorkflow={orderWorkflow}
             />
           ))}
         </div>
@@ -303,6 +315,8 @@ export function WaiterBoard({
               isBusy={busyId === o.id}
               onAdvance={advanceStatus}
               channelKindByName={channelKindByName}
+              requiresAcceptance={requiresAcceptanceFor(o.order_channel)}
+              orderWorkflow={orderWorkflow}
             />
           ))}
         </div>
@@ -316,11 +330,15 @@ function OrderCard({
   isBusy,
   onAdvance,
   channelKindByName,
+  requiresAcceptance,
+  orderWorkflow,
 }: {
   order: OrderWithItems;
   isBusy: boolean;
   onAdvance: (id: string, next: OrderStatus) => void;
   channelKindByName: Record<string, OrderChannelKind>;
+  requiresAcceptance: boolean;
+  orderWorkflow: OrderWorkflowMode;
 }) {
   const advance = NEXT_STATUS[o.status];
   const { printed, print } = usePrintTicket(o.id);
@@ -328,7 +346,13 @@ function OrderCard({
     ? channelKindByName[o.order_channel.toLowerCase()] ?? null
     : null;
   const tipeLabel =
-    channelKind === "online" ? "Online" : channelKind === "direct" ? "Langsung" : null;
+    channelKind === "online"
+      ? "Online"
+      : channelKind === "popup"
+      ? "Pop-up"
+      : channelKind === "direct"
+      ? "Langsung"
+      : null;
   const sourceLabel =
     o.order_channel ?? (o.service_type === "takeaway" ? "Takeaway" : "Dine-in");
   const isDineIn = o.service_type !== "takeaway";
@@ -396,30 +420,14 @@ function OrderCard({
       )}
       <div className="flex items-center justify-between mt-auto pt-1.5 border-t gap-2">
         <span className="font-semibold tabular-nums text-sm">{formatIDR(o.total)}</span>
-        <div className="flex gap-1.5">
-          {o.status === "pending" && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={isBusy}
-              onClick={() => onAdvance(o.id, SKIP_KITCHEN.next)}
-              className="h-7 text-xs text-muted-foreground"
-            >
-              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : SKIP_KITCHEN.label}
-            </Button>
-          )}
-          {advance && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isBusy}
-              onClick={() => onAdvance(o.id, advance.next)}
-              className="h-7 text-xs"
-            >
-              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
-            </Button>
-          )}
-        </div>
+        <PendingActions
+          status={o.status}
+          isBusy={isBusy}
+          requiresAcceptance={requiresAcceptance}
+          orderWorkflow={orderWorkflow}
+          advance={advance}
+          onAdvance={(next) => onAdvance(o.id, next)}
+        />
       </div>
     </Card>
   );
@@ -430,11 +438,15 @@ function OrderRow({
   isBusy,
   onAdvance,
   channelKindByName,
+  requiresAcceptance,
+  orderWorkflow,
 }: {
   order: OrderWithItems;
   isBusy: boolean;
   onAdvance: (id: string, next: OrderStatus) => void;
   channelKindByName: Record<string, OrderChannelKind>;
+  requiresAcceptance: boolean;
+  orderWorkflow: OrderWorkflowMode;
 }) {
   const advance = NEXT_STATUS[o.status];
   const itemSummary = o.order_items
@@ -448,7 +460,13 @@ function OrderRow({
     ? channelKindByName[o.order_channel.toLowerCase()] ?? null
     : null;
   const tipeLabel =
-    channelKind === "online" ? "Online" : channelKind === "direct" ? "Langsung" : null;
+    channelKind === "online"
+      ? "Online"
+      : channelKind === "popup"
+      ? "Pop-up"
+      : channelKind === "direct"
+      ? "Langsung"
+      : null;
   const sourceLabel =
     o.order_channel ?? (o.service_type === "takeaway" ? "Takeaway" : "Dine-in");
   const isDineIn = o.service_type !== "takeaway";
@@ -486,28 +504,14 @@ function OrderRow({
             {PAYMENT_STATUS_LABEL[o.payment_status]}
           </Badge>
           <span className="font-semibold tabular-nums text-sm">{formatIDR(o.total)}</span>
-          {o.status === "pending" && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={isBusy}
-              onClick={() => onAdvance(o.id, SKIP_KITCHEN.next)}
-              className="h-7 text-xs text-muted-foreground"
-            >
-              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : SKIP_KITCHEN.label}
-            </Button>
-          )}
-          {advance && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isBusy}
-              onClick={() => onAdvance(o.id, advance.next)}
-              className="h-7 text-xs"
-            >
-              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
-            </Button>
-          )}
+          <PendingActions
+            status={o.status}
+            isBusy={isBusy}
+            requiresAcceptance={requiresAcceptance}
+            orderWorkflow={orderWorkflow}
+            advance={advance}
+            onAdvance={(next) => onAdvance(o.id, next)}
+          />
         </div>
       </div>
       {(o.notes || hasItemNotes) && (
@@ -519,5 +523,107 @@ function OrderRow({
         </div>
       )}
     </Card>
+  );
+}
+
+// Renders the per-order action buttons. Behaviour depends on (a) the channel's
+// requires_acceptance flag and (b) the restaurant's order_workflow mode.
+function PendingActions({
+  status,
+  isBusy,
+  requiresAcceptance,
+  orderWorkflow,
+  advance,
+  onAdvance,
+}: {
+  status: OrderStatus;
+  isBusy: boolean;
+  requiresAcceptance: boolean;
+  orderWorkflow: OrderWorkflowMode;
+  advance: { next: OrderStatus; label: string } | undefined;
+  onAdvance: (next: OrderStatus) => void;
+}) {
+  if (status === "pending") {
+    // Accept/Reject mode for online channels that gate on staff confirmation.
+    if (requiresAcceptance) {
+      const acceptNext: OrderStatus = orderWorkflow === "no_kitchen" ? "ready" : "preparing";
+      const acceptLabel = orderWorkflow === "no_kitchen" ? "Terima · Siap" : "Terima";
+      return (
+        <div className="flex gap-1.5">
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={isBusy}
+            onClick={() => onAdvance("cancelled")}
+            className="h-7 text-xs text-destructive hover:text-destructive"
+          >
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Tolak"}
+          </Button>
+          <Button
+            size="sm"
+            disabled={isBusy}
+            onClick={() => onAdvance(acceptNext)}
+            className="h-7 text-xs"
+          >
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : acceptLabel}
+          </Button>
+        </div>
+      );
+    }
+    // No-kitchen mode: only show the direct-to-ready button.
+    if (orderWorkflow === "no_kitchen") {
+      return (
+        <div className="flex gap-1.5">
+          <Button
+            size="sm"
+            disabled={isBusy}
+            onClick={() => onAdvance("ready")}
+            className="h-7 text-xs"
+          >
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Siap"}
+          </Button>
+        </div>
+      );
+    }
+    // Standard workflow: skip-kitchen shortcut + advance to preparing.
+    return (
+      <div className="flex gap-1.5">
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={isBusy}
+          onClick={() => onAdvance(SKIP_KITCHEN.next)}
+          className="h-7 text-xs text-muted-foreground"
+        >
+          {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : SKIP_KITCHEN.label}
+        </Button>
+        {advance && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isBusy}
+            onClick={() => onAdvance(advance.next)}
+            className="h-7 text-xs"
+          >
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
+          </Button>
+        )}
+      </div>
+    );
+  }
+  // Non-pending: standard advance button only.
+  if (!advance) return null;
+  return (
+    <div className="flex gap-1.5">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={isBusy}
+        onClick={() => onAdvance(advance.next)}
+        className="h-7 text-xs"
+      >
+        {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
+      </Button>
+    </div>
   );
 }

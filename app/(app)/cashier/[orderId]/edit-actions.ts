@@ -420,6 +420,39 @@ export async function removeOrderDiscount(
   return { ok: true };
 }
 
+// Reopen a completed order back to fulfillment (status=ready) so staff can
+// add/change items. Refuses paid orders — those must use an add-on instead so
+// payment totals stay immutable.
+export async function reopenOrder(
+  orderId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireRole(["cashier", "admin", "branch_manager", "waiter"]);
+  const supabase = await createClient();
+  const { data: order } = await supabase
+    .from("orders")
+    .select("status, payment_status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) return { ok: false, error: "Pesanan tidak ditemukan" };
+  if (order.status !== "completed") return { ok: false, error: "Hanya pesanan selesai yang bisa dibuka kembali" };
+  if (order.payment_status === "paid") {
+    return {
+      ok: false,
+      error: "Pesanan sudah dibayar — gunakan Pesanan Tambahan untuk menambah item",
+    };
+  }
+  const { error } = await supabase
+    .from("orders")
+    .update({ status: "ready" })
+    .eq("id", orderId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/cashier/${orderId}`);
+  revalidatePath("/cashier");
+  revalidatePath("/waiter");
+  revalidatePath("/kitchen");
+  return { ok: true };
+}
+
 export async function addOrderItem(
   orderId: string,
   menuItemId: string,

@@ -38,7 +38,6 @@ export async function confirmPayment(
     .update({
       payment_method: method,
       payment_status: "paid",
-      status: "completed",
       ...(paymentDestination ? { payment_destination: paymentDestination } : {}),
     })
     .eq("id", orderId);
