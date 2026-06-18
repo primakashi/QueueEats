@@ -14,6 +14,7 @@ import {
   Utensils,
   Globe,
   Radio,
+  Tent,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ function iconForChannel(channel: OrderChannelConfig): IconStyle {
   if (CHANNEL_ICONS[channel.id]) return CHANNEL_ICONS[channel.id];
   if (channel.kind === "direct") return { icon: Utensils, bg: "bg-zinc-700" };
   if (channel.kind === "online") return { icon: Globe, bg: "bg-sky-600" };
+  if (channel.kind === "popup") return { icon: Tent, bg: "bg-amber-600" };
   return { icon: Radio, bg: "bg-slate-500" };
 }
 
@@ -67,6 +69,7 @@ function ChannelForm({
   const [pending, start] = useTransition();
   const [kind, setKind] = useState<OrderChannelKind>(channel?.kind ?? "online");
   const [name, setName] = useState(channel?.name ?? "");
+  const [requiresAcceptance, setRequiresAcceptance] = useState(channel?.requires_acceptance ?? false);
 
   const availablePresets = useMemo(() => CHANNEL_PRESETS[kind], [kind]);
 
@@ -75,6 +78,7 @@ function ChannelForm({
     const fd = new FormData(e.currentTarget);
     fd.set("kind", kind);
     fd.set("name", name);
+    fd.set("requires_acceptance", requiresAcceptance ? "on" : "off");
     start(async () => {
       const res = channel ? await updateChannel(fd) : await createChannel(fd);
       if (!res.ok) {
@@ -92,8 +96,8 @@ function ChannelForm({
 
       <div className="space-y-1.5">
         <Label>Tipe</Label>
-        <div className="grid grid-cols-2 gap-2">
-          {(["direct", "online"] as const).map((k) => (
+        <div className="grid grid-cols-3 gap-2">
+          {(["direct", "online", "popup"] as const).map((k) => (
             <button
               key={k}
               type="button"
@@ -104,7 +108,7 @@ function ChannelForm({
                   : "bg-background hover:bg-muted"
               }`}
             >
-              {k === "direct" ? "Direct" : "Online"}
+              {k === "direct" ? "Direct" : k === "online" ? "Online" : "Pop-up"}
             </button>
           ))}
         </div>
@@ -117,7 +121,13 @@ function ChannelForm({
         <Input
           id="channel-name"
           name="name"
-          placeholder={kind === "direct" ? "mis. Dine-in" : "mis. GoFood"}
+          placeholder={
+            kind === "direct"
+              ? "mis. Dine-in"
+              : kind === "online"
+              ? "mis. GoFood"
+              : "mis. Festival"
+          }
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
@@ -155,6 +165,23 @@ function ChannelForm({
         <p className="text-xs text-muted-foreground">
           Potongan platform per pesanan. Dipakai untuk perhitungan profit di laporan pemilik.
         </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={requiresAcceptance}
+            onChange={(e) => setRequiresAcceptance(e.target.checked)}
+            className="h-4 w-4 mt-0.5 accent-primary"
+          />
+          <span className="text-sm">
+            Wajib diterima dahulu
+            <span className="block text-xs text-muted-foreground font-normal">
+              Pesanan menunggu konfirmasi staf (Terima/Tolak) sebelum lanjut ke dapur.
+            </span>
+          </span>
+        </label>
       </div>
 
       <Button type="submit" className="w-full" disabled={pending} aria-busy={pending}>
@@ -254,12 +281,14 @@ function channelDescription(channel: OrderChannelConfig): string | null {
   if (lower.includes("tiktok")) return "TikTok Shop";
   if (channel.kind === "direct") return "Pesanan langsung";
   if (channel.kind === "online") return "Pesanan online";
+  if (channel.kind === "popup") return "Pesanan event / pop-up";
   return null;
 }
 
-const GROUP_LABEL: Record<"direct" | "online" | "uncategorized", string> = {
+const GROUP_LABEL: Record<"direct" | "online" | "popup" | "uncategorized", string> = {
   direct: "Direct",
   online: "Online",
+  popup: "Pop-up",
   uncategorized: "Belum dikelompokkan",
 };
 
@@ -269,13 +298,15 @@ export function ChannelsManager({ channels }: { channels: OrderChannelConfig[] }
   const groups = useMemo(() => {
     const direct: OrderChannelConfig[] = [];
     const online: OrderChannelConfig[] = [];
+    const popup: OrderChannelConfig[] = [];
     const uncategorized: OrderChannelConfig[] = [];
     for (const ch of channels) {
       if (ch.kind === "direct") direct.push(ch);
       else if (ch.kind === "online") online.push(ch);
+      else if (ch.kind === "popup") popup.push(ch);
       else uncategorized.push(ch);
     }
-    return { direct, online, uncategorized };
+    return { direct, online, popup, uncategorized };
   }, [channels]);
 
   return (
@@ -300,7 +331,7 @@ export function ChannelsManager({ channels }: { channels: OrderChannelConfig[] }
           Belum ada saluran. Klik &quot;Tambah saluran&quot; untuk memulai.
         </Card>
       ) : (
-        (["direct", "online", "uncategorized"] as const).map((kind) => {
+        (["direct", "online", "popup", "uncategorized"] as const).map((kind) => {
           const list = groups[kind];
           if (list.length === 0) return null;
           return (

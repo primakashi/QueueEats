@@ -33,13 +33,15 @@ export default async function ConfirmationPage({ params }: Props) {
   const channels = (channelsRaw ?? []) as Pick<OrderChannelConfig, "id" | "name" | "kind">[];
 
   const channelInfo = channels.find((c) => c.id === orderTyped.order_channel);
-  const isOnline = channelInfo?.kind === "online";
-  const tipeLabel = isOnline ? "Online" : "Langsung";
-  const sourceLabel = isOnline
-    ? (channelInfo?.name ?? ORDER_CHANNEL_LABEL[orderTyped.order_channel ?? ""] ?? orderTyped.order_channel ?? "Online")
-    : orderTyped.service_type === "takeaway"
-    ? "Takeaway"
-    : "Dine-in";
+  const channelKind = channelInfo?.kind;
+  const tipeLabel =
+    channelKind === "online" ? "Online" : channelKind === "popup" ? "Pop-up" : "Langsung";
+  const sourceLabel =
+    channelKind === "online" || channelKind === "popup"
+      ? (channelInfo?.name ?? ORDER_CHANNEL_LABEL[orderTyped.order_channel ?? ""] ?? orderTyped.order_channel ?? tipeLabel)
+      : orderTyped.service_type === "takeaway"
+      ? "Takeaway"
+      : "Dine-in";
 
   return (
     <div className="p-6 max-w-xl mx-auto">

@@ -32,9 +32,17 @@ export type StockSnapshot = {
     daily_stock: DailyStock;
     effective_quota: number | null;
     low_threshold: number;
+    yesterday_closing: number | null;
+    yesterday_opening: number | null;
   }>;
   movements: Array<StockMovement & { menu_name: string | null; actor_name: string | null }>;
 };
+
+function yesterdayDate(today: string): string {
+  const d = new Date(today + "T00:00:00");
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString("en-CA");
+}
 
 export async function getStockSnapshot(
   outletIdOverride?: string,
@@ -149,6 +157,19 @@ export async function getStockSnapshot(
     dailyStocks = (refreshed ?? []) as DailyStock[];
   }
 
+  // Yesterday's closing as a reference for opening-stock UI.
+  const yDate = yesterdayDate(date);
+  const { data: yRows } = await supabase
+    .from("daily_stock")
+    .select("menu_item_id, opening_stock, current_stock")
+    .eq("outlet_id", outletId)
+    .eq("stock_date", yDate);
+  const yesterdayByItem = new Map(
+    ((yRows ?? []) as Array<{ menu_item_id: string; opening_stock: number; current_stock: number }>).map(
+      (r) => [r.menu_item_id, r],
+    ),
+  );
+
   const categoryName = new Map(categories.map((c) => [c.id, c.name]));
   const stockByItem = new Map(dailyStocks.map((d) => [d.menu_item_id, d]));
 
@@ -158,12 +179,15 @@ export async function getStockSnapshot(
       const override = overrides.find((o) => o.menu_item_id === m.id);
       const effective_quota = override?.daily_quota ?? m.default_daily_quota;
       const low_threshold = override?.low_stock_threshold ?? m.low_stock_threshold;
+      const yest = yesterdayByItem.get(m.id);
       return {
         menu_item: m,
         category_name: m.category_id ? categoryName.get(m.category_id) ?? null : null,
         daily_stock: stockByItem.get(m.id)!,
         effective_quota,
         low_threshold,
+        yesterday_closing: yest?.current_stock ?? null,
+        yesterday_opening: yest?.opening_stock ?? null,
       };
     });
 
@@ -350,5 +374,50 @@ export async function setDefaultDailyQuota(
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/stok");
   revalidatePath("/admin/menu");
+  return { ok: true };
+}
+
+// Set the per-outlet override of a menu item's default daily quota. Pass null
+// to clear the override and fall back to the menu-item-level default.
+export async function setOutletDailyQuota(
+  outletId: string,
+  menuItemId: string,
+  quota: number | null,
+): Promise<Result> {
+  await requireRole(["admin", "owner", "branch_manager"]);
+  const supabase = await createClient();
+  const safe = quota == null ? null : Math.max(0, Math.floor(quota));
+
+  const { data: existing } = await supabase
+    .from("menu_stock_overrides")
+    .select("id, low_stock_threshold")
+    .eq("outlet_id", outletId)
+    .eq("menu_item_id", menuItemId)
+    .maybeSingle();
+
+  if (safe == null && (!existing || existing.low_stock_threshold == null)) {
+    if (existing) {
+      const { error } = await supabase
+        .from("menu_stock_overrides")
+        .delete()
+        .eq("id", existing.id);
+      if (error) return { ok: false, error: error.message };
+    }
+  } else if (existing) {
+    const { error } = await supabase
+      .from("menu_stock_overrides")
+      .update({ daily_quota: safe, updated_at: new Date().toISOString() })
+      .eq("id", existing.id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await supabase.from("menu_stock_overrides").insert({
+      outlet_id: outletId,
+      menu_item_id: menuItemId,
+      daily_quota: safe,
+    });
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/admin/stok");
   return { ok: true };
 }

@@ -11,6 +11,7 @@ export type CreateOrderInput = {
   notes?: string;
   outlet_id?: string | null;
   order_channel?: OrderChannel;
+  parent_order_id?: string | null;
   items: Array<{
     menu_item_id: string;
     quantity: number;
@@ -67,6 +68,16 @@ export async function createOrder(
   // Stamp restaurant_id if the DB trigger didn't catch it (e.g. order has no outlet_id)
   if (restaurantId && !order.restaurant_id) {
     await supabase.from("orders").update({ restaurant_id: restaurantId }).eq("id", order.id);
+  }
+
+  // Link to parent order when this is an add-on (F12). create_order RPC doesn't
+  // accept parent_order_id, so patch it post-insert.
+  if (input.parent_order_id) {
+    await supabase
+      .from("orders")
+      .update({ parent_order_id: input.parent_order_id })
+      .eq("id", order.id);
+    order.parent_order_id = input.parent_order_id;
   }
 
   // The create_order RPC ignores service_type in the payload and falls back to

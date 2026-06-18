@@ -12,7 +12,7 @@ export type PaymentMethod = "qris" | "cash" | "edc";
 export type OrderServiceType = "dine_in" | "takeaway";
 export type OrderChannel = string;
 
-export type OrderChannelKind = "direct" | "online";
+export type OrderChannelKind = "direct" | "online" | "popup";
 
 export type OrderChannelConfig = {
   id: string;
@@ -21,6 +21,7 @@ export type OrderChannelConfig = {
   is_active: boolean;
   kind: OrderChannelKind | null;
   commission_rate: number;
+  requires_acceptance: boolean;
 };
 
 export const CHANNEL_PRESETS: Record<OrderChannelKind, string[]> = {
@@ -35,8 +36,8 @@ export const CHANNEL_PRESETS: Record<OrderChannelKind, string[]> = {
     "Blibli",
     "TikTokShop",
     "Facebook",
-    "Festival",
   ],
+  popup: ["Festival", "Bazar", "Event", "Booth", "Pop-up"],
 };
 export type QueueEntryStatus =
   | "waiting"
@@ -52,6 +53,8 @@ export type QueueNotificationState =
   | "called"
   | "no_show";
 
+export type OrderWorkflowMode = "standard" | "no_kitchen";
+
 export type Restaurant = {
   id: string;
   name: string;
@@ -62,6 +65,7 @@ export type Restaurant = {
   service_charge_rate: number;
   service_charge_channels: string[];
   round_total: boolean;
+  order_workflow: OrderWorkflowMode;
   created_at: string;
 };
 
@@ -223,8 +227,16 @@ export type MenuItem = {
   sort_order: number;
   default_daily_quota: number | null;
   low_stock_threshold: number;
+  /** Per-item commission override (0-1). Null = inherit channel.commission_rate. */
+  commission_rate: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type MenuItemChannel = {
+  menu_item_id: string;
+  channel_id: string;
+  created_at: string;
 };
 
 export type StockMovementReason =
@@ -327,6 +339,7 @@ export type Order = {
   discount_amount: number;
   cancelled_by: string | null;
   cancelled_at: string | null;
+  parent_order_id: string | null;
   created_at: string;
   updated_at: string;
 };

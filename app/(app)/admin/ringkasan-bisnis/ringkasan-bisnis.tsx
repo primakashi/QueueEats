@@ -65,27 +65,43 @@ type Enriched = {
 function enrich(
   orders: OwnerOrder[],
   costByMenu: Map<string, number>,
+  commByMenu: Map<string, number | null>,
   commissionByChannelId: Map<string, number>,
   commissionByChannelName: Map<string, number>,
 ): Enriched[] {
   return orders.map((o) => {
     let cogs = 0;
     let itemCount = 0;
+    let grossLines = 0;
     for (const it of o.items) {
       itemCount += it.quantity;
       const c = it.menu_item_id ? costByMenu.get(it.menu_item_id) ?? 0 : 0;
       cogs += c * it.quantity;
+      grossLines += it.price * it.quantity;
     }
     // Net revenue excludes PPN & service charge (pass-through) and post-discount.
-    // Aggregator commission is charged on the menu price the customer actually paid,
-    // which matches subtotal − discount.
-    const net = Math.max(0, (o.subtotal ?? 0) - (o.discount_amount ?? 0));
+    // Commission applies per item — line override wins, else the channel default.
     const channelKey = o.order_channel ?? "";
-    const rate =
+    const channelRate =
       commissionByChannelId.get(channelKey)
       ?? commissionByChannelName.get(channelKey.toLowerCase())
       ?? 0;
-    const commission = net * rate;
+
+    const discount = o.discount_amount ?? 0;
+    const denom = grossLines || 1;
+    let commission = 0;
+    for (const it of o.items) {
+      const linePrice = it.price * it.quantity;
+      // Apportion the order's discount across lines by gross weight so the
+      // commission base reflects what the customer actually paid for each item.
+      const lineDiscount = grossLines > 0 ? (linePrice / denom) * discount : 0;
+      const lineNet = Math.max(0, linePrice - lineDiscount);
+      const override = it.menu_item_id ? commByMenu.get(it.menu_item_id) : null;
+      const rate = override != null ? override : channelRate;
+      commission += lineNet * rate;
+    }
+
+    const net = Math.max(0, (o.subtotal ?? 0) - discount);
     const contrib = net - cogs - commission;
     return { order: o, gross: net, cogs, commission, contrib, itemCount };
   });
@@ -201,6 +217,12 @@ export function RingkasanBisnis({
     return m;
   }, [menuItems]);
 
+  const commByMenu = useMemo(() => {
+    const m = new Map<string, number | null>();
+    for (const it of menuItems) m.set(it.id, it.commission_rate ?? null);
+    return m;
+  }, [menuItems]);
+
   const commissionByChannelId = useMemo(() => {
     const m = new Map<string, number>();
     for (const c of channels) m.set(c.id, c.commission_rate ?? 0);
@@ -214,8 +236,8 @@ export function RingkasanBisnis({
   }, [channels]);
 
   const enriched = useMemo(
-    () => enrich(orders, costByMenu, commissionByChannelId, commissionByChannelName),
-    [orders, costByMenu, commissionByChannelId, commissionByChannelName],
+    () => enrich(orders, costByMenu, commByMenu, commissionByChannelId, commissionByChannelName),
+    [orders, costByMenu, commByMenu, commissionByChannelId, commissionByChannelName],
   );
 
   const [preset, setPreset] = useState<Preset>("30d");

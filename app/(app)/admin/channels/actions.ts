@@ -57,8 +57,13 @@ export async function createChannel(formData: FormData): Promise<Result<OrderCha
   const profile = await requireRole(["admin", "owner"]);
   const name = String(formData.get("name") ?? "").trim();
   const rawKind = String(formData.get("kind") ?? "").trim();
-  const kind = rawKind === "online" ? "online" : rawKind === "direct" ? "direct" : null;
+  const kind =
+    rawKind === "online" ? "online"
+    : rawKind === "direct" ? "direct"
+    : rawKind === "popup" ? "popup"
+    : null;
   const commission_rate = parseCommission(formData.get("commission_rate"));
+  const requires_acceptance = formData.get("requires_acceptance") === "on" || formData.get("requires_acceptance") === "true";
 
   if (!name) return { ok: false, error: "Nama saluran wajib diisi" };
 
@@ -74,7 +79,7 @@ export async function createChannel(formData: FormData): Promise<Result<OrderCha
 
   const { data, error } = await supabase
     .from("order_channels")
-    .insert({ id, name, sort_order, restaurant_id, kind, commission_rate })
+    .insert({ id, name, sort_order, restaurant_id, kind, commission_rate, requires_acceptance })
     .select()
     .single();
 
@@ -88,8 +93,13 @@ export async function updateChannel(formData: FormData): Promise<Result> {
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const rawKind = String(formData.get("kind") ?? "").trim();
-  const kind = rawKind === "online" ? "online" : rawKind === "direct" ? "direct" : null;
+  const kind =
+    rawKind === "online" ? "online"
+    : rawKind === "direct" ? "direct"
+    : rawKind === "popup" ? "popup"
+    : null;
   const commission_rate = parseCommission(formData.get("commission_rate"));
+  const requires_acceptance = formData.get("requires_acceptance") === "on" || formData.get("requires_acceptance") === "true";
 
   if (!id) return { ok: false, error: "ID tidak ada" };
   if (!name) return { ok: false, error: "Nama saluran wajib diisi" };
@@ -97,11 +107,31 @@ export async function updateChannel(formData: FormData): Promise<Result> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("order_channels")
-    .update({ name, kind, commission_rate })
+    .update({ name, kind, commission_rate, requires_acceptance })
     .eq("id", id);
 
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/channels");
+  return { ok: true };
+}
+
+// Restaurant-level order workflow mode (F10).
+export async function updateOrderWorkflow(mode: "standard" | "no_kitchen"): Promise<Result> {
+  const profile = await requireRole(["admin", "owner"]);
+  const restaurant_id = getRestaurantFilter(profile);
+  if (!restaurant_id) return { ok: false, error: "Tidak terhubung ke restoran" };
+  if (mode !== "standard" && mode !== "no_kitchen") {
+    return { ok: false, error: "Mode tidak dikenal" };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("restaurants")
+    .update({ order_workflow: mode })
+    .eq("id", restaurant_id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin/channels");
+  revalidatePath("/waiter");
+  revalidatePath("/kitchen");
   return { ok: true };
 }
 

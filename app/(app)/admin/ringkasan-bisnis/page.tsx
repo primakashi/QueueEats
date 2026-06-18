@@ -83,7 +83,7 @@ export default async function RingkasanBisnisPage({ searchParams }: Props) {
 
   let menuItemsQuery = supabase
     .from("menu_items")
-    .select("id, category_id, name, description, price, cost_price, image_url, is_available, sort_order, default_daily_quota, low_stock_threshold, created_at, updated_at");
+    .select("id, category_id, name, description, price, cost_price, image_url, is_available, sort_order, default_daily_quota, low_stock_threshold, commission_rate, created_at, updated_at");
   if (rid) menuItemsQuery = menuItemsQuery.eq("restaurant_id", rid);
 
   const [

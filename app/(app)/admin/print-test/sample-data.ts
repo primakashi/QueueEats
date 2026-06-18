@@ -33,6 +33,7 @@ export const SAMPLE_ORDER: Order = {
   discount_amount: 0,
   cancelled_by: null,
   cancelled_at: null,
+  parent_order_id: null,
   created_at: now,
   updated_at: now,
 };

@@ -21,7 +21,15 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { formatIDR } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { DailyStock, MenuCategory, MenuItem, OrderChannel, OrderChannelConfig, Outlet } from "@/lib/types";
+import type {
+  DailyStock,
+  MenuCategory,
+  MenuItem,
+  MenuItemChannel,
+  OrderChannel,
+  OrderChannelConfig,
+  Outlet,
+} from "@/lib/types";
 import { startRouteProgress } from "@/components/route-progress";
 import { FullScreenLoading } from "@/components/full-screen-loading";
 import {
@@ -48,18 +56,32 @@ type CartLine = {
   notes: string;
 };
 
+export type AddonContext = {
+  id: string;
+  order_number: string;
+  outlet_id: string | null;
+  table_number: string | null;
+  customer_name: string | null;
+  order_channel: string | null;
+  service_type: "dine_in" | "takeaway";
+};
+
 export function NewOrderClient({
   items,
   categories,
   outlets,
   channels,
   dailyStocks,
+  menuItemChannels = [],
+  addonOf,
 }: {
   items: MenuItem[];
   categories: MenuCategory[];
   outlets: Pick<Outlet, "id" | "name" | "is_temporary">[];
   channels: OrderChannelConfig[];
   dailyStocks: DailyStock[];
+  menuItemChannels?: MenuItemChannel[];
+  addonOf?: AddonContext | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -68,14 +90,16 @@ export function NewOrderClient({
   const [sortMode, setSortMode] = useState<"custom" | "name">("custom");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [serviceType, setServiceType] = useState<"dine_in" | "takeaway">(
-    "dine_in",
+    addonOf?.service_type ?? "dine_in",
   );
-  const [selectedTableId, setSelectedTableId] = useState("");
-  const [customerName, setCustomerName] = useState("");
+  const [selectedTableId, setSelectedTableId] = useState(addonOf?.table_number ?? "");
+  const [customerName, setCustomerName] = useState(addonOf?.customer_name ?? "");
   const [orderNotes, setOrderNotes] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
-  const [outletId, setOutletId] = useState<string>(outlets[0]?.id ?? "");
-  const [orderChannel, setOrderChannel] = useState<OrderChannel>(() => channels[0]?.id ?? "direct");
+  const [outletId, setOutletId] = useState<string>(addonOf?.outlet_id ?? outlets[0]?.id ?? "");
+  const [orderChannel, setOrderChannel] = useState<OrderChannel>(
+    () => addonOf?.order_channel ?? channels[0]?.id ?? "direct",
+  );
 
   // Wrap the setter so callers don't need to remember to reset the table when
   // they toggle dine-in/takeaway. Previously this was a useEffect, but the
@@ -101,12 +125,34 @@ export function NewOrderClient({
     if (!outletId) return null;
     return stockMap.get(`${outletId}|${itemId}`) ?? null;
   }
+
+  // F01: each item's channel assignment. Items with no assignment are treated
+  // as available on every channel (backward compat with pre-F01 menus).
+  const channelsByItem = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const ic of menuItemChannels) {
+      let s = m.get(ic.menu_item_id);
+      if (!s) {
+        s = new Set();
+        m.set(ic.menu_item_id, s);
+      }
+      s.add(ic.channel_id);
+    }
+    return m;
+  }, [menuItemChannels]);
+
   const filteredItems = useMemo(() => {
     let list = items;
     if (selectedCategory === "uncategorized") {
       list = list.filter((i) => !i.category_id);
     } else if (selectedCategory !== "all") {
       list = list.filter((i) => i.category_id === selectedCategory);
+    }
+    if (orderChannel) {
+      list = list.filter((i) => {
+        const assigned = channelsByItem.get(i.id);
+        return !assigned || assigned.has(orderChannel);
+      });
     }
     const q = search.trim().toLowerCase();
     if (q) {
@@ -120,7 +166,7 @@ export function NewOrderClient({
       list = [...list].sort((a, b) => a.name.localeCompare(b.name));
     }
     return list;
-  }, [items, selectedCategory, search, sortMode]);
+  }, [items, selectedCategory, search, sortMode, orderChannel, channelsByItem]);
 
   const totalItems = cart.reduce((s, l) => s + l.quantity, 0);
   const total = cart.reduce((s, l) => {
@@ -191,6 +237,7 @@ export function NewOrderClient({
         notes: orderNotes.trim() || undefined,
         outlet_id: outletId || null,
         order_channel: orderChannel,
+        parent_order_id: addonOf?.id ?? null,
         items: cart.map((l) => ({
           menu_item_id: l.itemId,
           quantity: l.quantity,
@@ -497,6 +544,7 @@ function CartPanel(props: {
 }) {
   const directChannels = props.channels.filter((ch) => ch.kind === "direct");
   const onlineChannels = props.channels.filter((ch) => ch.kind === "online");
+  const popupChannels = props.channels.filter((ch) => ch.kind === "popup");
 
   // Derive current kind from the active channel.
   const currentChannelKind = props.channels.find((ch) => ch.id === props.orderChannel)?.kind ?? "direct";
@@ -517,12 +565,20 @@ function CartPanel(props: {
     props.setOrderChannel(channelId);
   }
 
-  function switchKind(kind: "direct" | "online") {
+  function selectPopup(channelId: string) {
+    props.setServiceType("takeaway");
+    props.setOrderChannel(channelId);
+  }
+
+  function switchKind(kind: "direct" | "online" | "popup") {
     if (kind === "direct") {
       selectDirect("dine_in");
-    } else {
+    } else if (kind === "online") {
       const first = onlineChannels[0];
       if (first) selectOnline(first.id);
+    } else {
+      const first = popupChannels[0];
+      if (first) selectPopup(first.id);
     }
   }
 
@@ -564,25 +620,33 @@ function CartPanel(props: {
           </div>
         )}
 
-        {/* Tipe pesanan: Direct / Online */}
+        {/* Tipe pesanan: Direct / Online / Pop-up */}
         <div className="space-y-2">
           <Label>Tipe pesanan</Label>
           <div className="flex gap-2">
-            {(["direct", "online"] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => switchKind(k)}
-                className={cn(
-                  "flex-1 px-3 h-10 rounded-md text-sm font-medium border transition-colors",
-                  currentChannelKind === k
-                    ? "bg-primary text-primary-foreground border-transparent"
-                    : "bg-background hover:bg-muted",
-                )}
-              >
-                {k === "direct" ? "Langsung" : "Online"}
-              </button>
-            ))}
+            {(["direct", "online", "popup"] as const)
+              .filter((k) =>
+                k === "direct"
+                  ? true
+                  : k === "online"
+                  ? onlineChannels.length > 0
+                  : popupChannels.length > 0,
+              )
+              .map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => switchKind(k)}
+                  className={cn(
+                    "flex-1 px-3 h-10 rounded-md text-sm font-medium border transition-colors",
+                    currentChannelKind === k
+                      ? "bg-primary text-primary-foreground border-transparent"
+                      : "bg-background hover:bg-muted",
+                  )}
+                >
+                  {k === "direct" ? "Langsung" : k === "online" ? "Online" : "Pop-up"}
+                </button>
+              ))}
           </div>
         </div>
 
@@ -607,7 +671,7 @@ function CartPanel(props: {
                 </button>
               ))}
             </div>
-          ) : (
+          ) : currentChannelKind === "online" ? (
             <div className="flex flex-wrap gap-2">
               {onlineChannels.map((ch) => (
                 <button
@@ -627,6 +691,29 @@ function CartPanel(props: {
               {onlineChannels.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   Belum ada saluran online. Tambah di Manajemen → Kanal.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {popupChannels.map((ch) => (
+                <button
+                  key={ch.id}
+                  type="button"
+                  onClick={() => selectPopup(ch.id)}
+                  className={cn(
+                    "px-3 h-10 rounded-md text-sm font-medium border transition-colors",
+                    props.orderChannel === ch.id
+                      ? "bg-primary text-primary-foreground border-transparent"
+                      : "bg-background hover:bg-muted",
+                  )}
+                >
+                  {ch.name}
+                </button>
+              ))}
+              {popupChannels.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Belum ada saluran pop-up. Tambah di Manajemen → Kanal.
                 </p>
               )}
             </div>

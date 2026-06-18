@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Radio, CreditCard, Receipt } from "lucide-react";
+import { Radio, CreditCard, Receipt, Workflow } from "lucide-react";
 import type {
   OrderChannelConfig,
   PaymentMethodWithProviders,
@@ -10,8 +10,9 @@ import type {
 import { ChannelsManager } from "./channels-manager";
 import { PaymentMethodsManager } from "./payment-methods-manager";
 import { TaxServiceManager } from "./tax-service-manager";
+import { WorkflowManager } from "./workflow-manager";
 
-type Tab = "channels" | "payments" | "tax";
+type Tab = "channels" | "payments" | "tax" | "workflow";
 
 export function SaluranPembayaran({
   channels,
@@ -44,11 +45,16 @@ export function SaluranPembayaran({
           <Receipt className="size-4" />
           <span>Pajak & Layanan</span>
         </TabButton>
+        <TabButton active={tab === "workflow"} onClick={() => setTab("workflow")}>
+          <Workflow className="size-4" />
+          <span>Workflow Pesanan</span>
+        </TabButton>
       </div>
 
       {tab === "channels" && <ChannelsManager channels={channels} />}
       {tab === "payments" && <PaymentMethodsManager methods={methods} />}
       {tab === "tax" && <TaxServiceManager restaurant={restaurant} channels={channels} />}
+      {tab === "workflow" && <WorkflowManager restaurant={restaurant} />}
     </div>
   );
 }

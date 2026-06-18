@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -24,15 +25,19 @@ import {
 } from "@/app/(app)/admin/actions";
 import { startRouteProgress } from "@/components/route-progress";
 import { FullScreenLoading } from "@/components/full-screen-loading";
-import type { MenuCategory, MenuItem } from "@/lib/types";
+import type { MenuCategory, MenuItem, OrderChannelConfig } from "@/lib/types";
 
 const UNCATEGORIZED = "__none__";
 
 export function MenuItemForm({
   categories,
+  channels,
+  assignedChannelIds,
   item,
 }: {
   categories: MenuCategory[];
+  channels: OrderChannelConfig[];
+  assignedChannelIds?: string[];
   item?: MenuItem;
 }) {
   const router = useRouter();
@@ -42,6 +47,21 @@ export function MenuItemForm({
     item ? item.category_id ?? UNCATEGORIZED : categories[0]?.id ?? UNCATEGORIZED,
   );
   const [available, setAvailable] = useState<boolean>(item?.is_available ?? true);
+  const [allChannels, setAllChannels] = useState<boolean>(
+    (assignedChannelIds?.length ?? 0) === 0,
+  );
+  const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(
+    new Set(assignedChannelIds ?? []),
+  );
+
+  function toggleChannel(id: string) {
+    setSelectedChannelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -54,6 +74,18 @@ export function MenuItemForm({
     if (available) formData.set("is_available", "on");
     else formData.delete("is_available");
     if (item) formData.set("id", item.id);
+
+    // Channel selection: "all" mode submits no channel_ids (= available everywhere).
+    // Guard the surprising case where the user picked "specific channels" but
+    // selected none — that would silently fall through to "available everywhere".
+    if (!allChannels && selectedChannelIds.size === 0) {
+      toast.error("Pilih minimal satu channel atau gunakan 'Semua channel'");
+      return;
+    }
+    formData.delete("channel_ids");
+    if (!allChannels) {
+      for (const id of selectedChannelIds) formData.append("channel_ids", id);
+    }
 
     start(async () => {
       const action = item ? updateMenuItem : createMenuItem;
@@ -130,6 +162,30 @@ export function MenuItemForm({
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="commission_rate">
+                  Komisi per item (%) <span className="text-muted-foreground font-normal">(opsional)</span>
+                </Label>
+                <Input
+                  id="commission_rate"
+                  name="commission_rate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  defaultValue={
+                    item?.commission_rate != null
+                      ? Number((item.commission_rate * 100).toFixed(2)).toString()
+                      : ""
+                  }
+                  placeholder="Kosongkan untuk pakai komisi channel"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Kosongkan agar laporan pakai komisi default channel (mis. GoFood 20%).
+                  Isi hanya jika item ini punya tarif khusus.
+                </p>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="category">Kategori</Label>
                 <Select
                   value={categoryId}
@@ -176,6 +232,62 @@ export function MenuItemForm({
                 />
                 <span className="text-sm">Tersedia untuk dipesan</span>
               </label>
+
+              <div className="space-y-2 pt-1">
+                <Label>Tersedia di channel</Label>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="channel-mode"
+                      checked={allChannels}
+                      onChange={() => setAllChannels(true)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span className="text-sm">Semua channel</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="channel-mode"
+                      checked={!allChannels}
+                      onChange={() => setAllChannels(false)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span className="text-sm">Pilih channel tertentu</span>
+                  </label>
+                  {!allChannels && (
+                    <div className="ml-7 flex flex-wrap gap-2 pt-1">
+                      {channels.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          Belum ada channel. Tambah di Manajemen → Kanal.
+                        </p>
+                      ) : (
+                        channels.map((ch) => {
+                          const on = selectedChannelIds.has(ch.id);
+                          return (
+                            <button
+                              key={ch.id}
+                              type="button"
+                              onClick={() => toggleChannel(ch.id)}
+                              className={`text-xs rounded-full border px-3 py-1.5 transition-colors ${
+                                on
+                                  ? "bg-primary text-primary-foreground border-transparent"
+                                  : "bg-background hover:bg-muted"
+                              }`}
+                            >
+                              {ch.name}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Atur agar item ini hanya muncul di channel tertentu (mis. menu khusus pop-up).
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -207,9 +319,9 @@ export function MenuItemForm({
 
           <div className="flex justify-end gap-2">
             <Button
-              type="button"
               variant="outline"
-              onClick={() => router.push("/admin/menu")}
+              disabled={pending}
+              render={<Link href="/admin/menu" />}
             >
               Batal
             </Button>

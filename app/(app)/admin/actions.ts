@@ -96,6 +96,49 @@ export async function deleteCategory(id: string): Promise<Result> {
 
 // ========== Menu items ==========
 
+// Form posts commission as a percent (e.g. "12.5"). Empty = null (inherit
+// from channel). Clamped to [0, 100] and stored as a 0–1 fraction to match
+// order_channels.commission_rate.
+function parseCommissionPercent(raw: FormDataEntryValue | null): number | null {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  if (s === "") return null;
+  const pct = Number(s);
+  if (!Number.isFinite(pct) || pct < 0) return null;
+  return Math.min(1, pct / 100);
+}
+
+// Reorder menu items within a category (or within "no category" when
+// categoryId is null). Writes 0..N to each item's sort_order in array order.
+// Items not in the array are left untouched.
+export async function reorderMenuItems(
+  categoryId: string | null,
+  orderedIds: string[],
+): Promise<Result> {
+  const profile = await requireRole(["admin", "branch_manager"]);
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    return { ok: false, error: "Urutan tidak valid" };
+  }
+  const rid = getRestaurantFilter(profile);
+  const supabase = await createClient();
+
+  for (let i = 0; i < orderedIds.length; i++) {
+    let q = supabase
+      .from("menu_items")
+      .update({ sort_order: i, updated_at: new Date().toISOString() })
+      .eq("id", orderedIds[i]);
+    if (rid) q = q.eq("restaurant_id", rid);
+    if (categoryId === null) q = q.is("category_id", null);
+    else q = q.eq("category_id", categoryId);
+    const { error } = await q;
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/admin/menu");
+  revalidatePath("/waiter/new");
+  return { ok: true };
+}
+
 async function uploadImage(file: File | null): Promise<string | null> {
   if (!file || file.size === 0) return null;
   const supabase = await createClient();
@@ -117,10 +160,11 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
   const costRaw = formData.get("cost_price");
   const cost_price = costRaw == null || costRaw === "" ? null : Number(costRaw);
   const sortRaw = Number(formData.get("sort_order") ?? 0);
-  const sort_order = Number.isFinite(sortRaw) ? Math.trunc(sortRaw) : 0;
+  let sort_order = Number.isFinite(sortRaw) ? Math.trunc(sortRaw) : 0;
   const category_id = String(formData.get("category_id") ?? "") || null;
   const is_available = formData.get("is_available") === "on";
   const imageFile = formData.get("image") as File | null;
+  const commission_rate = parseCommissionPercent(formData.get("commission_rate"));
 
   if (!name) return { ok: false, error: "Nama wajib diisi" };
   if (!Number.isFinite(price) || price < 0)
@@ -137,12 +181,37 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
 
   const restaurant_id = getRestaurantFilter(profile);
   const supabase = await createClient();
+
+  // If the form leaves sort_order at the default 0, append to the end of the
+  // category so manual drag-order isn't immediately disturbed by new items.
+  if (sort_order <= 0) {
+    let maxQ = supabase
+      .from("menu_items")
+      .select("sort_order")
+      .order("sort_order", { ascending: false })
+      .limit(1);
+    if (restaurant_id) maxQ = maxQ.eq("restaurant_id", restaurant_id);
+    if (category_id === null) maxQ = maxQ.is("category_id", null);
+    else maxQ = maxQ.eq("category_id", category_id);
+    const { data: lastRow } = await maxQ.maybeSingle();
+    sort_order = ((lastRow?.sort_order as number | null) ?? -1) + 1;
+  }
+
   const { data: inserted, error } = await supabase
     .from("menu_items")
-    .insert({ name, description, price, cost_price, sort_order, category_id, is_available, image_url, restaurant_id })
+    .insert({ name, description, price, cost_price, sort_order, category_id, is_available, image_url, restaurant_id, commission_rate })
     .select("id")
     .single();
   if (error) return { ok: false, error: error.message };
+
+  // Channel assignment (F01). Empty selection = available on every channel.
+  const channelIds = formData.getAll("channel_ids").map((v) => String(v)).filter(Boolean);
+  if (channelIds.length > 0) {
+    const rows = channelIds.map((channel_id) => ({ menu_item_id: inserted.id, channel_id }));
+    const { error: chErr } = await supabase.from("menu_item_channels").insert(rows);
+    if (chErr) return { ok: false, error: chErr.message };
+  }
+
   await logAudit(profile, {
     table: "menu_items",
     recordId: inserted.id,
@@ -191,6 +260,7 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
     sort_order,
     category_id,
     is_available,
+    commission_rate: parseCommissionPercent(formData.get("commission_rate")),
   };
 
   if (imageFile && imageFile.size > 0) {
@@ -205,6 +275,15 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
   if (rid) updateQ = updateQ.eq("restaurant_id", rid);
   const { error } = await updateQ;
   if (error) return { ok: false, error: error.message };
+
+  // Channel assignment (F01). Diff-replace: empty list = available everywhere.
+  const channelIds = formData.getAll("channel_ids").map((v) => String(v)).filter(Boolean);
+  await supabase.from("menu_item_channels").delete().eq("menu_item_id", id);
+  if (channelIds.length > 0) {
+    const rows = channelIds.map((channel_id) => ({ menu_item_id: id, channel_id }));
+    const { error: chErr } = await supabase.from("menu_item_channels").insert(rows);
+    if (chErr) return { ok: false, error: chErr.message };
+  }
 
   if (existing) {
     const changes: { field: string; oldValue: string | null; newValue: string | null }[] = [];
@@ -370,13 +449,17 @@ export async function inviteStaff(formData: FormData): Promise<Result> {
   return { ok: true };
 }
 
-export async function resetStaffPassword(staffId: string): Promise<Result> {
-  await requireRole(["admin", "owner"]);
+type PasswordResetResult =
+  | { ok: true; emailed: boolean; link: string }
+  | { ok: false; error: string };
+
+export async function resetStaffPassword(staffId: string): Promise<PasswordResetResult> {
+  const profile = await requireRole(["admin", "owner"]);
 
   const supabase = await createClient();
   const { data: staff } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, full_name")
     .eq("id", staffId)
     .maybeSingle();
   if (!staff) return { ok: false, error: "Akun tidak ditemukan" };
@@ -397,26 +480,49 @@ export async function resetStaffPassword(staffId: string): Promise<Result> {
   if (error || !data?.properties?.action_link) {
     return { ok: false, error: error?.message ?? "Gagal membuat link reset" };
   }
+  const actionLink = data.properties.action_link;
 
-  const { Resend } = await import("resend");
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const { error: emailErr } = await resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL ?? "noreply@solusissaji.com",
-    to: authUser.user.email,
-    subject: "Reset Kata Sandi — Solusi Saji POS",
-    html: `
-      <p>Halo,</p>
-      <p>Admin telah meminta reset kata sandi untuk akun Anda.</p>
-      <p>
-        <a href="${data.properties.action_link}" style="background:#0f172a;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
-          Reset Kata Sandi
-        </a>
-      </p>
-      <p>Link ini berlaku selama 1 jam.</p>
-      <p>— Tim Solusi Saji</p>
-    `,
-  });
-  if (emailErr) return { ok: false, error: "Gagal mengirim email reset" };
+  // Best-effort email. If it fails (Resend not configured, network, etc.) we
+  // still hand the link back to the admin so they can deliver it manually.
+  let emailed = false;
+  const resendKey = process.env.RESEND_API_KEY;
+  if (resendKey) {
+    try {
+      const { Resend } = await import("resend");
+      const resend = new Resend(resendKey);
+      const { error: emailErr } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL ?? "noreply@solusissaji.com",
+        to: authUser.user.email,
+        subject: "Reset Kata Sandi — Solusi Saji POS",
+        html: `
+          <p>Halo,</p>
+          <p>Admin telah meminta reset kata sandi untuk akun Anda.</p>
+          <p>
+            <a href="${actionLink}" style="background:#0f172a;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
+              Reset Kata Sandi
+            </a>
+          </p>
+          <p>Link ini berlaku selama 1 jam.</p>
+          <p>— Tim Solusi Saji</p>
+        `,
+      });
+      emailed = !emailErr;
+    } catch {
+      emailed = false;
+    }
+  }
 
-  return { ok: true };
+  try {
+    await logAudit(profile, {
+      table: "profiles",
+      recordId: staffId,
+      entityName: (staff as { full_name: string }).full_name ?? authUser.user.email,
+      action: "update",
+      changes: [
+        { field: "password_reset", oldValue: null, newValue: emailed ? "emailed" : "link_only" },
+      ],
+    });
+  } catch { /* audit logging is best-effort */ }
+
+  return { ok: true, emailed, link: actionLink };
 }
