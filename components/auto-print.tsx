@@ -94,9 +94,15 @@ export function AutoPrint() {
 
   const manualPrint = () => {
     setStatusSafe("loading");
+    // Restart a watchdog so the user doesn't get permanently stuck on
+    // "loading" if the dialog still doesn't open on the second attempt.
+    const watchdog = setTimeout(() => {
+      if (statusRef.current === "loading") setStatusSafe("error");
+    }, 8000);
     try {
       window.print();
     } catch {
+      clearTimeout(watchdog);
       setStatusSafe("error");
     }
   };

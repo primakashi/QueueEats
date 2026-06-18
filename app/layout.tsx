@@ -41,7 +41,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       suppressHydrationWarning
     >
-      <body className="flex min-h-dvh flex-col bg-background text-foreground">
+      <body className="flex min-h-dvh flex-col bg-background text-foreground" suppressHydrationWarning>
         <RouteProgress />
         {children}
         <Toaster richColors position="top-right" />

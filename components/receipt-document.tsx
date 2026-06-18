@@ -27,7 +27,7 @@ export function ReceiptDocument({
   order: o,
   items: orderItems,
   appliedDiscounts,
-  brandName = "Al Jazeerah Express",
+  brandName = "Restoran",
 }: Props) {
   const paymentLabel =
     o.payment_method === "edc"
