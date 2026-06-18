@@ -5,13 +5,15 @@ import { ArrowDownCircle, ArrowUpCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CashMovementModal } from "./CashMovementModal";
+import { CashLedgerDialog } from "./CashLedgerDialog";
 import { CloseSessionModal } from "./CloseSessionModal";
-import type { CashierSession, CashMovement } from "@/lib/types";
+import type { CashierSession } from "@/lib/types";
+import type { CashMovementWithActor } from "../session-actions";
 import { formatIDR, formatTime } from "@/lib/format";
 
 type Props = {
   session: CashierSession;
-  movements: CashMovement[];
+  movements: CashMovementWithActor[];
 };
 
 export function SessionBar({ session, movements }: Props) {
@@ -32,15 +34,18 @@ export function SessionBar({ session, movements }: Props) {
               Dibuka {formatTime(session.opened_at)}
             </span>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-destructive border-destructive/30 hover:bg-destructive/5 h-7 text-xs"
-            onClick={() => setModal("close")}
-          >
-            <XCircle className="h-3.5 w-3.5 mr-1" />
-            Tutup Sesi
-          </Button>
+          <div className="flex items-center gap-2">
+            <CashLedgerDialog movements={movements} />
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive border-destructive/30 hover:bg-destructive/5 h-7 text-xs"
+              onClick={() => setModal("close")}
+            >
+              <XCircle className="h-3.5 w-3.5 mr-1" />
+              Tutup Sesi
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 text-center">

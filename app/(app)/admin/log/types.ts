@@ -40,4 +40,7 @@ export type OperationalEvent = {
   title: string;
   subtitle: string | null;
   status: string | null;
+  channel: string | null;
+  amount: number | null;
+  category_label: string | null;
 };

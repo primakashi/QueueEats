@@ -174,18 +174,20 @@ export async function closeSession(
   return { ok: true };
 }
 
+export type CashMovementWithActor = CashMovement & { actor_name: string | null };
+
 export async function getSessionSummary(sessionId: string): Promise<{
-  movements: CashMovement[];
+  movements: CashMovementWithActor[];
   cashSales: number;
 }> {
   // See getOpenSession: shared sessions require service-role reads so all
   // kasir users see the same totals regardless of who opened the session.
   const admin = createAdminClient();
 
-  const [{ data: movements }, { data: session }] = await Promise.all([
+  const [{ data: movementsRaw }, { data: session }] = await Promise.all([
     admin
       .from("cash_movements")
-      .select("id, session_id, type, amount, created_at")
+      .select("id, session_id, outlet_id, type, category, amount, notes, created_by, created_at")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true }),
     admin
@@ -194,6 +196,27 @@ export async function getSessionSummary(sessionId: string): Promise<{
       .eq("id", sessionId)
       .single(),
   ]);
+
+  const movementsList = (movementsRaw ?? []) as Array<Omit<CashMovement, "restaurant_id"> & { restaurant_id?: string | null }>;
+  const actorIds = Array.from(
+    new Set(movementsList.map((m) => m.created_by).filter(Boolean) as string[]),
+  );
+  let actorById = new Map<string, string>();
+  if (actorIds.length > 0) {
+    const { data: profilesRaw } = await admin
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", actorIds);
+    actorById = new Map(
+      (profilesRaw ?? []).map((p) => [p.id as string, p.full_name as string]),
+    );
+  }
+
+  const movements: CashMovementWithActor[] = movementsList.map((m) => ({
+    ...(m as CashMovement),
+    restaurant_id: m.restaurant_id ?? null,
+    actor_name: m.created_by ? actorById.get(m.created_by) ?? null : null,
+  }));
 
   let cashSales = 0;
   if (session) {
@@ -209,7 +232,7 @@ export async function getSessionSummary(sessionId: string): Promise<{
   }
 
   return {
-    movements: (movements ?? []) as CashMovement[],
+    movements,
     cashSales,
   };
 }

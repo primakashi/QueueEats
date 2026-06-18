@@ -543,6 +543,16 @@ function OperasionalTab({
                               {ORDER_STATUS_LABEL[e.status as OrderStatus] ?? e.status}
                             </Badge>
                           )}
+                          {e.channel && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {e.channel}
+                            </Badge>
+                          )}
+                          {e.category_label && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {e.category_label}
+                            </Badge>
+                          )}
                         </div>
                         {e.subtitle && (
                           <div className="text-xs text-muted-foreground mt-0.5">{e.subtitle}</div>
@@ -556,8 +566,15 @@ function OperasionalTab({
                           {e.outlet_name && <span>· {e.outlet_name}</span>}
                         </div>
                       </div>
-                      <div className="text-xs text-muted-foreground tabular-nums shrink-0 mt-1">
-                        {timeLabel(e.timestamp)}
+                      <div className="flex flex-col items-end shrink-0 gap-0.5">
+                        {e.amount != null && (
+                          <div className="text-xs font-semibold tabular-nums">
+                            Rp {e.amount.toLocaleString("id-ID")}
+                          </div>
+                        )}
+                        <div className="text-xs text-muted-foreground tabular-nums">
+                          {timeLabel(e.timestamp)}
+                        </div>
                       </div>
                     </div>
                   );

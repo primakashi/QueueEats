@@ -155,6 +155,11 @@ export function StaffTable({
   const [pending, start] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [resetResult, setResetResult] = useState<{
+    name: string;
+    emailed: boolean;
+    link: string;
+  } | null>(null);
 
   const outletMap = Object.fromEntries(outlets.map((o) => [o.id, o.name]));
 
@@ -173,7 +178,7 @@ export function StaffTable({
     });
   }
 
-  function handleResetPassword(id: string) {
+  function handleResetPassword(id: string, name: string) {
     setBusyId(id);
     start(async () => {
       const res = await resetStaffPassword(id);
@@ -182,8 +187,13 @@ export function StaffTable({
         setBusyId(null);
         return;
       }
-      toast.success("Link reset kata sandi telah dikirim");
       setBusyId(null);
+      if (res.emailed) {
+        toast.success("Link reset kata sandi terkirim via email");
+      } else {
+        toast.message("Email tidak terkirim — bagikan link manual ke staf");
+      }
+      setResetResult({ name, emailed: res.emailed, link: res.link });
     });
   }
 
@@ -292,7 +302,7 @@ export function StaffTable({
                         variant="ghost"
                         className="h-7 w-7 text-muted-foreground hover:text-foreground"
                         disabled={pending}
-                        onClick={() => handleResetPassword(p.id)}
+                        onClick={() => handleResetPassword(p.id, p.full_name)}
                         aria-label="Reset kata sandi"
                         title="Reset kata sandi"
                       >
@@ -316,6 +326,47 @@ export function StaffTable({
           </TableBody>
         </Table>
       )}
+
+      <Dialog
+        open={!!resetResult}
+        onOpenChange={(open) => {
+          if (!open) setResetResult(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Link reset kata sandi · {resetResult?.name ?? ""}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {resetResult?.emailed
+              ? "Email telah dikirim ke staf. Sebagai cadangan, link berikut juga bisa Anda bagikan langsung. Berlaku 1 jam."
+              : "Email tidak terkirim (mis. konfigurasi email belum disiapkan). Salin link ini dan bagikan langsung ke staf. Berlaku 1 jam."}
+          </p>
+          <textarea
+            readOnly
+            value={resetResult?.link ?? ""}
+            className="w-full text-xs font-mono rounded-md border bg-muted/40 px-2 py-2 h-24 resize-none"
+            onFocus={(e) => e.currentTarget.select()}
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!resetResult) return;
+                try {
+                  await navigator.clipboard.writeText(resetResult.link);
+                  toast.success("Link disalin");
+                } catch {
+                  toast.error("Gagal menyalin");
+                }
+              }}
+            >
+              Salin link
+            </Button>
+            <Button onClick={() => setResetResult(null)}>Tutup</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

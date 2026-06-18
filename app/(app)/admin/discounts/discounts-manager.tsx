@@ -26,6 +26,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatIDR } from "@/lib/format";
 import type {
   Discount,
@@ -55,6 +61,7 @@ export function DiscountsManager({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [editing, setEditing] = useState<Discount | "new" | null>(null);
+  const [deleting, setDeleting] = useState<Discount | null>(null);
 
   function close() {
     setEditing(null);
@@ -76,15 +83,17 @@ export function DiscountsManager({
     });
   }
 
-  function remove(d: Discount) {
-    if (!confirm(`Hapus diskon "${d.name}"?`)) return;
+  function confirmRemove() {
+    const target = deleting;
+    if (!target) return;
     start(async () => {
-      const res = await deleteDiscount(d.id);
+      const res = await deleteDiscount(target.id);
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
       toast.success("Diskon dihapus");
+      setDeleting(null);
       router.refresh();
     });
   }
@@ -171,7 +180,7 @@ export function DiscountsManager({
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => remove(d)}
+                        onClick={() => setDeleting(d)}
                         aria-label="Hapus"
                         disabled={pending}
                       >
@@ -195,6 +204,37 @@ export function DiscountsManager({
           onSubmit={onSubmit}
         />
       )}
+
+      <Dialog
+        open={!!deleting}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Hapus diskon?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Diskon <span className="font-medium text-foreground">{deleting?.name}</span> akan
+            dihapus permanen. Transaksi yang sudah memakai diskon ini tidak terpengaruh.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setDeleting(null)} disabled={pending}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRemove}
+              disabled={pending}
+              aria-busy={pending}
+            >
+              {pending && <Spinner className="mr-2" />}
+              Hapus
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -337,26 +377,29 @@ function DiscountForm({
         )}
 
         {scope === "daily" && (
-          <>
-            <div className="space-y-1.5">
-              <Label htmlFor="d-from">Berlaku dari</Label>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>Rentang berlaku</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-2 items-center">
               <Input
                 id="d-from"
                 name="active_from"
                 type="date"
+                aria-label="Berlaku dari"
                 defaultValue={discount?.active_from ?? ""}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="d-until">Berlaku sampai</Label>
+              <span className="text-xs text-muted-foreground text-center px-1">sampai</span>
               <Input
                 id="d-until"
                 name="active_until"
                 type="date"
+                aria-label="Berlaku sampai"
                 defaultValue={discount?.active_until ?? ""}
               />
             </div>
-          </>
+            <p className="text-xs text-muted-foreground">
+              Kosongkan salah satu untuk membuka rentang (mis. tanpa tanggal akhir).
+            </p>
+          </div>
         )}
 
         <label className="flex items-center gap-2 cursor-pointer md:col-span-2">

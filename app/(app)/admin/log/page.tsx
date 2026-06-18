@@ -1,7 +1,8 @@
 import { PageHeader } from "@/components/page-header";
 import { requireRole, getOutletFilter, getRestaurantFilter } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { CashMovement, CashierSession } from "@/lib/types";
+import type { CashMovement, CashMovementCategory, CashierSession } from "@/lib/types";
+import { CASH_MOVEMENT_CATEGORY_LABEL, ORDER_CHANNEL_LABEL } from "@/lib/types";
 import { LogTabs } from "./log-tabs";
 import type { AuditLog, OperationalEvent, SessionWithExtras } from "./types";
 
@@ -67,7 +68,7 @@ export default async function AdminLogPage({ searchParams }: Props) {
 
   let ordersQ = supabase
     .from("orders")
-    .select("id, order_number, status, total, created_at, updated_at, created_by, cancelled_by, cancelled_at, outlet_id, table_number, customer_name")
+    .select("id, order_number, status, total, created_at, updated_at, created_by, cancelled_by, cancelled_at, outlet_id, table_number, customer_name, order_channel, payment_status, payment_method")
     .gte("created_at", opCutoffISO)
     .order("created_at", { ascending: false })
     .limit(500);
@@ -204,6 +205,10 @@ export default async function AdminLogPage({ searchParams }: Props) {
 
   const events: OperationalEvent[] = [];
   for (const o of (ordersRaw ?? []) as Array<Record<string, unknown>>) {
+    const channelRaw = o.order_channel as string | null;
+    const channelLabel = channelRaw
+      ? ORDER_CHANNEL_LABEL[channelRaw] ?? channelRaw
+      : null;
     events.push({
       id: `order-${o.id}`,
       kind: "order",
@@ -214,9 +219,12 @@ export default async function AdminLogPage({ searchParams }: Props) {
       subtitle: [
         o.table_number ? `Meja ${o.table_number}` : null,
         o.customer_name ? `${o.customer_name}` : null,
-        `Total Rp ${Math.round(o.total as number).toLocaleString("id-ID")}`,
-      ].filter(Boolean).join(" · "),
+        o.payment_method ? `Bayar: ${String(o.payment_method).toUpperCase()}` : null,
+      ].filter(Boolean).join(" · ") || null,
       status: o.status as string,
+      channel: channelLabel,
+      amount: Math.round(o.total as number),
+      category_label: null,
     });
     if (o.status === "cancelled") {
       const cancelTs = (o.cancelled_at as string | null) ?? (o.updated_at as string | null);
@@ -231,6 +239,9 @@ export default async function AdminLogPage({ searchParams }: Props) {
           title: `Pesanan ${o.order_number} dibatalkan`,
           subtitle: null,
           status: "cancelled",
+          channel: channelLabel,
+          amount: Math.round(o.total as number),
+          category_label: null,
         });
       }
     }
@@ -245,8 +256,11 @@ export default async function AdminLogPage({ searchParams }: Props) {
       actor_name: opener,
       outlet_name: outletName,
       title: "Sesi kasir dibuka",
-      subtitle: `Modal awal Rp ${Math.round((s.opening_cash as number) ?? 0).toLocaleString("id-ID")}`,
+      subtitle: null,
       status: null,
+      channel: null,
+      amount: Math.round((s.opening_cash as number) ?? 0),
+      category_label: "Modal awal",
     });
     if (s.closed_at && s.status === "closed") {
       const closer = s.closed_by ? actorById.get(s.closed_by as string) ?? null : null;
@@ -257,14 +271,17 @@ export default async function AdminLogPage({ searchParams }: Props) {
         actor_name: closer,
         outlet_name: outletName,
         title: "Sesi kasir ditutup",
-        subtitle: s.actual_closing_cash != null
-          ? `Kas akhir Rp ${Math.round(s.actual_closing_cash as number).toLocaleString("id-ID")}`
-          : null,
+        subtitle: null,
         status: null,
+        channel: null,
+        amount: s.actual_closing_cash != null ? Math.round(s.actual_closing_cash as number) : null,
+        category_label: s.actual_closing_cash != null ? "Kas akhir" : null,
       });
     }
   }
   for (const c of (cashRaw ?? []) as Array<Record<string, unknown>>) {
+    const cat = c.category as CashMovementCategory | null;
+    const catLabel = cat ? CASH_MOVEMENT_CATEGORY_LABEL[cat] ?? String(cat) : null;
     events.push({
       id: `cash-${c.id}`,
       kind: c.type === "cash_in" ? "cash_in" : "cash_out",
@@ -272,8 +289,11 @@ export default async function AdminLogPage({ searchParams }: Props) {
       actor_name: c.created_by ? actorById.get(c.created_by as string) ?? null : null,
       outlet_name: c.outlet_id ? outletById.get(c.outlet_id as string) ?? null : null,
       title: c.type === "cash_in" ? "Kas masuk" : "Kas keluar",
-      subtitle: `Rp ${Math.round(c.amount as number).toLocaleString("id-ID")}${c.notes ? ` · ${c.notes as string}` : ""}`,
+      subtitle: c.notes ? String(c.notes) : null,
       status: null,
+      channel: null,
+      amount: Math.round(c.amount as number),
+      category_label: catLabel,
     });
   }
   for (const s of (stockRaw ?? []) as Array<Record<string, unknown>>) {
@@ -288,6 +308,9 @@ export default async function AdminLogPage({ searchParams }: Props) {
       title: `Stok ${itemName ?? "item"}`,
       subtitle: `${change > 0 ? "+" : ""}${change} → sisa ${s.resulting_stock}${s.notes ? ` · ${s.notes as string}` : ""}`,
       status: s.reason as string,
+      channel: null,
+      amount: null,
+      category_label: null,
     });
   }
   events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());

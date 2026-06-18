@@ -1,7 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ORDER_CHANNEL_LABEL } from "@/lib/types";
+import {
+  ORDER_CHANNEL_LABEL,
+  ORDER_STATUS_LABEL,
+  type OrderStatus,
+} from "@/lib/types";
 import type {
   MenuCategory,
   MenuItem,
@@ -617,6 +621,7 @@ export function SalesDashboard({
                 <th>Waktu</th>
                 <th>Channel</th>
                 <th>Item</th>
+                <th>Status</th>
                 <th>Metode</th>
                 <th className={styles.num}>Total</th>
               </tr>
@@ -1016,7 +1021,7 @@ function TxRows({
   if (sales.length === 0) {
     return (
       <tr>
-        <td colSpan={7} className={styles.empty}>Tidak ada transaksi untuk filter ini.</td>
+        <td colSpan={8} className={styles.empty}>Tidak ada transaksi untuk filter ini.</td>
       </tr>
     );
   }
@@ -1026,6 +1031,8 @@ function TxRows({
       {list.map((o) => {
         const d = new Date(o.created_at);
         const items = o.items.map((it) => `${it.name} ×${it.quantity}`).join(", ");
+        const statusLabel =
+          ORDER_STATUS_LABEL[o.status as OrderStatus] ?? o.status ?? "—";
         return (
           <tr key={o.id}>
             <td className={styles.mono} style={{ fontSize: 11 }}>{o.order_number}</td>
@@ -1033,6 +1040,7 @@ function TxRows({
             <td style={{ color: "var(--muted)" }}>{`${pad(d.getHours())}.${pad(d.getMinutes())}`}</td>
             <td>{channelLabelOf(o.order_channel)}</td>
             <td className={styles.txitems}>{items || "—"}</td>
+            <td><span className={styles.paytag}>{statusLabel}</span></td>
             <td><span className={styles.paytag}>{(o.payment_method ?? "—").toUpperCase()}</span></td>
             <td className={styles.num}>{fmt(o.total)}</td>
           </tr>
@@ -1188,11 +1196,12 @@ ${menuRows.map((r) => `<tr><td class="rowname">${escapeHtml(r.name)}</td><td sty
 </tbody></table></div>
 
 <div class="section"><div class="stitle">Daftar Transaksi${sales.length > txCap ? ` (${txCap} dari ${fmtN(sales.length)})` : ""}</div>
-<table style="font-size:11px"><thead><tr><th>No. Pesanan</th><th>Tanggal</th><th>Waktu</th><th>Channel</th><th>Item</th><th>Metode</th><th class="num">Total</th></tr></thead><tbody>
+<table style="font-size:11px"><thead><tr><th>No. Pesanan</th><th>Tanggal</th><th>Waktu</th><th>Channel</th><th>Item</th><th>Status</th><th>Metode</th><th class="num">Total</th></tr></thead><tbody>
 ${txData.map((o) => {
     const d = new Date(o.created_at);
     const items = o.items.map((it) => `${it.name} ×${it.quantity}`).join(", ");
-    return `<tr><td style="font-family:'Space Mono';font-size:10px">${escapeHtml(o.order_number)}</td><td style="color:#6E665B;white-space:nowrap">${shortDate(d)}</td><td style="color:#6E665B">${pad(d.getHours())}.${pad(d.getMinutes())}</td><td>${escapeHtml(channelLabelOf(o.order_channel))}</td><td class="txitems">${escapeHtml(items || "—")}</td><td><span class="paytag">${escapeHtml((o.payment_method ?? "—").toUpperCase())}</span></td><td class="num">${fmt(o.total)}</td></tr>`;
+    const statusLabel = ORDER_STATUS_LABEL[o.status as OrderStatus] ?? o.status ?? "—";
+    return `<tr><td style="font-family:'Space Mono';font-size:10px">${escapeHtml(o.order_number)}</td><td style="color:#6E665B;white-space:nowrap">${shortDate(d)}</td><td style="color:#6E665B">${pad(d.getHours())}.${pad(d.getMinutes())}</td><td>${escapeHtml(channelLabelOf(o.order_channel))}</td><td class="txitems">${escapeHtml(items || "—")}</td><td><span class="paytag">${escapeHtml(statusLabel)}</span></td><td><span class="paytag">${escapeHtml((o.payment_method ?? "—").toUpperCase())}</span></td><td class="num">${fmt(o.total)}</td></tr>`;
   }).join("")}
 </tbody></table></div>
 
