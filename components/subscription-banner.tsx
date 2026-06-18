@@ -48,6 +48,7 @@ export function SubscriptionBanner({ endDate }: Props) {
 
   return (
     <div
+      data-print-hide
       role="status"
       className={cn(
         "border-b px-4 py-2 text-sm flex items-center gap-3",

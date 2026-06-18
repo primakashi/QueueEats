@@ -32,6 +32,7 @@ import {
   type OrderWithItems,
 } from "@/lib/types";
 import { updateOrderStatus } from "./waiter-actions";
+import { openPrintWindow } from "@/lib/print";
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: "pending", label: ORDER_STATUS_LABEL.pending },
@@ -86,7 +87,16 @@ function usePrintTicket(orderId: string) {
   );
   function print() {
     const url = `/kitchen/${orderId}/print${printed ? "?reprint=1" : ""}`;
-    window.open(url, "_blank", "width=420,height=700,toolbar=0,menubar=0");
+    const opened = openPrintWindow(url);
+    if (!opened) {
+      // Popup blocked — don't mark as printed; let the user retry after they
+      // grant popup permission. Otherwise the button silently flips to
+      // "Cetak ulang" and the cashier never realises nothing came out.
+      toast.error(
+        "Browser memblokir jendela cetak. Aktifkan popup untuk situs ini, lalu coba lagi.",
+      );
+      return;
+    }
     markPrinted(orderId);
     setBump((b) => b + 1);
   }

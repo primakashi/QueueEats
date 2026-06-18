@@ -22,6 +22,7 @@ export function NetworkStatusBanner() {
 
   return (
     <div
+      data-print-hide
       role="alert"
       className="fixed top-0 inset-x-0 z-50 flex items-center justify-center gap-2 bg-destructive text-destructive-foreground text-sm py-2 px-4"
     >

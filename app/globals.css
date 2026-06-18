@@ -163,3 +163,24 @@
     transform: translateX(100%) scaleX(0.4);
   }
 }
+
+/*
+ * Print stylesheet — receipt + kitchen ticket pages render inside the (app)
+ * route group, so the AppShell sidebar, mobile header, and floating banners
+ * are in the DOM during printing. Without this rule a thermal printer would
+ * waste paper rendering app chrome before the actual receipt content.
+ * Elements opt in by setting `data-print-hide`.
+ */
+@media print {
+  [data-print-hide] {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    background: white !important;
+  }
+  html,
+  body {
+    background: white !important;
+  }
+}

@@ -22,6 +22,7 @@ import { PAYMENT_DESTINATION_GROUPS } from "@/lib/types";
 import type { Order } from "@/lib/types";
 import { confirmPayment } from "../actions";
 import { FullScreenLoading } from "@/components/full-screen-loading";
+import { openPrintWindow } from "@/lib/print";
 
 function methodFromDestination(destination: string): "cash" | "edc" {
   return destination === "Tunai" ? "cash" : "edc";
@@ -69,13 +70,14 @@ export function PaymentPanel({ order }: { order: Order }) {
         </div>
         <button
           type="button"
-          onClick={() =>
-            window.open(
-              `/cashier/${order.id}/print`,
-              "_blank",
-              "width=420,height=700,toolbar=0,menubar=0",
-            )
-          }
+          onClick={() => {
+            const ok = openPrintWindow(`/cashier/${order.id}/print`);
+            if (!ok) {
+              toast.error(
+                "Browser memblokir jendela cetak. Aktifkan popup untuk situs ini, lalu coba lagi.",
+              );
+            }
+          }}
           className="inline-flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto mt-1"
         >
           <Printer className="h-4 w-4" /> Cetak struk

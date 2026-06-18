@@ -14,6 +14,7 @@ import {
   Radio,
   Scale,
   Menu as MenuIcon,
+  Printer,
   Tag,
   UtensilsCrossed,
   Users,
@@ -81,6 +82,7 @@ const NAV_ITEMS: NavItem[] = [
   { section: "Administrasi", href: "/admin/outlets", label: "Outlet", icon: Building2, roles: ["admin", "owner"] },
   { section: "Administrasi", href: "/admin/channels", label: "Kanal & Pembayaran", icon: Radio, roles: ["admin", "owner"] },
   { section: "Administrasi", href: "/admin/log", label: "Log", icon: ScrollText, roles: ["admin", "owner", "finance", "branch_manager"] },
+  { section: "Administrasi", href: "/admin/print-test", label: "Tes Printer", icon: Printer, roles: ["admin", "owner", "branch_manager"] },
 
   // Manajemen
   { section: "Manajemen", href: "/admin/ringkasan-bisnis", label: "Ringkasan Bisnis", icon: TrendingUp, roles: ["owner"] },
@@ -111,6 +113,7 @@ export function AppShell({
         normal scrolling document with left padding on lg+.
       */}
       <aside
+        data-print-hide
         className={cn(
           "hidden border-r bg-background lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:flex-col lg:overflow-y-auto",
           "lg:transition-[width] lg:duration-200 lg:ease-out",
@@ -133,7 +136,10 @@ export function AppShell({
           sidebarCollapsed ? "lg:pl-20" : "lg:pl-60",
         )}
       >
-        <header className="lg:hidden sticky top-0 z-40 flex shrink-0 items-center justify-between gap-2 border-b bg-background/95 backdrop-blur px-4 py-3">
+        <header
+          data-print-hide
+          className="lg:hidden sticky top-0 z-40 flex shrink-0 items-center justify-between gap-2 border-b bg-background/95 backdrop-blur px-4 py-3"
+        >
           <Sheet>
             <SheetTrigger
               render={
