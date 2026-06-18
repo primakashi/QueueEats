@@ -91,18 +91,22 @@ export async function createOrder(
     const stockByItem = new Map(
       ((stockRows ?? []) as Array<{ id: string; menu_item_id: string }>).map((r) => [r.menu_item_id, r.id]),
     );
-    for (const it of input.items) {
-      const dsId = stockByItem.get(it.menu_item_id);
-      if (!dsId) continue;
-      await supabase.rpc("adjust_daily_stock", {
-        p_daily_stock_id: dsId,
-        p_change: -it.quantity,
-        p_reason: "sale",
-        p_order_id: order.id,
-        p_notes: null,
-        p_actor: profile.id,
-      });
-    }
+    await Promise.all(
+      input.items.flatMap((it) => {
+        const dsId = stockByItem.get(it.menu_item_id);
+        if (!dsId) return [];
+        return [
+          supabase.rpc("adjust_daily_stock", {
+            p_daily_stock_id: dsId,
+            p_change: -it.quantity,
+            p_reason: "sale",
+            p_order_id: order.id,
+            p_notes: null,
+            p_actor: profile.id,
+          }),
+        ];
+      }),
+    );
   }
 
   // Apply restaurant-level tax/service if configured. Service charge applies

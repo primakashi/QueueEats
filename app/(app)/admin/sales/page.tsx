@@ -102,7 +102,7 @@ export default async function AdminSalesPage({ searchParams }: Props) {
 
   let sessionsQuery = supabase
     .from("cashier_sessions")
-    .select("*")
+    .select("*, cash_movements ( id, session_id, type, amount, created_at )")
     .gte("session_date", cutoffDate)
     .order("session_date", { ascending: false });
   if (outletFilter) sessionsQuery = sessionsQuery.eq("outlet_id", outletFilter);
@@ -124,15 +124,17 @@ export default async function AdminSalesPage({ searchParams }: Props) {
     sessionsQuery,
   ]);
 
-  const sessions = (sessionsRaw ?? []) as CashierSession[];
-  let movements: CashMovement[] = [];
-  if (sessions.length > 0) {
-    const { data: movementsRaw } = await supabase
-      .from("cash_movements")
-      .select("*")
-      .in("session_id", sessions.map((s) => s.id));
-    movements = (movementsRaw ?? []) as CashMovement[];
-  }
+  const sessionsRawTyped = (sessionsRaw ?? []) as Array<
+    CashierSession & { cash_movements?: CashMovement[] | null }
+  >;
+  const movements: CashMovement[] = sessionsRawTyped.flatMap(
+    (s) => s.cash_movements ?? [],
+  );
+  const sessions: CashierSession[] = sessionsRawTyped.map((s) => {
+    const { cash_movements, ...rest } = s;
+    void cash_movements;
+    return rest;
+  });
 
   const orders: SalesOrder[] = (ordersRaw ?? []).map((o: Record<string, unknown>) => ({
     id: o.id as string,

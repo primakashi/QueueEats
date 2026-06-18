@@ -44,7 +44,9 @@ export default async function CashierPage() {
 
   let query = supabase
     .from("orders")
-    .select("*")
+    .select(
+      "id, order_number, total, payment_method, payment_status, status, service_type, table_number, customer_name, outlet_id, created_at",
+    )
     .neq("status", "cancelled")
     .gte("created_at", today.toISOString())
     .order("created_at", { ascending: false });

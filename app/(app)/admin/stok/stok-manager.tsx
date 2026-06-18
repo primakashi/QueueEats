@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Check,
@@ -335,8 +336,14 @@ function StokRow({ item }: { item: StockSnapshot["items"][number] }) {
         <div className="flex items-center gap-3">
           <div className="size-10 rounded-md bg-muted/40 border grid place-items-center shrink-0 overflow-hidden">
             {item.menu_item.image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={item.menu_item.image_url} alt={item.menu_item.name} className="size-10 object-cover" />
+              <Image
+                src={item.menu_item.image_url}
+                alt={item.menu_item.name}
+                width={40}
+                height={40}
+                sizes="40px"
+                className="size-10 object-cover"
+              />
             ) : (
               <ImageIcon className="size-4 text-muted-foreground/50" />
             )}

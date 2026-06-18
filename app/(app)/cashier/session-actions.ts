@@ -185,7 +185,7 @@ export async function getSessionSummary(sessionId: string): Promise<{
   const [{ data: movements }, { data: session }] = await Promise.all([
     admin
       .from("cash_movements")
-      .select("*")
+      .select("id, session_id, type, amount, created_at")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true }),
     admin
