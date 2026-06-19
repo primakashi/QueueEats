@@ -16,13 +16,13 @@ const OPTIONS: Array<{
   {
     id: "standard",
     label: "Standar",
-    desc: "Pesanan melalui dapur: Menunggu → Dimasak → Siap → Selesai.",
+    desc: "Pesanan melalui dapur: Baru → Diterima → Diproses → Siap → Selesai.",
     Icon: ChefHat,
   },
   {
     id: "no_kitchen",
     label: "Tanpa dapur",
-    desc: "Tidak ada langkah dimasak. Pesanan langsung: Menunggu → Siap → Selesai.",
+    desc: "Tidak ada langkah diproses. Pesanan langsung: Baru → Diterima → Siap → Selesai.",
     Icon: Hand,
   },
 ];

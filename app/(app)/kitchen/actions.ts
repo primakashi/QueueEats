@@ -6,9 +6,13 @@ import { requireRole } from "@/lib/auth";
 import type { OrderStatus } from "@/lib/types";
 import { ORDER_STATUS_LABEL } from "@/lib/types";
 
+// Kitchen no longer sees pending orders — waiter must accept first. Once
+// preparing, the kitchen owns the order: cancellation has to go via reopen/
+// admin so wasted prep is recorded.
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  pending: ["preparing", "cancelled"],
-  preparing: ["ready", "cancelled"],
+  pending: [],
+  accepted: ["preparing"],
+  preparing: ["ready"],
   ready: ["completed"],
   completed: [],
   cancelled: [],

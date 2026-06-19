@@ -32,7 +32,10 @@ import type {
 } from "@/lib/types";
 import { updateOrderStatus } from "./actions";
 
-const KITCHEN_STATUSES: OrderStatus[] = ["pending", "preparing", "ready"];
+// Kitchen only sees orders the waiter has explicitly accepted (acknowledged
+// the ticket). Pending is intentionally excluded so dapur never starts on an
+// order that FOH hasn't confirmed yet.
+const KITCHEN_STATUSES: OrderStatus[] = ["accepted", "preparing", "ready"];
 
 /** Realtime patches sometimes omit unchanged columns — infer when missing. */
 function resolveServiceType(
@@ -117,6 +120,27 @@ export function KitchenBoard({
           async (payload) => {
             const updated = payload.new as Order;
             const patch = updated as Record<string, unknown>;
+            // Orders typically appear in the kitchen via UPDATE (pending→accepted
+            // when the waiter accepts) rather than INSERT, so when the status
+            // transitions into the kitchen window and we don't yet have the
+            // row, fetch it.
+            if (
+              KITCHEN_STATUSES.includes(updated.status) &&
+              !notifiedIds.current.has(updated.id)
+            ) {
+              notifiedIds.current.add(updated.id);
+              const full = await fetchFullOrder(updated.id);
+              if (full && KITCHEN_STATUSES.includes(full.status)) {
+                toast.success(`Pesanan baru ${full.order_number}`);
+                setOrders((prev) => {
+                  if (prev.some((o) => o.id === full.id)) return prev;
+                  return [...prev, full].sort((a, b) =>
+                    a.created_at.localeCompare(b.created_at),
+                  );
+                });
+              }
+              return;
+            }
             setOrders((prev) => {
               if (!KITCHEN_STATUSES.includes(updated.status)) {
                 return prev.filter((o) => o.id !== updated.id);
@@ -188,7 +212,7 @@ export function KitchenBoard({
     ? orders.filter((o) => o.outlet_id === selectedOutletId)
     : orders;
 
-  const pending = visibleOrders.filter((o) => o.status === "pending");
+  const accepted = visibleOrders.filter((o) => o.status === "accepted");
   const preparing = visibleOrders.filter((o) => o.status === "preparing");
   const ready = visibleOrders.filter((o) => o.status === "ready");
 
@@ -225,19 +249,19 @@ export function KitchenBoard({
     )}
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <Column
-        title="Pesanan baru"
+        title="Diterima"
         icon={<Clock className="h-4 w-4" />}
-        count={pending.length}
-        accent="bg-slate-200 text-slate-900"
+        count={accepted.length}
+        accent="bg-blue-500 text-white"
       >
-        {pending.length === 0 ? (
-          <EmptyColumn label="Belum ada pesanan baru" />
+        {accepted.length === 0 ? (
+          <EmptyColumn label="Belum ada pesanan diterima" />
         ) : (
-          pending.map((o) => <OrderCard key={o.id} order={o} now={now} />)
+          accepted.map((o) => <OrderCard key={o.id} order={o} now={now} />)
         )}
       </Column>
       <Column
-        title="Dimasak"
+        title="Diproses"
         icon={<ChefHat className="h-4 w-4" />}
         count={preparing.length}
         accent="bg-amber-500 text-white"
@@ -402,7 +426,7 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
         </div>
       )}
 
-      {order.status === "pending" && (
+      {order.status === "accepted" && (
         <div className="flex gap-2 pt-1">
           <Button
             className="flex-1 h-10 touch-manipulation"

@@ -4,6 +4,8 @@ export function statusColor(s: OrderStatus): string {
   switch (s) {
     case "pending":
       return "bg-slate-200 text-slate-900 hover:bg-slate-200";
+    case "accepted":
+      return "bg-blue-500 text-white hover:bg-blue-500";
     case "preparing":
       return "bg-amber-500 text-white hover:bg-amber-500";
     case "ready":

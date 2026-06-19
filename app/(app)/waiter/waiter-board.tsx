@@ -37,16 +37,29 @@ import { openPrintWindow } from "@/lib/print";
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: "pending", label: ORDER_STATUS_LABEL.pending },
+  { value: "accepted", label: ORDER_STATUS_LABEL.accepted },
   { value: "preparing", label: ORDER_STATUS_LABEL.preparing },
   { value: "ready", label: ORDER_STATUS_LABEL.ready },
   { value: "completed", label: ORDER_STATUS_LABEL.completed },
 ];
 
-const NEXT_STATUS: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {
-  pending: { next: "preparing", label: "Konfirmasi" },
-  preparing: { next: "ready", label: "Siap" },
-  ready: { next: "completed", label: "Selesai" },
-};
+// Per-status "advance" button the waiter can press. In standard (kitchen)
+// mode the accepted→preparing step is owned by the kitchen, so no advance
+// button is shown to the waiter for accepted orders. In no_kitchen mode the
+// waiter owns every transition.
+function nextStatusForWaiter(
+  status: OrderStatus,
+  workflow: OrderWorkflowMode,
+): { next: OrderStatus; label: string } | undefined {
+  if (status === "pending") return { next: "accepted", label: "Terima" };
+  if (status === "accepted") {
+    if (workflow === "no_kitchen") return { next: "ready", label: "Siap" };
+    return undefined; // kitchen owns the next step
+  }
+  if (status === "preparing") return { next: "ready", label: "Siap" };
+  if (status === "ready") return { next: "completed", label: "Selesai" };
+  return undefined;
+}
 
 const PRINTED_KEY = "waiter-printed-orders";
 
@@ -340,7 +353,7 @@ function OrderCard({
   requiresAcceptance: boolean;
   orderWorkflow: OrderWorkflowMode;
 }) {
-  const advance = NEXT_STATUS[o.status];
+  const advance = nextStatusForWaiter(o.status, orderWorkflow);
   const { printed, print } = usePrintTicket(o.id);
   const channelKind = o.order_channel
     ? channelKindByName[o.order_channel.toLowerCase()] ?? null
@@ -448,7 +461,7 @@ function OrderRow({
   requiresAcceptance: boolean;
   orderWorkflow: OrderWorkflowMode;
 }) {
-  const advance = NEXT_STATUS[o.status];
+  const advance = nextStatusForWaiter(o.status, orderWorkflow);
   const itemSummary = o.order_items
     .slice(0, 3)
     .map((i) => `${i.quantity}× ${i.name_snapshot}`)
@@ -528,6 +541,9 @@ function OrderRow({
 
 // Renders the per-order action buttons. Behaviour depends on (a) the channel's
 // requires_acceptance flag and (b) the restaurant's order_workflow mode.
+// Cancellation is exposed on requires_acceptance channels for pending and
+// accepted orders only — matches the tightened cancel window in the state
+// machine (preparing/ready can't be cancelled by the waiter).
 function PendingActions({
   status,
   isBusy,
@@ -543,13 +559,19 @@ function PendingActions({
   advance: { next: OrderStatus; label: string } | undefined;
   onAdvance: (next: OrderStatus) => void;
 }) {
+  const showReject =
+    requiresAcceptance && (status === "pending" || status === "accepted");
+
   if (status === "pending") {
-    // Accept/Reject mode for online channels that gate on staff confirmation.
-    if (requiresAcceptance) {
-      const acceptNext: OrderStatus = orderWorkflow === "no_kitchen" ? "ready" : "preparing";
-      const acceptLabel = orderWorkflow === "no_kitchen" ? "Terima · Siap" : "Terima";
-      return (
-        <div className="flex gap-1.5">
+    // Standard mode (no acceptance gate) also gets a skip-kitchen shortcut,
+    // useful for drinks/desserts that don't need dapur. The shortcut bypasses
+    // the accepted stage entirely — that's intentional, it's a power-user
+    // path.
+    const showSkipKitchen =
+      !requiresAcceptance && orderWorkflow === "standard";
+    return (
+      <div className="flex gap-1.5">
+        {showReject && (
           <Button
             size="sm"
             variant="ghost"
@@ -559,44 +581,48 @@ function PendingActions({
           >
             {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Tolak"}
           </Button>
+        )}
+        {showSkipKitchen && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={isBusy}
+            onClick={() => onAdvance(SKIP_KITCHEN.next)}
+            className="h-7 text-xs text-muted-foreground"
+          >
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : SKIP_KITCHEN.label}
+          </Button>
+        )}
+        {advance && (
           <Button
             size="sm"
             disabled={isBusy}
-            onClick={() => onAdvance(acceptNext)}
+            onClick={() => onAdvance(advance.next)}
             className="h-7 text-xs"
           >
-            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : acceptLabel}
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
           </Button>
-        </div>
-      );
-    }
-    // No-kitchen mode: only show the direct-to-ready button.
-    if (orderWorkflow === "no_kitchen") {
-      return (
-        <div className="flex gap-1.5">
-          <Button
-            size="sm"
-            disabled={isBusy}
-            onClick={() => onAdvance("ready")}
-            className="h-7 text-xs"
-          >
-            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Siap"}
-          </Button>
-        </div>
-      );
-    }
-    // Standard workflow: skip-kitchen shortcut + advance to preparing.
+        )}
+      </div>
+    );
+  }
+
+  if (status === "accepted") {
+    // Standard mode: no advance button (kitchen owns accepted→preparing).
+    // Still let online channels reject if customer cancels before cooking.
     return (
       <div className="flex gap-1.5">
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={isBusy}
-          onClick={() => onAdvance(SKIP_KITCHEN.next)}
-          className="h-7 text-xs text-muted-foreground"
-        >
-          {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : SKIP_KITCHEN.label}
-        </Button>
+        {showReject && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={isBusy}
+            onClick={() => onAdvance("cancelled")}
+            className="h-7 text-xs text-destructive hover:text-destructive"
+          >
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Batalkan"}
+          </Button>
+        )}
         {advance && (
           <Button
             size="sm"
@@ -611,7 +637,8 @@ function PendingActions({
       </div>
     );
   }
-  // Non-pending: standard advance button only.
+
+  // preparing / ready: only advance, no cancel.
   if (!advance) return null;
   return (
     <div className="flex gap-1.5">

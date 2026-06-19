@@ -27,6 +27,21 @@ export default async function KitchenTicketPage({ params, searchParams }: Props)
 
   if (!order) notFound();
 
+  // For add-on orders, surface the parent's number + table on the ticket so
+  // dapur knows which existing pesanan to attach the items to.
+  let parent: { order_number: string; table_number: string | null } | null = null;
+  const parentId = (order as Order).parent_order_id;
+  if (parentId) {
+    const { data: parentRow } = await supabase
+      .from("orders")
+      .select("order_number, table_number")
+      .eq("id", parentId)
+      .maybeSingle();
+    if (parentRow) {
+      parent = parentRow as { order_number: string; table_number: string | null };
+    }
+  }
+
   return (
     <>
       <AutoPrint />
@@ -34,6 +49,7 @@ export default async function KitchenTicketPage({ params, searchParams }: Props)
         order={order as Order}
         items={(items ?? []) as OrderItem[]}
         isReprint={reprint === "1"}
+        parent={parent}
       />
     </>
   );

@@ -5,6 +5,9 @@ type Props = {
   order: Order;
   items: OrderItem[];
   isReprint?: boolean;
+  /** When the order is an add-on (parent_order_id set), the parent's number
+   *  and table so the dapur knows which existing pesanan to add to. */
+  parent?: { order_number: string; table_number: string | null } | null;
 };
 
 /*
@@ -16,8 +19,10 @@ export function KitchenTicketDocument({
   order: o,
   items: orderItems,
   isReprint = false,
+  parent = null,
 }: Props) {
   const serviceLabel = o.service_type === "takeaway" ? "BUNGKUS" : "DINE-IN";
+  const isAddon = !!parent;
 
   return (
     <>
@@ -54,6 +59,25 @@ export function KitchenTicketDocument({
             </div>
           )}
         </div>
+
+        {isAddon && parent && (
+          <div
+            style={{
+              border: "2px solid #000",
+              padding: "4px 6px",
+              textAlign: "center",
+              marginBottom: "6px",
+            }}
+          >
+            <div style={{ fontWeight: "bold", fontSize: "13px" }}>
+              ** PESANAN TAMBAHAN **
+            </div>
+            <div style={{ fontSize: "11px", marginTop: "2px" }}>
+              utk #{parent.order_number}
+              {parent.table_number?.trim() ? ` · Meja ${parent.table_number}` : ""}
+            </div>
+          </div>
+        )}
 
         <Divider />
 

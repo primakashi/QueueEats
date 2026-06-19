@@ -2,6 +2,7 @@ export type UserRole = "waiter" | "kitchen" | "cashier" | "admin" | "owner" | "b
 
 export type OrderStatus =
   | "pending"
+  | "accepted"
   | "preparing"
   | "ready"
   | "completed"
@@ -469,8 +470,9 @@ export const HQ_ROLES: UserRole[] = ["admin", "owner", "finance"];
 export const BRANCH_ROLES: UserRole[] = ["branch_manager", "cashier", "waiter", "kitchen"];
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: "Menunggu",
-  preparing: "Dimasak",
+  pending: "Pesanan baru",
+  accepted: "Diterima",
+  preparing: "Diproses",
   ready: "Siap",
   completed: "Selesai",
   cancelled: "Dibatalkan",

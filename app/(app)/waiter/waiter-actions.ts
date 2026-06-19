@@ -49,9 +49,14 @@ async function restoreStockForOrder(
   }
 }
 
+// Cancellation is tightened to pending/accepted only — once the kitchen
+// starts cooking, scrapping the order has to go through reopen/admin to make
+// waste accountable. The pending→ready jump is the "Langsung siap" shortcut
+// kept for power users in standard mode.
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  pending: ["preparing", "ready", "completed", "cancelled"],
-  preparing: ["ready", "completed", "cancelled"],
+  pending: ["accepted", "ready", "cancelled"],
+  accepted: ["preparing", "ready", "cancelled"],
+  preparing: ["ready"],
   ready: ["completed"],
   completed: [],
   cancelled: [],
