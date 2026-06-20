@@ -1,63 +1,43 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { PROFILE_COOKIE } from "@/lib/auth";
 
+function isPublicPath(pathname: string): boolean {
+  if (pathname.startsWith("/login")) return true;
+  if (pathname === "/") return true;
+  if (pathname === "/menu" || pathname.startsWith("/menu/")) return true;
+  if (pathname.startsWith("/pay/")) return true;
+  if (pathname.startsWith("/_next")) return true;
+  if (pathname.startsWith("/api/xendit")) return true;
+  if (pathname === "/favicon.ico") return true;
+
+  // Public queue surfaces
+  if (pathname === "/queue" || pathname === "/queue/join") return true;
+  if (/^\/queue\/[^/]+$/.test(pathname)) return true;
+  if (pathname === "/api/queue" || pathname === "/api/queue/list") return true;
+  if (/^\/api\/queue\/[^/]+$/.test(pathname)) return true;
+  if (/^\/api\/queue\/[^/]+\/cancel$/.test(pathname)) return true;
+
+  return false;
+}
+
+// Pure cookie-gate middleware: no network. Supabase JWT refresh happens
+// inside @supabase/ssr clients on demand during actual queries, and RLS
+// enforces real authorization. The qe_profile cookie is httpOnly+secure
+// and only set after a successful login, so its presence is a sufficient
+// "is logged in" hint for routing.
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const { pathname } = request.nextUrl;
-  const isAuthRoute = pathname.startsWith("/login");
-  const isQueuePublicPage =
-    pathname === "/queue" ||
-    pathname === "/queue/join" ||
-    /^\/queue\/[^/]+$/.test(pathname);
-  const isQueuePublicApi =
-    pathname === "/api/queue" ||
-    pathname === "/api/queue/list" ||
-    /^\/api\/queue\/[^/]+$/.test(pathname) ||
-    /^\/api\/queue\/[^/]+\/cancel$/.test(pathname);
-  const isPublicRoute =
-    isAuthRoute ||
-    pathname === "/" ||
-    pathname === "/menu" ||
-    pathname.startsWith("/menu/") ||
-    pathname.startsWith("/pay/") ||
-    isQueuePublicPage ||
-    isQueuePublicApi ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api/xendit") ||
-    pathname === "/favicon.ico";
 
-  if (!user && !isPublicRoute) {
+  if (isPublicPath(pathname)) {
+    return NextResponse.next({ request });
+  }
+
+  if (!request.cookies.get(PROFILE_COOKIE)?.value) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
 
-  return response;
+  return NextResponse.next({ request });
 }
