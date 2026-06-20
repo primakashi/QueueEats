@@ -82,7 +82,7 @@ const NAV_ITEMS: NavItem[] = [
   { section: "Administrasi", href: "/admin/outlets", label: "Outlet", icon: Building2, roles: ["admin", "owner"] },
   { section: "Administrasi", href: "/admin/channels", label: "Kanal & Pembayaran", icon: Radio, roles: ["admin", "owner"] },
   { section: "Administrasi", href: "/admin/log", label: "Log", icon: ScrollText, roles: ["admin", "owner", "finance", "branch_manager"] },
-  { section: "Administrasi", href: "/admin/print-test", label: "Tes Printer", icon: Printer, roles: ["admin", "owner", "branch_manager"] },
+  // { section: "Administrasi", href: "/admin/print-test", label: "Tes Printer", icon: Printer, roles: ["admin", "owner", "branch_manager"] },
 
   // Manajemen
   { section: "Manajemen", href: "/admin/ringkasan-bisnis", label: "Ringkasan Bisnis", icon: TrendingUp, roles: ["owner"] },
