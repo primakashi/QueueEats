@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import { formatIDR, formatDateTime } from "@/lib/format";
 import {
@@ -38,7 +39,9 @@ export default async function CashierOrderPage({ params }: Props) {
   let menuQuery = supabase.from("menu_items").select("id, name, price, is_available").eq("is_available", true);
   if (rid) menuQuery = menuQuery.eq("restaurant_id", rid);
 
-  let discountsQuery = supabase.from("discounts").select("*").eq("is_active", true);
+  // Use service role for discounts so RLS doesn't block cashier/waiter reads.
+  const adminDb = createAdminClient();
+  let discountsQuery = adminDb.from("discounts").select("*").eq("is_active", true);
   if (rid) discountsQuery = discountsQuery.eq("restaurant_id", rid);
 
   const [{ data: order }, { data: items }, { data: menuItems }, { data: appliedRaw }, { data: catalogRaw }] =
@@ -197,7 +200,7 @@ export default async function CashierOrderPage({ params }: Props) {
           )}
         </Card>
 
-        <div className="min-w-0">
+        <div className="min-w-0 md:sticky md:top-4 md:self-start">
           <PaymentPanel order={typed} />
         </div>
       </div>

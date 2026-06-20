@@ -357,7 +357,12 @@ function OpeningStage({
 function OpeningRow({ item }: { item: StockSnapshot["items"][number] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [openingStr, setOpeningStr] = useState<string>(item.daily_stock.opening_stock.toString());
+  // Autofill: if opening_stock was never manually set (equals quota or is 0),
+  // initialise the input with the effective_quota so staff can see the default.
+  const initialValue = item.daily_stock.opening_stock > 0
+    ? item.daily_stock.opening_stock.toString()
+    : (item.effective_quota ?? 0).toString();
+  const [openingStr, setOpeningStr] = useState<string>(initialValue);
   const confirmed = !!item.daily_stock.confirmed_at;
 
   function persist(next: string) {
@@ -394,13 +399,13 @@ function OpeningRow({ item }: { item: StockSnapshot["items"][number] }) {
             setOpeningStr(next);
             persist(next);
           }}
-          disabled={confirmed || pending}
+          disabled={pending}
         />
       </td>
       <td className="px-3 py-3">
         {confirmed ? (
           <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200 gap-1">
-            <Lock className="size-3" /> Terkunci
+            <Lock className="size-3" /> Dikonfirmasi
           </Badge>
         ) : (
           <Badge variant="outline" className="text-amber-700 bg-amber-50 border-amber-200">

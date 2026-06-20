@@ -597,8 +597,9 @@ export function SalesDashboard({
                 <th>Menu</th>
                 <th>Kategori</th>
                 <th className={styles.num}>Qty terjual</th>
-                <th className={styles.num}>Pendapatan (Rp)</th>
+                <th className={styles.num}>Harga menu</th>
                 <th className={styles.num}>% Pendapatan</th>
+                <th className={styles.num}>Pendapatan (Rp)</th>
                 <th className={styles.num}>Rata-rata/pesanan</th>
               </tr>
             </thead>
@@ -971,11 +972,11 @@ function MenuRows({
   sales: SalesOrder[];
   categoryNameOf: (id: string | null) => string;
 }) {
-  const map = new Map<string, { name: string; qty: number; val: number; orders: Set<string>; menuId: string | null }>();
+  const map = new Map<string, { name: string; qty: number; val: number; orders: Set<string>; menuId: string | null; unitPrice: number }>();
   for (const o of sales) {
     for (const it of o.items) {
       const key = it.menu_item_id ?? `__${it.name}`;
-      const e = map.get(key) ?? { name: it.name, qty: 0, val: 0, orders: new Set<string>(), menuId: it.menu_item_id };
+      const e = map.get(key) ?? { name: it.name, qty: 0, val: 0, orders: new Set<string>(), menuId: it.menu_item_id, unitPrice: it.price };
       e.qty += it.quantity;
       e.val += it.price * it.quantity;
       e.orders.add(o.id);
@@ -987,7 +988,7 @@ function MenuRows({
   if (rows.length === 0) {
     return (
       <tr>
-        <td colSpan={6} className={styles.empty}>Tidak ada data.</td>
+        <td colSpan={7} className={styles.empty}>Tidak ada data.</td>
       </tr>
     );
   }
@@ -1001,8 +1002,9 @@ function MenuRows({
             <td className={styles.rowname}>{r.name}</td>
             <td style={{ color: "var(--muted)", fontSize: 12 }}>{categoryNameOf(r.menuId)}</td>
             <td className={styles.num}>{fmtN(r.qty)}</td>
-            <td className={styles.num}>{fmt(r.val)}</td>
+            <td className={styles.num}>{fmt(r.unitPrice)}</td>
             <td className={styles.num}>{pct}%</td>
+            <td className={styles.num}>{fmt(r.val)}</td>
             <td className={styles.num}>{fmt(avg)}</td>
           </tr>
         );
@@ -1082,11 +1084,11 @@ function doExport(args: {
   }
 
   // Per menu
-  const menuMap = new Map<string, { name: string; qty: number; val: number; menuId: string | null }>();
+  const menuMap = new Map<string, { name: string; qty: number; val: number; menuId: string | null; unitPrice: number }>();
   for (const o of sales) {
     for (const it of o.items) {
       const k = it.menu_item_id ?? `__${it.name}`;
-      const e = menuMap.get(k) ?? { name: it.name, qty: 0, val: 0, menuId: it.menu_item_id };
+      const e = menuMap.get(k) ?? { name: it.name, qty: 0, val: 0, menuId: it.menu_item_id, unitPrice: it.price };
       e.qty += it.quantity;
       e.val += it.price * it.quantity;
       menuMap.set(k, e);
@@ -1191,8 +1193,8 @@ ${chanRows.map((r) => `<div class="bar-row"><span class="lab">${escapeHtml(r.lab
 <div class="pbreak"></div>
 
 <div class="section"><div class="stitle">Rekap Penjualan per Menu</div>
-<table><thead><tr><th>Menu</th><th>Kategori</th><th class="num">Qty</th><th class="num">Pendapatan</th><th class="num">% Pendapatan</th></tr></thead><tbody>
-${menuRows.map((r) => `<tr><td class="rowname">${escapeHtml(r.name)}</td><td style="color:#6E665B;font-size:11px">${escapeHtml(categoryNameOf(r.menuId))}</td><td class="num">${fmtN(r.qty)}</td><td class="num">${fmt(r.val)}</td><td class="num">${menuTotal ? (r.val / menuTotal * 100).toFixed(1) : "0"}%</td></tr>`).join("")}
+<table><thead><tr><th>Menu</th><th>Kategori</th><th class="num">Qty</th><th class="num">Harga menu</th><th class="num">%</th><th class="num">Pendapatan</th></tr></thead><tbody>
+${menuRows.map((r) => `<tr><td class="rowname">${escapeHtml(r.name)}</td><td style="color:#6E665B;font-size:11px">${escapeHtml(categoryNameOf(r.menuId))}</td><td class="num">${fmtN(r.qty)}</td><td class="num">${fmt(r.unitPrice)}</td><td class="num">${menuTotal ? (r.val / menuTotal * 100).toFixed(1) : "0"}%</td><td class="num">${fmt(r.val)}</td></tr>`).join("")}
 </tbody></table></div>
 
 <div class="section"><div class="stitle">Daftar Transaksi${sales.length > txCap ? ` (${txCap} dari ${fmtN(sales.length)})` : ""}</div>

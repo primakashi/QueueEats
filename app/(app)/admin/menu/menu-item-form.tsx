@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,6 @@ import {
   updateMenuItem,
 } from "@/app/(app)/admin/actions";
 import { startRouteProgress } from "@/components/route-progress";
-import { FullScreenLoading } from "@/components/full-screen-loading";
 import type { MenuCategory, MenuItem, OrderChannelConfig } from "@/lib/types";
 
 const UNCATEGORIZED = "__none__";
@@ -103,16 +101,10 @@ export function MenuItemForm({
 
   return (
     <Card>
-      {pending && (
-        <FullScreenLoading
-          title={
-            item ? "Menyimpan perubahan item menu…" : "Membuat item menu…"
-          }
-        />
-      )}
       <CardContent className="pt-6">
         <form action={onSubmit} className="space-y-5">
           <div className="grid gap-5 md:grid-cols-[1fr_200px]">
+
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nama</Label>
@@ -209,20 +201,6 @@ export function MenuItemForm({
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="sort_order">Urutan tampil</Label>
-                <Input
-                  id="sort_order"
-                  name="sort_order"
-                  type="number"
-                  defaultValue={item?.sort_order ?? 0}
-                  placeholder="0"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Angka lebih kecil tampil lebih dulu. Item dengan angka sama diurutkan A→Z.
-                </p>
-              </div>
-
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -294,12 +272,11 @@ export function MenuItemForm({
               <Label htmlFor="image">Gambar</Label>
               <div className="relative aspect-square rounded-md border border-dashed bg-muted overflow-hidden">
                 {preview ? (
-                  <Image
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={preview}
                     alt="Pratinjau"
-                    fill
-                    sizes="200px"
-                    className="object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
                 ) : (
                   <div className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">

@@ -69,7 +69,7 @@ const NAV_ITEMS: NavItem[] = [
   // Operasional
   // { section: "Operasional", href: "/host", label: "Antrean", icon: Users, roles: OPS_ROLES },
   { section: "Operasional", href: "/waiter", label: "Pesanan", icon: ClipboardList, roles: OPS_ROLES },
-  { section: "Operasional", href: "/kitchen", label: "Dapur", icon: ChefHat, roles: [...OPS_ROLES, "kitchen"] },
+  // { section: "Operasional", href: "/kitchen", label: "Dapur", icon: ChefHat, roles: [...OPS_ROLES, "kitchen"] },
   { section: "Operasional", href: "/cashier", label: "Kasir", icon: CreditCard, roles: OPS_ROLES },
 
   // Katalog & Promosi
@@ -87,7 +87,7 @@ const NAV_ITEMS: NavItem[] = [
   // Manajemen
   { section: "Manajemen", href: "/admin/ringkasan-bisnis", label: "Ringkasan Bisnis", icon: TrendingUp, roles: ["owner"] },
   { section: "Manajemen", href: "/admin/sales", label: "Penjualan", icon: BarChart3, roles: ["admin", "owner", "finance", "branch_manager", "cashier", "waiter"] },
-  { section: "Manajemen", href: "/admin/reconciliation", label: "Rekonsiliasi", icon: Scale, roles: ["admin", "owner", "finance", "branch_manager"] },
+  // { section: "Manajemen", href: "/admin/reconciliation", label: "Rekonsiliasi", icon: Scale, roles: ["admin", "owner", "finance", "branch_manager"] },
 ];
 
 export function AppShell({
@@ -309,14 +309,11 @@ function UserFooter({
 
 function BrandAttribution({ collapsed = false }: { collapsed?: boolean }) {
   return (
-    <div
-      className={cn(
-        "border-t px-3 py-2 flex items-center",
-        collapsed ? "justify-center" : "justify-center gap-2 text-[10px] text-muted-foreground",
+    <div className="border-t px-3 py-2 flex items-center justify-center gap-1.5">
+      {!collapsed && (
+        <span className="text-[10px] text-muted-foreground leading-none">Powered by</span>
       )}
-    >
-      {!collapsed && <span>Powered by</span>}
-      <SolusiSajiMark className={cn("shrink-0 w-auto", collapsed ? "h-3.5" : "h-4")} />
+      <SolusiSajiMark className={cn("shrink-0 w-auto", collapsed ? "h-3" : "h-3.5")} />
     </div>
   );
 }

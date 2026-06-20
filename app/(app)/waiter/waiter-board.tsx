@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   List,
   Loader2,
+  Pencil,
   Plus,
   Printer,
 } from "lucide-react";
@@ -389,6 +390,16 @@ function OrderCard({
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-center gap-1">
             <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              render={<Link href={`/cashier/${o.id}`} />}
+              title="Edit pesanan"
+              aria-label="Edit pesanan"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
               type="button"
               size="icon"
               variant="ghost"
@@ -487,6 +498,16 @@ function OrderRow({
   return (
     <Card className={`px-4 py-3 gap-0 transition-opacity ${isBusy ? "opacity-60" : ""}`}>
       <div className="flex items-center gap-3 flex-wrap">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6 shrink-0"
+          render={<Link href={`/cashier/${o.id}`} />}
+          title="Edit pesanan"
+          aria-label="Edit pesanan"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
         <Button
           type="button"
           size="icon"

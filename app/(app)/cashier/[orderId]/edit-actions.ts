@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
 import type { DiscountScope, DiscountValueType } from "@/lib/types";
 
@@ -341,7 +342,8 @@ export async function autoApplyDailyDiscounts(
   if (order.payment_status === "paid") return { ok: true, applied: 0 };
 
   const today = new Date().toISOString().slice(0, 10);
-  let q = supabase
+  const adminDb = createAdminClient();
+  let q = adminDb
     .from("discounts")
     .select("id, name, value_type, value, active_from, active_until")
     .eq("scope", "daily")

@@ -232,8 +232,10 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
   const price = Number(formData.get("price") ?? 0);
   const costRaw = formData.get("cost_price");
   const cost_price = costRaw == null || costRaw === "" ? null : Number(costRaw);
-  const sortRaw = Number(formData.get("sort_order") ?? 0);
-  const sort_order = Number.isFinite(sortRaw) ? Math.trunc(sortRaw) : 0;
+  const sortRawEntry = formData.get("sort_order");
+  const sort_order = sortRawEntry != null
+    ? (Number.isFinite(Number(sortRawEntry)) ? Math.trunc(Number(sortRawEntry)) : null)
+    : null;
   const category_id = String(formData.get("category_id") ?? "") || null;
   const is_available = formData.get("is_available") === "on";
   const imageFile = formData.get("image") as File | null;
@@ -248,57 +250,72 @@ export async function updateMenuItem(formData: FormData): Promise<Result> {
   const rid = getRestaurantFilter(profile);
   const supabase = await createClient();
 
+  // Fetch existing (for audit) and upload image in parallel.
   let existingQ = supabase.from("menu_items").select("name, price").eq("id", id);
   if (rid) existingQ = existingQ.eq("restaurant_id", rid);
-  const { data: existing } = await existingQ.single();
+  const imageUploadPromise =
+    imageFile && imageFile.size > 0
+      ? uploadImage(imageFile).catch((e: unknown) => { throw e; })
+      : Promise.resolve(null);
+
+  let existing: { name: string; price: number } | null = null;
+  let image_url: string | null = null;
+  try {
+    [{ data: existing }, image_url] = await Promise.all([existingQ.single(), imageUploadPromise]);
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
 
   const update: Record<string, unknown> = {
     name,
     description,
     price,
     cost_price,
-    sort_order,
     category_id,
     is_available,
     commission_rate: parseCommissionPercent(formData.get("commission_rate")),
+    ...(sort_order !== null ? { sort_order } : {}),
+    ...(image_url ? { image_url } : {}),
   };
 
-  if (imageFile && imageFile.size > 0) {
-    try {
-      update.image_url = await uploadImage(imageFile);
-    } catch (e) {
-      return { ok: false, error: (e as Error).message };
-    }
-  }
-
+  // Run DB update and channel delete in parallel.
   let updateQ = supabase.from("menu_items").update(update).eq("id", id);
   if (rid) updateQ = updateQ.eq("restaurant_id", rid);
-  const { error } = await updateQ;
-  if (error) return { ok: false, error: error.message };
+  const [updateResult] = await Promise.all([
+    updateQ,
+    supabase.from("menu_item_channels").delete().eq("menu_item_id", id),
+  ]);
+  if (updateResult.error) return { ok: false, error: updateResult.error.message };
 
   // Channel assignment (F01). Diff-replace: empty list = available everywhere.
   const channelIds = formData.getAll("channel_ids").map((v) => String(v)).filter(Boolean);
-  await supabase.from("menu_item_channels").delete().eq("menu_item_id", id);
-  if (channelIds.length > 0) {
-    const rows = channelIds.map((channel_id) => ({ menu_item_id: id, channel_id }));
-    const { error: chErr } = await supabase.from("menu_item_channels").insert(rows);
-    if (chErr) return { ok: false, error: chErr.message };
+  const auditChanges: { field: string; oldValue: string | null; newValue: string | null }[] = [];
+  if (existing) {
+    if (existing.price !== price)
+      auditChanges.push({ field: "price", oldValue: String(existing.price), newValue: String(price) });
+    if (existing.name !== name)
+      auditChanges.push({ field: "name", oldValue: existing.name, newValue: name });
   }
 
-  if (existing) {
-    const changes: { field: string; oldValue: string | null; newValue: string | null }[] = [];
-    if (existing.price !== price)
-      changes.push({ field: "price", oldValue: String(existing.price), newValue: String(price) });
-    if (existing.name !== name)
-      changes.push({ field: "name", oldValue: existing.name, newValue: name });
-    if (changes.length > 0) {
-      await logAudit(profile, {
-        table: "menu_items",
-        recordId: id,
-        entityName: name,
-        action: "update",
-        changes,
-      });
+  // Re-insert channels and log audit in parallel.
+  const tasks: Promise<unknown>[] = [];
+  if (channelIds.length > 0) {
+    const rows = channelIds.map((channel_id) => ({ menu_item_id: id, channel_id }));
+    tasks.push(
+      (async () => {
+        const { error: chErr } = await supabase.from("menu_item_channels").insert(rows);
+        if (chErr) throw new Error(chErr.message);
+      })(),
+    );
+  }
+  if (auditChanges.length > 0) {
+    tasks.push(logAudit(profile, { table: "menu_items", recordId: id, entityName: name, action: "update", changes: auditChanges }));
+  }
+  if (tasks.length > 0) {
+    try {
+      await Promise.all(tasks);
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
     }
   }
 

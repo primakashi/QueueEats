@@ -251,10 +251,8 @@ export async function updateOpeningStock(
     .eq("id", dailyStockId)
     .maybeSingle();
   if (!row) return { ok: false, error: "Stok harian tidak ditemukan" };
-  if (row.confirmed_at) return { ok: false, error: "Stok hari ini sudah dikonfirmasi" };
 
-  // Move current_stock by the same delta that opening_stock moves, so a pre-
-  // confirm edit doesn't desync the two values.
+  // Move current_stock by the same delta that opening_stock moves.
   const delta = safeOpening - (row.opening_stock as number);
   const newCurrent = Math.max(0, (row.current_stock as number) + delta);
 
