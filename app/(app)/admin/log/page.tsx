@@ -40,24 +40,29 @@ export default async function AdminLogPage({ searchParams }: Props) {
   else if (rid) sessionsQ = sessionsQ.eq("restaurant_id", rid);
 
   // ---------------- Audit logs (Perubahan) ----------------
-  let staffIds: string[] = [];
-  if (rid) {
-    const { data: staffRows } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("restaurant_id", rid);
-    staffIds = ((staffRows ?? []) as Array<{ id: string }>).map((p) => p.id);
-  }
-
-  let auditQ = supabase
-    .from("audit_logs")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(500);
-  if (rid) {
-    if (staffIds.length > 0) auditQ = auditQ.in("changed_by_id", staffIds);
-    else auditQ = auditQ.eq("changed_by_id", "00000000-0000-0000-0000-000000000000");
-  }
+  // staffIds is only needed to scope audit logs to this restaurant's users.
+  // We build the audit query inside an async wrapper so it can run in the same
+  // Promise.all batch as the other queries instead of blocking it.
+  const auditPromise = (async () => {
+    let scopedIds: string[] = [];
+    if (rid) {
+      const { data: staffRows } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("restaurant_id", rid);
+      scopedIds = ((staffRows ?? []) as Array<{ id: string }>).map((p) => p.id);
+    }
+    let q = supabase
+      .from("audit_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (rid) {
+      if (scopedIds.length > 0) q = q.in("changed_by_id", scopedIds);
+      else q = q.eq("changed_by_id", "00000000-0000-0000-0000-000000000000");
+    }
+    return q;
+  })();
 
   // ---------------- Operational events (orders + sessions + cash + stock) ----------------
   const opCutoff = new Date();
@@ -110,18 +115,17 @@ export default async function AdminLogPage({ searchParams }: Props) {
     { data: opSessionsRaw },
     { data: cashRaw },
     { data: stockRaw },
-  ] = await Promise.all([sessionsQ, auditQ, ordersQ, opSessionsQ, cashQ, stockQ]);
+  ] = await Promise.all([sessionsQ, auditPromise, ordersQ, opSessionsQ, cashQ, stockQ]);
 
   // ---------------- Build SessionWithExtras[] (Kasir tab) ----------------
   const sessions = (sessionsRaw ?? []) as Array<Record<string, unknown>>;
   let sessionRows: SessionWithExtras[] = [];
   if (sessions.length > 0) {
     const sessionIds = sessions.map((s) => s.id as string);
-    const { data: movRaw } = await supabase
+    const movQ = supabase
       .from("cash_movements")
       .select("session_id, type, amount")
       .in("session_id", sessionIds);
-    const movements = (movRaw ?? []) as Pick<CashMovement, "session_id" | "type" | "amount">[];
 
     const minDate =
       (sessions.at(-1)?.session_date as string | undefined) ?? sessionCutoffDate;
@@ -133,7 +137,9 @@ export default async function AdminLogPage({ searchParams }: Props) {
       .gte("updated_at", `${minDate}T00:00:00.000Z`);
     if (outletFilter) cashSalesQ = cashSalesQ.eq("outlet_id", outletFilter);
     else if (rid) cashSalesQ = cashSalesQ.eq("restaurant_id", rid);
-    const { data: cashOrdersRaw } = await cashSalesQ;
+
+    const [{ data: movRaw }, { data: cashOrdersRaw }] = await Promise.all([movQ, cashSalesQ]);
+    const movements = (movRaw ?? []) as Pick<CashMovement, "session_id" | "type" | "amount">[];
     const cashOrders = (cashOrdersRaw ?? []) as Array<{ outlet_id: string | null; total: number; updated_at: string }>;
 
     sessionRows = sessions.map((s) => {

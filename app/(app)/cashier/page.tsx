@@ -26,23 +26,8 @@ export default async function CashierPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const session = await getOpenSession(outletFilter, restaurantFilter);
-  const sessionSummary = session ? await getSessionSummary(session.id) : null;
-
-  // For HQ roles (admin/owner) opening a session, offer an outlet picker so
-  // the session is tied to a specific cabang rather than left null.
-  let outletsForPicker: Array<{ id: string; name: string }> = [];
-  if (!session && !outletFilter && restaurantFilter) {
-    const { data: outletsData } = await supabase
-      .from("outlets")
-      .select("id, name")
-      .eq("restaurant_id", restaurantFilter)
-      .eq("is_archived", false)
-      .order("name", { ascending: true });
-    outletsForPicker = (outletsData ?? []) as Array<{ id: string; name: string }>;
-  }
-
-  let query = supabase
+  // Build orders query upfront so it runs in parallel with the session lookup.
+  let ordersQuery = supabase
     .from("orders")
     .select(
       "id, order_number, total, payment_method, payment_status, status, service_type, table_number, customer_name, outlet_id, created_at",
@@ -50,9 +35,32 @@ export default async function CashierPage() {
     .neq("status", "cancelled")
     .gte("created_at", today.toISOString())
     .order("created_at", { ascending: false });
-  if (outletFilter) query = query.eq("outlet_id", outletFilter);
+  if (outletFilter) ordersQuery = ordersQuery.eq("outlet_id", outletFilter);
 
-  const { data } = await query;
+  const [session, { data }] = await Promise.all([
+    getOpenSession(outletFilter, restaurantFilter),
+    ordersQuery,
+  ]);
+
+  // sessionSummary and outletsForPicker both depend on `session` but are
+  // independent of each other.
+  const outletsPickerPromise: Promise<Array<{ id: string; name: string }>> =
+    !session && !outletFilter && restaurantFilter
+      ? (async () => {
+          const { data: outletsData } = await supabase
+            .from("outlets")
+            .select("id, name")
+            .eq("restaurant_id", restaurantFilter)
+            .eq("is_archived", false)
+            .order("name", { ascending: true });
+          return (outletsData ?? []) as Array<{ id: string; name: string }>;
+        })()
+      : Promise.resolve([]);
+
+  const [sessionSummary, outletsForPicker] = await Promise.all([
+    session ? getSessionSummary(session.id) : Promise.resolve(null),
+    outletsPickerPromise,
+  ]);
 
   const all = (data ?? []) as Order[];
   const unpaid = all.filter((o) => o.payment_status !== "paid");

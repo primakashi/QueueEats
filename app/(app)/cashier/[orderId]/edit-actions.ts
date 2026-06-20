@@ -58,22 +58,30 @@ function computeDiscountAmount(
 }
 
 async function recalcTotal(supabase: Awaited<ReturnType<typeof createClient>>, orderId: string) {
-  const { data: items } = await supabase
-    .from("order_items")
-    .select("id, price_snapshot, quantity")
-    .eq("order_id", orderId);
+  // items, order, and discounts are mutually independent — fetch in parallel.
+  // restaurants still depends on order.restaurant_id so stays sequential.
+  const [{ data: items }, { data: order }, { data: discRows }] = await Promise.all([
+    supabase
+      .from("order_items")
+      .select("id, price_snapshot, quantity")
+      .eq("order_id", orderId),
+    supabase
+      .from("orders")
+      .select("outlet_id, restaurant_id, order_channel")
+      .eq("id", orderId)
+      .maybeSingle(),
+    supabase
+      .from("order_discounts")
+      .select("id, scope, value_type, value_snapshot, amount, order_item_id")
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: true }),
+  ]);
 
   const itemRows = items ?? [];
   const subtotal = itemRows.reduce((s, i) => s + i.price_snapshot * i.quantity, 0);
   const itemTotalById = new Map<string, number>(
     itemRows.map((i) => [i.id as string, i.price_snapshot * i.quantity]),
   );
-
-  const { data: order } = await supabase
-    .from("orders")
-    .select("outlet_id, restaurant_id, order_channel")
-    .eq("id", orderId)
-    .maybeSingle();
 
   let taxRate = 0;
   let serviceRate = 0;
@@ -91,14 +99,6 @@ async function recalcTotal(supabase: Awaited<ReturnType<typeof createClient>>, o
     serviceRate = channelApplies ? baseSvc : 0;
     roundTotal = (rest as { round_total?: boolean } | null)?.round_total ?? false;
   }
-
-  // Re-derive each applied discount's amount from current item state, in
-  // insertion order so stacked discounts shrink the remaining base.
-  const { data: discRows } = await supabase
-    .from("order_discounts")
-    .select("id, scope, value_type, value_snapshot, amount, order_item_id")
-    .eq("order_id", orderId)
-    .order("created_at", { ascending: true });
 
   const remainingItemBase = new Map(itemTotalById);
   let remainingTxnBase = subtotal;

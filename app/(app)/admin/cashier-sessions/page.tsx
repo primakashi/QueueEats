@@ -58,15 +58,14 @@ export default async function CashierSessionsPage() {
     );
   }
 
-  // Fetch all movements for these sessions in one query
+  // Fetch movements + cash sales in parallel — both depend on `sessions` but
+  // not on each other.
   const sessionIds = sessions.map((s) => s.id as string);
-  const { data: movementsRaw } = await supabase
+  const movementsQ = supabase
     .from("cash_movements")
     .select("session_id, type, amount")
     .in("session_id", sessionIds);
-  const movements = (movementsRaw ?? []) as Pick<CashMovement, "session_id" | "type" | "amount">[];
 
-  // Fetch cash sales per session date+outlet
   const dateOutletPairs = sessions.map((s) => ({
     date: s.session_date as string,
     outlet_id: s.outlet_id as string | null,
@@ -79,7 +78,12 @@ export default async function CashierSessionsPage() {
     .eq("payment_status", "paid")
     .gte("updated_at", `${minDate}T00:00:00.000Z`);
   if (outletFilter) cashSalesQuery = cashSalesQuery.eq("outlet_id", outletFilter);
-  const { data: cashOrdersRaw } = await cashSalesQuery;
+
+  const [{ data: movementsRaw }, { data: cashOrdersRaw }] = await Promise.all([
+    movementsQ,
+    cashSalesQuery,
+  ]);
+  const movements = (movementsRaw ?? []) as Pick<CashMovement, "session_id" | "type" | "amount">[];
   const cashOrders = (cashOrdersRaw ?? []) as Array<{ outlet_id: string | null; total: number; updated_at: string }>;
 
   // Build session rows with computed totals

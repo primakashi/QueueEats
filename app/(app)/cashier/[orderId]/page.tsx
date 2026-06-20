@@ -32,10 +32,6 @@ export default async function CashierOrderPage({ params }: Props) {
   const supabase = await createClient();
   const rid = getRestaurantFilter(profile);
 
-  // Auto-apply any active daily-scope discounts before rendering so the
-  // cashier doesn't have to add them manually.
-  await autoApplyDailyDiscounts(orderId);
-
   let menuQuery = supabase.from("menu_items").select("id, name, price, is_available").eq("is_available", true);
   if (rid) menuQuery = menuQuery.eq("restaurant_id", rid);
 
@@ -44,18 +40,26 @@ export default async function CashierOrderPage({ params }: Props) {
   let discountsQuery = adminDb.from("discounts").select("*").eq("is_active", true);
   if (rid) discountsQuery = discountsQuery.eq("restaurant_id", rid);
 
-  const [{ data: order }, { data: items }, { data: menuItems }, { data: appliedRaw }, { data: catalogRaw }] =
-    await Promise.all([
-      supabase.from("orders").select("*").eq("id", orderId).maybeSingle(),
-      supabase.from("order_items").select("*").eq("order_id", orderId).order("created_at"),
-      menuQuery.order("name"),
-      supabase
-        .from("order_discounts")
-        .select("*")
-        .eq("order_id", orderId)
-        .order("created_at"),
-      discountsQuery.order("name"),
-    ]);
+  // autoApplyDailyDiscounts writes to order_discounts + orders. The menu and
+  // discount-catalog reads don't touch those rows, so they're safe to run in
+  // parallel with it. The order-scoped reads have to wait for the write to
+  // complete (otherwise we'd miss the newly inserted daily discount and read
+  // a stale total).
+  const [, { data: menuItems }, { data: catalogRaw }] = await Promise.all([
+    autoApplyDailyDiscounts(orderId),
+    menuQuery.order("name"),
+    discountsQuery.order("name"),
+  ]);
+
+  const [{ data: order }, { data: items }, { data: appliedRaw }] = await Promise.all([
+    supabase.from("orders").select("*").eq("id", orderId).maybeSingle(),
+    supabase.from("order_items").select("*").eq("order_id", orderId).order("created_at"),
+    supabase
+      .from("order_discounts")
+      .select("*")
+      .eq("order_id", orderId)
+      .order("created_at"),
+  ]);
 
   if (!order) notFound();
   const typed = order as Order;
