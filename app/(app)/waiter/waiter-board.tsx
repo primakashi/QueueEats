@@ -188,9 +188,15 @@ export function WaiterBoard({
   function advanceStatus(id: string, next: OrderStatus) {
     setBusyId(id);
     start(async () => {
-      const res = await updateOrderStatus(id, next);
-      if (!res.ok) toast.error(res.error);
-      setBusyId(null);
+      try {
+        const res = await updateOrderStatus(id, next);
+        if (!res.ok) toast.error(res.error);
+      } catch (err) {
+        console.error("[waiter] updateOrderStatus threw", err);
+        toast.error("Gagal memperbarui status. Coba lagi.");
+      } finally {
+        setBusyId(null);
+      }
     });
   }
 

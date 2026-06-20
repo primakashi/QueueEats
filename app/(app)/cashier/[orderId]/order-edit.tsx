@@ -88,62 +88,90 @@ export function EditableOrderItems({
   function setQty(itemId: string, qty: number) {
     start(async () => {
       applyOptimistic({ type: "setQty", itemId, qty });
-      const res = await updateOrderItemQty(orderId, itemId, qty);
-      if (!res.ok) toast.error(res.error);
-      else router.refresh();
+      try {
+        const res = await updateOrderItemQty(orderId, itemId, qty);
+        if (!res.ok) toast.error(res.error);
+        else router.refresh();
+      } catch (err) {
+        console.error("[order-edit] updateOrderItemQty threw", err);
+        toast.error("Gagal memperbarui jumlah. Coba lagi.");
+        router.refresh();
+      }
     });
   }
 
   function remove(itemId: string) {
     start(async () => {
       applyOptimistic({ type: "remove", itemId });
-      const res = await removeOrderItem(orderId, itemId);
-      if (!res.ok) toast.error(res.error);
-      else router.refresh();
+      try {
+        const res = await removeOrderItem(orderId, itemId);
+        if (!res.ok) toast.error(res.error);
+        else router.refresh();
+      } catch (err) {
+        console.error("[order-edit] removeOrderItem threw", err);
+        toast.error("Gagal menghapus item. Coba lagi.");
+        router.refresh();
+      }
     });
   }
 
   function addItem(menuItemId: string) {
     start(async () => {
-      const res = await addOrderItem(orderId, menuItemId, 1);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = await addOrderItem(orderId, menuItemId, 1);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success("Item ditambahkan");
+        router.refresh();
+        setAddSheetOpen(false);
+      } catch (err) {
+        console.error("[order-edit] addOrderItem threw", err);
+        toast.error("Gagal menambah item. Coba lagi.");
       }
-      toast.success("Item ditambahkan");
-      router.refresh();
-      setAddSheetOpen(false);
     });
   }
 
   function removeDiscount(rowId: string) {
     setBusyDiscountId(rowId);
     start(async () => {
-      const res = await removeOrderDiscount(orderId, rowId);
-      if (!res.ok) toast.error(res.error);
-      else router.refresh();
-      setBusyDiscountId(null);
+      try {
+        const res = await removeOrderDiscount(orderId, rowId);
+        if (!res.ok) toast.error(res.error);
+        else router.refresh();
+      } catch (err) {
+        console.error("[order-edit] removeOrderDiscount threw", err);
+        toast.error("Gagal menghapus diskon. Coba lagi.");
+      } finally {
+        setBusyDiscountId(null);
+      }
     });
   }
 
   function applyDiscountFromCatalog(d: Discount, orderItemId: string | null) {
     start(async () => {
-      const res = await applyDiscount({
-        orderId,
-        discountId: d.id,
-        scope: d.scope,
-        name: d.name,
-        valueType: d.value_type,
-        value: Number(d.value),
-        orderItemId,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = await applyDiscount({
+          orderId,
+          discountId: d.id,
+          scope: d.scope,
+          name: d.name,
+          valueType: d.value_type,
+          value: Number(d.value),
+          orderItemId,
+        });
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success(`Diskon "${d.name}" diterapkan`);
+        router.refresh();
+        setDiscountSheetOpen(false);
+      } catch (err) {
+        console.error("[order-edit] applyDiscount(catalog) threw", err);
+        toast.error("Gagal menerapkan diskon. Coba lagi.");
       }
-      toast.success(`Diskon "${d.name}" diterapkan`);
-      router.refresh();
-      setDiscountSheetOpen(false);
     });
   }
 
@@ -156,22 +184,27 @@ export function EditableOrderItems({
     orderItemId: string | null;
   }) {
     start(async () => {
-      const res = await applyDiscount({
-        orderId,
-        scope: form.scope,
-        name: form.name,
-        valueType: form.valueType,
-        value: form.value,
-        reason: form.reason,
-        orderItemId: form.orderItemId,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = await applyDiscount({
+          orderId,
+          scope: form.scope,
+          name: form.name,
+          valueType: form.valueType,
+          value: form.value,
+          reason: form.reason,
+          orderItemId: form.orderItemId,
+        });
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success("Diskon diterapkan");
+        router.refresh();
+        setDiscountSheetOpen(false);
+      } catch (err) {
+        console.error("[order-edit] applyDiscount(manual) threw", err);
+        toast.error("Gagal menerapkan diskon. Coba lagi.");
       }
-      toast.success("Diskon diterapkan");
-      router.refresh();
-      setDiscountSheetOpen(false);
     });
   }
 

@@ -54,16 +54,17 @@ export async function cancelPaymentRecord(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireRole(["cashier", "admin"]);
   const supabase = await createClient();
-  const { error } = await supabase
+  const { error: payErr } = await supabase
     .from("payments")
     .update({ status: "expired" })
     .eq("order_id", orderId)
     .eq("status", "pending");
-  if (error) return { ok: false, error: error.message };
-  await supabase
+  if (payErr) return { ok: false, error: payErr.message };
+  const { error: ordErr } = await supabase
     .from("orders")
     .update({ payment_status: "unpaid", payment_method: null })
     .eq("id", orderId);
+  if (ordErr) return { ok: false, error: ordErr.message };
   revalidatePath(`/cashier/${orderId}`);
   return { ok: true };
 }

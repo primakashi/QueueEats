@@ -80,13 +80,18 @@ function ChannelForm({
     fd.set("name", name);
     fd.set("requires_acceptance", requiresAcceptance ? "on" : "off");
     start(async () => {
-      const res = channel ? await updateChannel(fd) : await createChannel(fd);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = channel ? await updateChannel(fd) : await createChannel(fd);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success(channel ? "Saluran diperbarui" : "Saluran ditambahkan");
+        onSuccess();
+      } catch (err) {
+        console.error("[channels] save threw", err);
+        toast.error("Gagal menyimpan saluran. Coba lagi.");
       }
-      toast.success(channel ? "Saluran diperbarui" : "Saluran ditambahkan");
-      onSuccess();
     });
   }
 
@@ -200,9 +205,14 @@ function ChannelRow({ channel }: { channel: OrderChannelConfig }) {
 
   function toggle() {
     start(async () => {
-      const res = await toggleChannelActive(channel.id, !channel.is_active);
-      if (!res.ok) toast.error(res.error);
-      else toast.success(channel.is_active ? "Saluran dinonaktifkan" : "Saluran diaktifkan");
+      try {
+        const res = await toggleChannelActive(channel.id, !channel.is_active);
+        if (!res.ok) toast.error(res.error);
+        else toast.success(channel.is_active ? "Saluran dinonaktifkan" : "Saluran diaktifkan");
+      } catch (err) {
+        console.error("[channels] toggle threw", err);
+        toast.error("Gagal mengubah status saluran. Coba lagi.");
+      }
     });
   }
 
@@ -212,12 +222,18 @@ function ChannelRow({ channel }: { channel: OrderChannelConfig }) {
       return;
     }
     start(async () => {
-      const res = await deleteChannel(channel.id);
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const res = await deleteChannel(channel.id);
+        if (!res.ok) {
+          toast.error(res.error);
+          setConfirmDelete(false);
+        } else {
+          toast.success("Saluran dihapus");
+        }
+      } catch (err) {
+        console.error("[channels] delete threw", err);
+        toast.error("Gagal menghapus saluran. Coba lagi.");
         setConfirmDelete(false);
-      } else {
-        toast.success("Saluran dihapus");
       }
     });
   }

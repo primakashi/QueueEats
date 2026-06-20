@@ -23,6 +23,7 @@ import { PaymentPanel } from "./payment-panel";
 import { EditableOrderItems } from "./order-edit";
 import { autoApplyDailyDiscounts } from "./edit-actions";
 import { AddonOrderButton, ReopenButton } from "./revise-actions";
+import { readWithRetry } from "@/lib/retry";
 
 type Props = { params: Promise<{ orderId: string }> };
 
@@ -51,8 +52,10 @@ export default async function CashierOrderPage({ params }: Props) {
     discountsQuery.order("name"),
   ]);
 
-  const [{ data: order }, { data: items }, { data: appliedRaw }] = await Promise.all([
-    supabase.from("orders").select("*").eq("id", orderId).maybeSingle(),
+  const [orderRes, { data: items }, { data: appliedRaw }] = await Promise.all([
+    readWithRetry(() =>
+      supabase.from("orders").select("*").eq("id", orderId).maybeSingle(),
+    ),
     supabase.from("order_items").select("*").eq("order_id", orderId).order("created_at"),
     supabase
       .from("order_discounts")
@@ -61,6 +64,8 @@ export default async function CashierOrderPage({ params }: Props) {
       .order("created_at"),
   ]);
 
+  if (orderRes.error) throw new Error(orderRes.error.message);
+  const order = orderRes.data;
   if (!order) notFound();
   const typed = order as Order;
   const itemsTyped = (items ?? []) as OrderItem[];

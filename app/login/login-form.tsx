@@ -28,11 +28,19 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
     if (redirectTo) fd.set("redirect", redirectTo);
     startTransition(async () => {
       startRouteProgress();
-      const result = await signIn(fd);
-      if (result?.error) {
+      try {
+        const result = await signIn(fd);
+        if (result?.error) {
+          endRouteProgress();
+          setError(result.error);
+          toast.error(result.error);
+        }
+      } catch (err) {
+        console.error("[login] signIn threw", err);
         endRouteProgress();
-        setError(result.error);
-        toast.error(result.error);
+        const msg = "Gagal masuk. Coba lagi.";
+        setError(msg);
+        toast.error(msg);
       }
     });
   }

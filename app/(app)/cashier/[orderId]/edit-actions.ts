@@ -150,7 +150,11 @@ export async function applyDiscount(params: {
   });
   if (error) return { ok: false, error: error.message };
 
-  await supabase.rpc("recalc_order_total", { p_order_id: orderId });
+  // recalc failure leaves the order total out of sync with its discounts;
+  // surface the error so the UI can warn the cashier instead of silently
+  // charging the wrong amount.
+  const { error: recalcErr } = await supabase.rpc("recalc_order_total", { p_order_id: orderId });
+  if (recalcErr) return { ok: false, error: `Gagal recalc total: ${recalcErr.message}` };
   revalidatePath(`/cashier/${orderId}`);
   revalidatePath("/cashier");
   return { ok: true };
@@ -226,11 +230,16 @@ export async function autoApplyDailyDiscounts(
     await supabase.rpc("recalc_order_total", { p_order_id: orderId });
     return { ok: true, applied: toInsert.length };
   } catch (err) {
-    // Re-throw Next.js control-flow exceptions (redirect, notFound).
-    // Other errors are swallowed so the page render continues.
+    // Re-throw Next.js control-flow exceptions (redirect, notFound) so the
+    // framework can handle them. Other errors are swallowed so the page
+    // render continues.
     if (err && typeof err === "object" && "digest" in err) {
       const digest = String((err as { digest?: unknown }).digest ?? "");
-      if (digest.startsWith("NEXT_REDIRECT") || digest === "NEXT_HTTP_ERROR_FALLBACK;404") {
+      if (
+        digest.startsWith("NEXT_REDIRECT") ||
+        digest.startsWith("NEXT_NOT_FOUND") ||
+        digest.startsWith("NEXT_HTTP_ERROR_FALLBACK")
+      ) {
         throw err;
       }
     }
@@ -263,7 +272,8 @@ export async function removeOrderDiscount(
     .eq("order_id", orderId);
   if (error) return { ok: false, error: error.message };
 
-  await supabase.rpc("recalc_order_total", { p_order_id: orderId });
+  const { error: recalcErr } = await supabase.rpc("recalc_order_total", { p_order_id: orderId });
+  if (recalcErr) return { ok: false, error: `Gagal recalc total: ${recalcErr.message}` };
   revalidatePath(`/cashier/${orderId}`);
   revalidatePath("/cashier");
   return { ok: true };
@@ -356,7 +366,8 @@ export async function addOrderItem(
     await adjustStockForEdit(supabase, orderId, menuItemId, -qty, profile.id);
   }
 
-  await supabase.rpc("recalc_order_total", { p_order_id: orderId });
+  const { error: recalcErr } = await supabase.rpc("recalc_order_total", { p_order_id: orderId });
+  if (recalcErr) return { ok: false, error: `Gagal recalc total: ${recalcErr.message}` };
   revalidatePath(`/cashier/${orderId}`);
   revalidatePath("/cashier");
   revalidatePath("/waiter");

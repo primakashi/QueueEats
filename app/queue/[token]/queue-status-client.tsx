@@ -93,6 +93,8 @@ export function QueueStatusClient({
         return;
       }
       await load();
+    } catch {
+      setError("Tidak dapat menghubungi server.");
     } finally {
       setCancelling(false);
     }
@@ -114,6 +116,8 @@ export function QueueStatusClient({
         return;
       }
       await load();
+    } catch {
+      setError("Tidak dapat menghubungi server.");
     } finally {
       setPresenceBusy(false);
     }

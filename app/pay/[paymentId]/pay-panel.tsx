@@ -57,12 +57,17 @@ export function PayPanel({ summary }: { summary: MockPaymentSummary }) {
 
   function pay() {
     start(async () => {
-      const res = await completeMockPaymentPublic(summary.payment_id);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = await completeMockPaymentPublic(summary.payment_id);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        setStatus("paid");
+      } catch (err) {
+        console.error("[pay] completeMockPaymentPublic threw", err);
+        toast.error("Gagal memproses pembayaran. Coba lagi.");
       }
-      setStatus("paid");
     });
   }
 

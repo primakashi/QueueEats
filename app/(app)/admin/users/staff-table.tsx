@@ -67,15 +67,20 @@ function InviteDialog({
       fd.set("outlet_id", callerOutletId);
     }
     start(async () => {
-      const res = await inviteStaff(fd);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = await inviteStaff(fd);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success("Staf berhasil ditambahkan");
+        setOpen(false);
+        setSelectedRole("waiter");
+        router.refresh();
+      } catch (err) {
+        console.error("[staff] inviteStaff threw", err);
+        toast.error("Gagal menambah staf. Coba lagi.");
       }
-      toast.success("Staf berhasil ditambahkan");
-      setOpen(false);
-      setSelectedRole("waiter");
-      router.refresh();
     });
   }
 
@@ -166,34 +171,44 @@ export function StaffTable({
   function changeRole(id: string, role: UserRole) {
     setBusyId(id);
     start(async () => {
-      const res = await updateStaffRole(id, role);
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const res = await updateStaffRole(id, role);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success("Peran diperbarui");
+        router.refresh();
+      } catch (err) {
+        console.error("[staff] updateStaffRole threw", err);
+        toast.error("Gagal memperbarui peran. Coba lagi.");
+      } finally {
         setBusyId(null);
-        return;
       }
-      toast.success("Peran diperbarui");
-      setBusyId(null);
-      router.refresh();
     });
   }
 
   function handleResetPassword(id: string, name: string) {
     setBusyId(id);
     start(async () => {
-      const res = await resetStaffPassword(id);
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const res = await resetStaffPassword(id);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        if (res.emailed) {
+          toast.success("Link reset kata sandi terkirim via email");
+        } else {
+          toast.message("Email tidak terkirim — bagikan link manual ke staf");
+        }
+        setResetResult({ name, emailed: res.emailed, link: res.link });
+      } catch (err) {
+        console.error("[staff] resetStaffPassword threw", err);
+        toast.error("Gagal reset kata sandi. Coba lagi.");
+      } finally {
         setBusyId(null);
-        return;
       }
-      setBusyId(null);
-      if (res.emailed) {
-        toast.success("Link reset kata sandi terkirim via email");
-      } else {
-        toast.message("Email tidak terkirim — bagikan link manual ke staf");
-      }
-      setResetResult({ name, emailed: res.emailed, link: res.link });
     });
   }
 
@@ -201,15 +216,20 @@ export function StaffTable({
     setBusyId(id);
     setConfirmDeleteId(null);
     start(async () => {
-      const res = await deleteStaff(id);
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const res = await deleteStaff(id);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success("Akun staf dihapus");
+        router.refresh();
+      } catch (err) {
+        console.error("[staff] deleteStaff threw", err);
+        toast.error("Gagal menghapus akun. Coba lagi.");
+      } finally {
         setBusyId(null);
-        return;
       }
-      toast.success("Akun staf dihapus");
-      setBusyId(null);
-      router.refresh();
     });
   }
 

@@ -74,13 +74,18 @@ function MethodForm({
     const fd = new FormData(e.currentTarget);
     if (!method) fd.set("kind", kind);
     start(async () => {
-      const res = method ? await updatePaymentMethod(fd) : await createPaymentMethod(fd);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = method ? await updatePaymentMethod(fd) : await createPaymentMethod(fd);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success(method ? "Metode diperbarui" : "Metode ditambahkan");
+        onSuccess();
+      } catch (err) {
+        console.error("[pm] saveMethod threw", err);
+        toast.error("Gagal menyimpan metode. Coba lagi.");
       }
-      toast.success(method ? "Metode diperbarui" : "Metode ditambahkan");
-      onSuccess();
     });
   }
 
@@ -157,13 +162,18 @@ function ProviderForm({
     const fd = new FormData(e.currentTarget);
     fd.set("payment_method_id", methodId);
     start(async () => {
-      const res = provider ? await updatePaymentProvider(fd) : await createPaymentProvider(fd);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = provider ? await updatePaymentProvider(fd) : await createPaymentProvider(fd);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success(provider ? "Provider diperbarui" : "Provider ditambahkan");
+        onSuccess();
+      } catch (err) {
+        console.error("[pm] saveProvider threw", err);
+        toast.error("Gagal menyimpan provider. Coba lagi.");
       }
-      toast.success(provider ? "Provider diperbarui" : "Provider ditambahkan");
-      onSuccess();
     });
   }
 
@@ -202,8 +212,13 @@ function ProviderRow({
 
   function toggle() {
     start(async () => {
-      const res = await togglePaymentProviderActive(provider.id, !provider.is_active);
-      if (!res.ok) toast.error(res.error);
+      try {
+        const res = await togglePaymentProviderActive(provider.id, !provider.is_active);
+        if (!res.ok) toast.error(res.error);
+      } catch (err) {
+        console.error("[pm] toggleProvider threw", err);
+        toast.error("Gagal mengubah status provider. Coba lagi.");
+      }
     });
   }
 
@@ -213,12 +228,18 @@ function ProviderRow({
       return;
     }
     start(async () => {
-      const res = await deletePaymentProvider(provider.id);
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const res = await deletePaymentProvider(provider.id);
+        if (!res.ok) {
+          toast.error(res.error);
+          setConfirmDelete(false);
+        } else {
+          toast.success("Provider dihapus");
+        }
+      } catch (err) {
+        console.error("[pm] deleteProvider threw", err);
+        toast.error("Gagal menghapus provider. Coba lagi.");
         setConfirmDelete(false);
-      } else {
-        toast.success("Provider dihapus");
       }
     });
   }
@@ -287,8 +308,13 @@ function MethodCard({ method }: { method: PaymentMethodWithProviders }) {
 
   function toggle() {
     start(async () => {
-      const res = await togglePaymentMethodActive(method.id, !method.is_active);
-      if (!res.ok) toast.error(res.error);
+      try {
+        const res = await togglePaymentMethodActive(method.id, !method.is_active);
+        if (!res.ok) toast.error(res.error);
+      } catch (err) {
+        console.error("[pm] toggleMethod threw", err);
+        toast.error("Gagal mengubah status metode. Coba lagi.");
+      }
     });
   }
 
@@ -298,12 +324,18 @@ function MethodCard({ method }: { method: PaymentMethodWithProviders }) {
       return;
     }
     start(async () => {
-      const res = await deletePaymentMethod(method.id);
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const res = await deletePaymentMethod(method.id);
+        if (!res.ok) {
+          toast.error(res.error);
+          setConfirmDelete(false);
+        } else {
+          toast.success("Metode dihapus");
+        }
+      } catch (err) {
+        console.error("[pm] deleteMethod threw", err);
+        toast.error("Gagal menghapus metode. Coba lagi.");
         setConfirmDelete(false);
-      } else {
-        toast.success("Metode dihapus");
       }
     });
   }

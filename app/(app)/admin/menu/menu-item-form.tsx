@@ -86,16 +86,21 @@ export function MenuItemForm({
     }
 
     start(async () => {
-      const action = item ? updateMenuItem : createMenuItem;
-      const res = await action(formData);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const action = item ? updateMenuItem : createMenuItem;
+        const res = await action(formData);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success(item ? "Item menu diperbarui" : "Item menu dibuat");
+        startRouteProgress();
+        router.push("/admin/menu");
+        router.refresh();
+      } catch (err) {
+        console.error("[menu-form] save threw", err);
+        toast.error("Gagal menyimpan menu. Coba lagi.");
       }
-      toast.success(item ? "Item menu diperbarui" : "Item menu dibuat");
-      startRouteProgress();
-      router.push("/admin/menu");
-      router.refresh();
     });
   }
 

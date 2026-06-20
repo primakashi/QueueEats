@@ -98,18 +98,24 @@ export function MenuItemsBoard({
     if (list.map((i) => i.id).join(",") === baseline.map((i) => i.id).join(",")) return;
     setBusyGroup(group);
     start(async () => {
-      const res = await reorderMenuItems(
-        categoryIdFromGroup(group),
-        list.map((i) => i.id),
-      );
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const res = await reorderMenuItems(
+          categoryIdFromGroup(group),
+          list.map((i) => i.id),
+        );
+        if (!res.ok) {
+          toast.error(res.error);
+          setOrder(buildGroups(items));
+          return;
+        }
+        router.refresh();
+      } catch (err) {
+        console.error("[menu-board] reorderMenuItems threw", err);
+        toast.error("Gagal menyimpan urutan. Coba lagi.");
         setOrder(buildGroups(items));
+      } finally {
         setBusyGroup(null);
-        return;
       }
-      setBusyGroup(null);
-      router.refresh();
     });
   }
 

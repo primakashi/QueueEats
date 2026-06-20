@@ -51,17 +51,22 @@ export function CategoriesManager({
     if (!newName.trim()) return;
     setBusy({ kind: "create" });
     start(async () => {
-      const fd = new FormData();
-      fd.set("name", newName);
-      const res = await createCategory(fd);
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const fd = new FormData();
+        fd.set("name", newName);
+        const res = await createCategory(fd);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        setNewName("");
+        router.refresh();
+      } catch (err) {
+        console.error("[categories] createCategory threw", err);
+        toast.error("Gagal menambah kategori. Coba lagi.");
+      } finally {
         setBusy(null);
-        return;
       }
-      setNewName("");
-      setBusy(null);
-      router.refresh();
     });
   }
 
@@ -75,18 +80,23 @@ export function CategoriesManager({
     const id = editingId;
     setBusy({ kind: "update", id });
     start(async () => {
-      const fd = new FormData();
-      fd.set("id", id);
-      fd.set("name", editName);
-      const res = await updateCategory(fd);
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const fd = new FormData();
+        fd.set("id", id);
+        fd.set("name", editName);
+        const res = await updateCategory(fd);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        setEditingId(null);
+        router.refresh();
+      } catch (err) {
+        console.error("[categories] updateCategory threw", err);
+        toast.error("Gagal menyimpan kategori. Coba lagi.");
+      } finally {
         setBusy(null);
-        return;
       }
-      setEditingId(null);
-      setBusy(null);
-      router.refresh();
     });
   }
 
@@ -94,14 +104,19 @@ export function CategoriesManager({
     if (!confirm("Hapus kategori ini? Item menu akan jadi tanpa kategori.")) return;
     setBusy({ kind: "delete", id });
     start(async () => {
-      const res = await deleteCategory(id);
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const res = await deleteCategory(id);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        router.refresh();
+      } catch (err) {
+        console.error("[categories] deleteCategory threw", err);
+        toast.error("Gagal menghapus kategori. Coba lagi.");
+      } finally {
         setBusy(null);
-        return;
       }
-      setBusy(null);
-      router.refresh();
     });
   }
 
@@ -112,15 +127,21 @@ export function CategoriesManager({
     if (baselineIds === nextIds) return;
     setBusy({ kind: "reorder" });
     start(async () => {
-      const res = await reorderCategories(next.map((c) => c.id));
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const res = await reorderCategories(next.map((c) => c.id));
+        if (!res.ok) {
+          toast.error(res.error);
+          setOrder(categories);
+          return;
+        }
+        router.refresh();
+      } catch (err) {
+        console.error("[categories] reorderCategories threw", err);
+        toast.error("Gagal menyimpan urutan. Coba lagi.");
         setOrder(categories);
+      } finally {
         setBusy(null);
-        return;
       }
-      setBusy(null);
-      router.refresh();
     });
   }
 

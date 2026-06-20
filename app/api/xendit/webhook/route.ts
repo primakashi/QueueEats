@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
   if (isSuccess) {
     if (payment.status !== "paid") {
       const paidAt = new Date().toISOString();
-      await admin
+      const { error: payErr } = await admin
         .from("payments")
         .update({
           status: "paid",
@@ -86,30 +86,50 @@ export async function POST(req: NextRequest) {
           raw_payload: body as unknown as Record<string, unknown>,
         })
         .eq("id", payment.id);
+      if (payErr) {
+        // Return 5xx so Xendit retries — leaving payment "pending" is recoverable.
+        console.error("[xendit] payment update failed", payErr);
+        return NextResponse.json({ error: "payment update failed" }, { status: 500 });
+      }
 
-      await admin
+      const { error: ordErr } = await admin
         .from("orders")
         .update({
           payment_status: "paid",
           payment_method: "qris",
         })
         .eq("id", payment.order_id);
+      if (ordErr) {
+        // Payment marked paid but order didn't update — return 5xx so Xendit
+        // retries; the payment update is idempotent and the order update will
+        // succeed on retry.
+        console.error("[xendit] order update failed", ordErr);
+        return NextResponse.json({ error: "order update failed" }, { status: 500 });
+      }
     }
     return NextResponse.json({ received: true, applied: true });
   }
 
   if (status === "FAILED" || status === "EXPIRED") {
-    await admin
+    const { error: payErr } = await admin
       .from("payments")
       .update({
         status: status === "EXPIRED" ? "expired" : "failed",
         raw_payload: body as unknown as Record<string, unknown>,
       })
       .eq("id", payment.id);
-    await admin
+    if (payErr) {
+      console.error("[xendit] payment failure update failed", payErr);
+      return NextResponse.json({ error: "payment update failed" }, { status: 500 });
+    }
+    const { error: ordErr } = await admin
       .from("orders")
       .update({ payment_status: "unpaid", payment_method: null })
       .eq("id", payment.order_id);
+    if (ordErr) {
+      console.error("[xendit] order revert failed", ordErr);
+      return NextResponse.json({ error: "order update failed" }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ received: true });

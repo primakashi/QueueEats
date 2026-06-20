@@ -20,8 +20,13 @@ export default function OnboardPage() {
     setError(null);
     const fd = new FormData(e.currentTarget);
     start(async () => {
-      const res = await onboardRestaurant(fd);
-      if (res && !res.ok) setError(res.error);
+      try {
+        const res = await onboardRestaurant(fd);
+        if (res && !res.ok) setError(res.error);
+      } catch (err) {
+        console.error("[onboard] onboardRestaurant threw", err);
+        setError("Gagal mendaftarkan restoran. Coba lagi.");
+      }
     });
   }
 

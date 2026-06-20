@@ -18,12 +18,17 @@ export default function ResetPasswordPage() {
   function submit(formData: FormData) {
     setError(null);
     startTransition(async () => {
-      const result = await requestPasswordReset(formData);
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      try {
+        const result = await requestPasswordReset(formData);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        setSent(true);
+      } catch (err) {
+        console.error("[reset] requestPasswordReset threw", err);
+        setError("Gagal mengirim link reset. Coba lagi.");
       }
-      setSent(true);
     });
   }
 

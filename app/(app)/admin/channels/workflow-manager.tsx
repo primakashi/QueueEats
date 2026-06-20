@@ -36,13 +36,19 @@ export function WorkflowManager({ restaurant }: { restaurant: Restaurant | null 
     if (mode === selected) return;
     setSelected(mode);
     start(async () => {
-      const res = await updateOrderWorkflow(mode);
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const res = await updateOrderWorkflow(mode);
+        if (!res.ok) {
+          toast.error(res.error);
+          setSelected(current);
+          return;
+        }
+        toast.success("Mode workflow disimpan");
+      } catch (err) {
+        console.error("[workflow] updateOrderWorkflow threw", err);
+        toast.error("Gagal menyimpan workflow. Coba lagi.");
         setSelected(current);
-        return;
       }
-      toast.success("Mode workflow disimpan");
     });
   }
 

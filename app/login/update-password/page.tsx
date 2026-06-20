@@ -58,13 +58,18 @@ export default function UpdatePasswordPage() {
   function submit(formData: FormData) {
     setError(null);
     startTransition(async () => {
-      const result = await updatePassword(formData);
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      try {
+        const result = await updatePassword(formData);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        toast.success("Kata sandi berhasil diperbarui");
+        router.push("/login");
+      } catch (err) {
+        console.error("[update-password] updatePassword threw", err);
+        setError("Gagal memperbarui kata sandi. Coba lagi.");
       }
-      toast.success("Kata sandi berhasil diperbarui");
-      router.push("/login");
     });
   }
 

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
+import { readWithRetry } from "@/lib/retry";
 import type { Order, OrderItem } from "@/lib/types";
 import { AutoPrint } from "@/components/auto-print";
 import { KitchenTicketDocument } from "@/components/kitchen-ticket-document";
@@ -16,8 +17,10 @@ export default async function KitchenTicketPage({ params, searchParams }: Props)
   const { reprint } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: order }, { data: items }] = await Promise.all([
-    supabase.from("orders").select("*").eq("id", orderId).maybeSingle(),
+  const [orderRes, { data: items }] = await Promise.all([
+    readWithRetry(() =>
+      supabase.from("orders").select("*").eq("id", orderId).maybeSingle(),
+    ),
     supabase
       .from("order_items")
       .select("*")
@@ -25,6 +28,8 @@ export default async function KitchenTicketPage({ params, searchParams }: Props)
       .order("created_at"),
   ]);
 
+  if (orderRes.error) throw new Error(orderRes.error.message);
+  const order = orderRes.data;
   if (!order) notFound();
 
   // For add-on orders, surface the parent's number + table on the ticket so

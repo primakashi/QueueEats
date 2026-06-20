@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { formatIDR, formatDateTime } from "@/lib/format";
+import { readWithRetry } from "@/lib/retry";
 import { ORDER_CHANNEL_LABEL, type Order, type OrderChannelConfig, type OrderItem } from "@/lib/types";
 
 type Props = { params: Promise<{ id: string }> };
@@ -16,8 +17,13 @@ export default async function ConfirmationPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: order }, { data: items }, { data: channelsRaw }] = await Promise.all([
-    supabase.from("orders").select("*").eq("id", id).maybeSingle(),
+  // Order was just created elsewhere; retry once if the first read is empty
+  // to dodge transient RLS / connection blips. Runs in parallel with the
+  // items + channels reads so the slower path doesn't compound.
+  const [orderRes, { data: items }, { data: channelsRaw }] = await Promise.all([
+    readWithRetry(() =>
+      supabase.from("orders").select("*").eq("id", id).maybeSingle(),
+    ),
     supabase
       .from("order_items")
       .select("*")
@@ -26,6 +32,9 @@ export default async function ConfirmationPage({ params }: Props) {
     supabase.from("order_channels").select("id, name, kind"),
   ]);
 
+  // Real query error — let the error boundary render a retry UI, don't 404.
+  if (orderRes.error) throw new Error(orderRes.error.message);
+  const order = orderRes.data;
   if (!order) notFound();
 
   const orderTyped = order as Order;

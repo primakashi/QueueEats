@@ -228,29 +228,34 @@ export function NewOrderClient({
       return;
     }
     start(async () => {
-      const table =
-        serviceType === "dine_in" ? selectedTableId.trim() : "";
-      const res = await createOrder({
-        service_type: serviceType,
-        table_number: table.length > 0 ? table : null,
-        customer_name: customerName.trim() || undefined,
-        notes: orderNotes.trim() || undefined,
-        outlet_id: outletId || null,
-        order_channel: orderChannel,
-        parent_order_id: addonOf?.id ?? null,
-        items: cart.map((l) => ({
-          menu_item_id: l.itemId,
-          quantity: l.quantity,
-          notes: l.notes.trim() || undefined,
-        })),
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const table =
+          serviceType === "dine_in" ? selectedTableId.trim() : "";
+        const res = await createOrder({
+          service_type: serviceType,
+          table_number: table.length > 0 ? table : null,
+          customer_name: customerName.trim() || undefined,
+          notes: orderNotes.trim() || undefined,
+          outlet_id: outletId || null,
+          order_channel: orderChannel,
+          parent_order_id: addonOf?.id ?? null,
+          items: cart.map((l) => ({
+            menu_item_id: l.itemId,
+            quantity: l.quantity,
+            notes: l.notes.trim() || undefined,
+          })),
+        });
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success(`Pesanan ${res.order.order_number} dikirim ke dapur`);
+        startRouteProgress();
+        router.push(`/waiter/confirmation/${res.order.id}`);
+      } catch (err) {
+        console.error("[new-order] createOrder threw", err);
+        toast.error("Gagal mengirim pesanan. Coba lagi.");
       }
-      toast.success(`Pesanan ${res.order.order_number} dikirim ke dapur`);
-      startRouteProgress();
-      router.push(`/waiter/confirmation/${res.order.id}`);
     });
   }
 

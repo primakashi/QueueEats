@@ -44,14 +44,21 @@ export function PaymentPanel({ order }: { order: Order }) {
     const method = methodFromDestination(paymentDestination);
     setPayError(null);
     start(async () => {
-      const res = await confirmPayment(order.id, method, paymentDestination);
-      if (!res.ok) {
-        toast.error(res.error);
-        setPayError(res.error);
-        return;
+      try {
+        const res = await confirmPayment(order.id, method, paymentDestination);
+        if (!res.ok) {
+          toast.error(res.error);
+          setPayError(res.error);
+          return;
+        }
+        toast.success("Pembayaran diterima!");
+        router.refresh();
+      } catch (err) {
+        console.error("[payment] confirmPayment threw", err);
+        const msg = "Gagal menerima pembayaran. Coba lagi.";
+        toast.error(msg);
+        setPayError(msg);
       }
-      toast.success("Pembayaran diterima!");
-      router.refresh();
     });
   }
 

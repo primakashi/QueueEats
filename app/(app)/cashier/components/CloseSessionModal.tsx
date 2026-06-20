@@ -63,14 +63,21 @@ export function CloseSessionModal({ session, onClose }: Props) {
     setError(null);
     const fd = new FormData(e.currentTarget);
     start(async () => {
-      const res = await closeSession(session.id, fd);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await closeSession(session.id, fd);
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        toast.success("Sesi kasir ditutup");
+        onClose();
+        router.push("/waiter");
+      } catch (err) {
+        console.error("[session] closeSession threw", err);
+        const msg = "Gagal menutup sesi. Coba lagi.";
+        toast.error(msg);
+        setError(msg);
       }
-      toast.success("Sesi kasir ditutup");
-      onClose();
-      router.push("/waiter");
     });
   }
 

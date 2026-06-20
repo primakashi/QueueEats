@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { readWithRetry } from "@/lib/retry";
 import { PayPanel, type MockPaymentSummary } from "./pay-panel";
 
 export const dynamic = "force-dynamic";
@@ -12,13 +13,14 @@ export default async function PayPage({
 }) {
   const { paymentId } = await params;
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("get_mock_payment", {
-    pid: paymentId,
-  });
+  // Payment row was created moments ago in another request; retry once if
+  // the first read is empty.
+  const { data, error } = await readWithRetry(() =>
+    supabase.rpc("get_mock_payment", { pid: paymentId }),
+  );
 
-  if (error || !data) {
-    notFound();
-  }
+  if (error) throw new Error(error.message);
+  if (!data) notFound();
 
   const summary = data as MockPaymentSummary;
 

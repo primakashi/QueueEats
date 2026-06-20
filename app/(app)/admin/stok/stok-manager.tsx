@@ -231,11 +231,16 @@ function DefaultRow({
   function persist(next: string) {
     const parsed = next.trim() === "" ? null : Math.max(0, Math.floor(Number(next) || 0));
     start(async () => {
-      const res = await setOutletDailyQuota(outletId, item.menu_item.id, parsed);
-      if (!res.ok) toast.error(res.error);
-      else {
-        toast.success("Default disimpan");
-        router.refresh();
+      try {
+        const res = await setOutletDailyQuota(outletId, item.menu_item.id, parsed);
+        if (!res.ok) toast.error(res.error);
+        else {
+          toast.success("Default disimpan");
+          router.refresh();
+        }
+      } catch (err) {
+        console.error("[stok] setOutletDailyQuota threw", err);
+        toast.error("Gagal menyimpan default. Coba lagi.");
       }
     });
   }
@@ -286,11 +291,16 @@ function OpeningStage({
 
   function handleConfirm() {
     start(async () => {
-      const res = await confirmDailyStock(snapshot.outlet_id);
-      if (!res.ok) toast.error(res.error);
-      else {
-        toast.success("Stok hari ini dikonfirmasi");
-        router.refresh();
+      try {
+        const res = await confirmDailyStock(snapshot.outlet_id);
+        if (!res.ok) toast.error(res.error);
+        else {
+          toast.success("Stok hari ini dikonfirmasi");
+          router.refresh();
+        }
+      } catch (err) {
+        console.error("[stok] confirmDailyStock threw", err);
+        toast.error("Gagal mengkonfirmasi stok. Coba lagi.");
       }
     });
   }
@@ -368,13 +378,18 @@ function OpeningRow({ item }: { item: StockSnapshot["items"][number] }) {
   function persist(next: string) {
     const parsed = Math.max(0, Math.floor(Number(next) || 0));
     start(async () => {
-      const res = await updateOpeningStock(
-        item.daily_stock.id,
-        parsed,
-        item.effective_quota,
-      );
-      if (!res.ok) toast.error(res.error);
-      else router.refresh();
+      try {
+        const res = await updateOpeningStock(
+          item.daily_stock.id,
+          parsed,
+          item.effective_quota,
+        );
+        if (!res.ok) toast.error(res.error);
+        else router.refresh();
+      } catch (err) {
+        console.error("[stok] updateOpeningStock threw", err);
+        toast.error("Gagal menyimpan stok awal. Coba lagi.");
+      }
     });
   }
 
@@ -569,11 +584,16 @@ function OperationalRow({ item }: { item: StockSnapshot["items"][number] }) {
 
   function toggleActive() {
     start(async () => {
-      const res = await toggleStockActive(item.daily_stock.id, !item.daily_stock.is_active);
-      if (!res.ok) toast.error(res.error);
-      else {
-        toast.success(item.daily_stock.is_active ? "Item dinonaktifkan" : "Item diaktifkan");
-        router.refresh();
+      try {
+        const res = await toggleStockActive(item.daily_stock.id, !item.daily_stock.is_active);
+        if (!res.ok) toast.error(res.error);
+        else {
+          toast.success(item.daily_stock.is_active ? "Item dinonaktifkan" : "Item diaktifkan");
+          router.refresh();
+        }
+      } catch (err) {
+        console.error("[stok] toggleStockActive threw", err);
+        toast.error("Gagal mengubah status. Coba lagi.");
       }
     });
   }
@@ -667,16 +687,21 @@ function AdjustStockDialog({
       return;
     }
     start(async () => {
-      const res = await addStock(dailyStockId, n, kind, notes || undefined);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = await addStock(dailyStockId, n, kind, notes || undefined);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success(`${label} ${n} berhasil`);
+        setOpen(false);
+        setAmount("");
+        setNotes("");
+        router.refresh();
+      } catch (err) {
+        console.error("[stok] addStock threw", err);
+        toast.error("Gagal menyimpan stok. Coba lagi.");
       }
-      toast.success(`${label} ${n} berhasil`);
-      setOpen(false);
-      setAmount("");
-      setNotes("");
-      router.refresh();
     });
   }
 

@@ -345,8 +345,14 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
 
   function transition(next: OrderStatus) {
     start(async () => {
-      const res = await updateOrderStatus(order.id, next);
-      if (!res.ok) toast.error(res.error);
+      try {
+        const res = await updateOrderStatus(order.id, next);
+        if (!res.ok) toast.error(res.error);
+      } catch (err) {
+        // Don't let a thrown action crash the kitchen board.
+        console.error("[kitchen] updateOrderStatus threw", err);
+        toast.error("Gagal memperbarui status. Coba lagi.");
+      }
     });
   }
 

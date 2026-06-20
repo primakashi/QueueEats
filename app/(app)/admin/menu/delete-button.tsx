@@ -48,12 +48,17 @@ export function DeleteMenuItemButton({
             aria-busy={pending}
             onClick={() =>
               start(async () => {
-                const res = await deleteMenuItem(id);
-                if (!res.ok) {
-                  toast.error(res.error);
-                } else {
-                  toast.success("Item menu dihapus");
-                  setOpen(false);
+                try {
+                  const res = await deleteMenuItem(id);
+                  if (!res.ok) {
+                    toast.error(res.error);
+                  } else {
+                    toast.success("Item menu dihapus");
+                    setOpen(false);
+                  }
+                } catch (err) {
+                  console.error("[menu] deleteMenuItem threw", err);
+                  toast.error("Gagal menghapus item. Coba lagi.");
                 }
               })
             }

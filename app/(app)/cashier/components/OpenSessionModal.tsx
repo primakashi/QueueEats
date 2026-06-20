@@ -55,13 +55,20 @@ export function OpenSessionGate({
     const effectiveOutlet = outletId ?? selectedOutletId;
     if (effectiveOutlet) fd.set("outlet_id", effectiveOutlet);
     start(async () => {
-      const res = await openSession(fd);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await openSession(fd);
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        toast.success("Sesi kasir dibuka");
+        router.refresh();
+      } catch (err) {
+        console.error("[session] openSession threw", err);
+        const msg = "Gagal membuka sesi. Coba lagi.";
+        toast.error(msg);
+        setError(msg);
       }
-      toast.success("Sesi kasir dibuka");
-      router.refresh();
     });
   }
 

@@ -44,18 +44,23 @@ export function SubscriptionEditor({
 
   function save() {
     start(async () => {
-      const res = await updateRestaurantSubscription(
-        restaurantId,
-        dateInput || null,
-        notesInput || null,
-      );
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = await updateRestaurantSubscription(
+          restaurantId,
+          dateInput || null,
+          notesInput || null,
+        );
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success("Langganan diperbarui");
+        setEditing(false);
+        router.refresh();
+      } catch (err) {
+        console.error("[subscription] updateRestaurantSubscription threw", err);
+        toast.error("Gagal menyimpan langganan. Coba lagi.");
       }
-      toast.success("Langganan diperbarui");
-      setEditing(false);
-      router.refresh();
     });
   }
 

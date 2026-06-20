@@ -23,8 +23,13 @@ export function AvailabilityToggle({
       aria-busy={pending}
       onClick={() =>
         start(async () => {
-          const res = await toggleMenuItemAvailability(id, next);
-          if (!res.ok) toast.error(res.error);
+          try {
+            const res = await toggleMenuItemAvailability(id, next);
+            if (!res.ok) toast.error(res.error);
+          } catch (err) {
+            console.error("[menu] toggleMenuItemAvailability threw", err);
+            toast.error("Gagal mengubah ketersediaan. Coba lagi.");
+          }
         })
       }
       className="disabled:opacity-80"

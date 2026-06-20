@@ -188,17 +188,22 @@ export function HostClient({
 
   const load = useCallback(async () => {
     setRefreshing(true);
-    const res = await fetch("/api/queue/host-list", { cache: "no-store" });
-    const json = (await res.json()) as QueueListResponse & { error?: string };
-    if (!res.ok) {
-      setError(json.error ?? "Gagal memuat antrian");
+    try {
+      const res = await fetch("/api/queue/host-list", { cache: "no-store" });
+      const json = (await res.json()) as QueueListResponse & { error?: string };
+      if (!res.ok) {
+        setError(json.error ?? "Gagal memuat antrian");
+        return;
+      }
+      setError(null);
+      setEntries(json.entries);
+      setTablesNeedingCleanup(json.tables_needing_cleanup ?? []);
+    } catch (err) {
+      console.error("[host] load threw", err);
+      setError("Tidak dapat menghubungi server");
+    } finally {
       setRefreshing(false);
-      return;
     }
-    setError(null);
-    setEntries(json.entries);
-    setTablesNeedingCleanup(json.tables_needing_cleanup ?? []);
-    setRefreshing(false);
   }, []);
 
   useEffect(() => {

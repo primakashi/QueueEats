@@ -43,13 +43,18 @@ function OutletForm({
     const fd = new FormData(e.currentTarget);
     fd.set("is_temporary", isTemp ? "true" : "false");
     start(async () => {
-      const res = outlet ? await updateOutlet(fd) : await createOutlet(fd);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = outlet ? await updateOutlet(fd) : await createOutlet(fd);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success(outlet ? "Outlet diperbarui" : "Outlet dibuat");
+        onSuccess();
+      } catch (err) {
+        console.error("[outlets] save threw", err);
+        toast.error("Gagal menyimpan outlet. Coba lagi.");
       }
-      toast.success(outlet ? "Outlet diperbarui" : "Outlet dibuat");
-      onSuccess();
     });
   }
 
@@ -161,11 +166,16 @@ function OutletCard({ outlet, userRole }: { outlet: Outlet; userRole: UserRole }
 
   function toggle() {
     start(async () => {
-      const res = outlet.is_archived
-        ? await restoreOutlet(outlet.id)
-        : await archiveOutlet(outlet.id);
-      if (!res.ok) toast.error(res.error);
-      else toast.success(outlet.is_archived ? "Outlet dipulihkan" : "Outlet diarsipkan");
+      try {
+        const res = outlet.is_archived
+          ? await restoreOutlet(outlet.id)
+          : await archiveOutlet(outlet.id);
+        if (!res.ok) toast.error(res.error);
+        else toast.success(outlet.is_archived ? "Outlet dipulihkan" : "Outlet diarsipkan");
+      } catch (err) {
+        console.error("[outlets] toggle threw", err);
+        toast.error("Gagal mengubah status outlet. Coba lagi.");
+      }
     });
   }
 

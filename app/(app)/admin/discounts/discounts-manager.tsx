@@ -69,17 +69,22 @@ export function DiscountsManager({
 
   function onSubmit(formData: FormData) {
     start(async () => {
-      const isNew = editing === "new";
-      if (!isNew && editing) formData.set("id", editing.id);
-      const action = isNew ? createDiscount : updateDiscount;
-      const res = await action(formData);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const isNew = editing === "new";
+        if (!isNew && editing) formData.set("id", editing.id);
+        const action = isNew ? createDiscount : updateDiscount;
+        const res = await action(formData);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success(isNew ? "Diskon dibuat" : "Diskon diperbarui");
+        close();
+        router.refresh();
+      } catch (err) {
+        console.error("[discounts] save threw", err);
+        toast.error("Gagal menyimpan diskon. Coba lagi.");
       }
-      toast.success(isNew ? "Diskon dibuat" : "Diskon diperbarui");
-      close();
-      router.refresh();
     });
   }
 
@@ -87,14 +92,19 @@ export function DiscountsManager({
     const target = deleting;
     if (!target) return;
     start(async () => {
-      const res = await deleteDiscount(target.id);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
+      try {
+        const res = await deleteDiscount(target.id);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success("Diskon dihapus");
+        setDeleting(null);
+        router.refresh();
+      } catch (err) {
+        console.error("[discounts] delete threw", err);
+        toast.error("Gagal menghapus diskon. Coba lagi.");
       }
-      toast.success("Diskon dihapus");
-      setDeleting(null);
-      router.refresh();
     });
   }
 

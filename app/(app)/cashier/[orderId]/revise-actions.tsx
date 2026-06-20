@@ -25,15 +25,20 @@ export function ReopenButton({
       return;
     }
     start(async () => {
-      const res = await reopenOrder(orderId);
-      if (!res.ok) {
-        toast.error(res.error);
+      try {
+        const res = await reopenOrder(orderId);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success("Pesanan dibuka kembali untuk revisi");
+        router.refresh();
+      } catch (err) {
+        console.error("[revise] reopenOrder threw", err);
+        toast.error("Gagal membuka kembali. Coba lagi.");
+      } finally {
         setConfirm(false);
-        return;
       }
-      toast.success("Pesanan dibuka kembali untuk revisi");
-      router.refresh();
-      setConfirm(false);
     });
   }
 

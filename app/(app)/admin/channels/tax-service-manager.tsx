@@ -79,9 +79,14 @@ export function TaxServiceManager({
     for (const id of finalChannels) fd.append("service_charge_channels", id);
 
     start(async () => {
-      const res = await updateTaxService(fd);
-      if (!res.ok) toast.error(res.error);
-      else toast.success("Pengaturan disimpan");
+      try {
+        const res = await updateTaxService(fd);
+        if (!res.ok) toast.error(res.error);
+        else toast.success("Pengaturan disimpan");
+      } catch (err) {
+        console.error("[tax] updateTaxService threw", err);
+        toast.error("Gagal menyimpan pengaturan. Coba lagi.");
+      }
     });
   }
 

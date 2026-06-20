@@ -53,14 +53,21 @@ export function CashMovementModal({ sessionId, type, onClose }: Props) {
     fd.set("type", type);
     fd.set("category", category);
     start(async () => {
-      const res = await addCashMovement(sessionId, fd);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await addCashMovement(sessionId, fd);
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        toast.success(`${title} berhasil dicatat`);
+        router.refresh();
+        onClose();
+      } catch (err) {
+        console.error("[session] addCashMovement threw", err);
+        const msg = "Gagal mencatat kas. Coba lagi.";
+        toast.error(msg);
+        setError(msg);
       }
-      toast.success(`${title} berhasil dicatat`);
-      router.refresh();
-      onClose();
     });
   }
 
