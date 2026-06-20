@@ -46,110 +46,6 @@ async function adjustStockForEdit(
   });
 }
 
-function computeDiscountAmount(
-  valueType: DiscountValueType,
-  value: number,
-  base: number,
-): number {
-  if (base <= 0) return 0;
-  const raw =
-    valueType === "amount" ? Math.round(value) : Math.round((value / 100) * base);
-  return Math.max(0, Math.min(raw, base));
-}
-
-async function recalcTotal(supabase: Awaited<ReturnType<typeof createClient>>, orderId: string) {
-  // items, order, and discounts are mutually independent — fetch in parallel.
-  // restaurants still depends on order.restaurant_id so stays sequential.
-  const [{ data: items }, { data: order }, { data: discRows }] = await Promise.all([
-    supabase
-      .from("order_items")
-      .select("id, price_snapshot, quantity")
-      .eq("order_id", orderId),
-    supabase
-      .from("orders")
-      .select("outlet_id, restaurant_id, order_channel")
-      .eq("id", orderId)
-      .maybeSingle(),
-    supabase
-      .from("order_discounts")
-      .select("id, scope, value_type, value_snapshot, amount, order_item_id")
-      .eq("order_id", orderId)
-      .order("created_at", { ascending: true }),
-  ]);
-
-  const itemRows = items ?? [];
-  const subtotal = itemRows.reduce((s, i) => s + i.price_snapshot * i.quantity, 0);
-  const itemTotalById = new Map<string, number>(
-    itemRows.map((i) => [i.id as string, i.price_snapshot * i.quantity]),
-  );
-
-  let taxRate = 0;
-  let serviceRate = 0;
-  let roundTotal = false;
-  if (order?.restaurant_id) {
-    const { data: rest } = await supabase
-      .from("restaurants")
-      .select("tax_rate, service_charge_rate, service_charge_channels, round_total")
-      .eq("id", order.restaurant_id)
-      .maybeSingle();
-    taxRate = (rest as { tax_rate?: number } | null)?.tax_rate ?? 0;
-    const baseSvc = (rest as { service_charge_rate?: number } | null)?.service_charge_rate ?? 0;
-    const svcChannels = ((rest as { service_charge_channels?: string[] } | null)?.service_charge_channels ?? []);
-    const channelApplies = svcChannels.length === 0 || svcChannels.includes(order.order_channel ?? "");
-    serviceRate = channelApplies ? baseSvc : 0;
-    roundTotal = (rest as { round_total?: boolean } | null)?.round_total ?? false;
-  }
-
-  const remainingItemBase = new Map(itemTotalById);
-  let remainingTxnBase = subtotal;
-  let discount_amount = 0;
-
-  for (const d of (discRows ?? []) as Array<{
-    id: string;
-    scope: DiscountScope;
-    value_type: DiscountValueType;
-    value_snapshot: number;
-    amount: number;
-    order_item_id: string | null;
-  }>) {
-    let base: number;
-    if (d.scope === "menu_item" && d.order_item_id) {
-      base = remainingItemBase.get(d.order_item_id) ?? 0;
-    } else {
-      base = remainingTxnBase;
-    }
-    const newAmount = computeDiscountAmount(d.value_type, Number(d.value_snapshot), base);
-    if (newAmount !== d.amount) {
-      await supabase
-        .from("order_discounts")
-        .update({ amount: newAmount })
-        .eq("id", d.id);
-    }
-    if (d.scope === "menu_item" && d.order_item_id) {
-      remainingItemBase.set(d.order_item_id, base - newAmount);
-    }
-    remainingTxnBase = Math.max(0, remainingTxnBase - newAmount);
-    discount_amount += newAmount;
-  }
-
-  const discountedSubtotal = Math.max(0, subtotal - discount_amount);
-  const tax_amount = Math.round(discountedSubtotal * taxRate);
-  const service_charge_amount = Math.round(discountedSubtotal * serviceRate);
-  const rawTotal = discountedSubtotal + tax_amount + service_charge_amount;
-  const total = roundTotal ? Math.round(rawTotal / 1000) * 1000 : rawTotal;
-
-  await supabase
-    .from("orders")
-    .update({
-      subtotal,
-      total,
-      tax_amount,
-      service_charge_amount,
-      discount_amount,
-    })
-    .eq("id", orderId);
-}
-
 export async function updateOrderItemQty(
   orderId: string,
   itemId: string,
@@ -158,50 +54,18 @@ export async function updateOrderItemQty(
   const profile = await requireRole(["cashier", "admin", "waiter"]);
   const supabase = await createClient();
 
-  const { data: order } = await supabase
-    .from("orders")
-    .select("payment_status")
-    .eq("id", orderId)
-    .maybeSingle();
-  if (!order) return { ok: false, error: "Pesanan tidak ditemukan" };
-  if (order.payment_status === "paid") return { ok: false, error: "Pesanan sudah dibayar" };
+  const { data, error } = await supabase.rpc("update_order_item_with_recalc", {
+    p_order_id: orderId,
+    p_item_id: itemId,
+    p_qty: qty,
+    p_actor: profile.id,
+  });
+  if (error) return { ok: false, error: error.message };
+  const result = data as { ok: boolean; error?: string };
+  if (!result?.ok) return { ok: false, error: result?.error ?? "Gagal memperbarui pesanan" };
 
-  // Capture the old line so we can compute the stock delta after the write.
-  const { data: existing } = await supabase
-    .from("order_items")
-    .select("menu_item_id, quantity")
-    .eq("id", itemId)
-    .eq("order_id", orderId)
-    .maybeSingle();
-  const oldQty = (existing?.quantity as number | undefined) ?? 0;
-  const menuItemId = (existing?.menu_item_id as string | null | undefined) ?? null;
-
-  if (qty <= 0) {
-    const { error } = await supabase
-      .from("order_items")
-      .delete()
-      .eq("id", itemId)
-      .eq("order_id", orderId);
-    if (error) return { ok: false, error: error.message };
-  } else {
-    const { error } = await supabase
-      .from("order_items")
-      .update({ quantity: qty })
-      .eq("id", itemId)
-      .eq("order_id", orderId);
-    if (error) return { ok: false, error: error.message };
-  }
-
-  // Stock delta: oldQty - newQty. Positive = restore (qty reduced), negative = consume (qty increased).
-  if (menuItemId) {
-    const newQty = qty <= 0 ? 0 : qty;
-    await adjustStockForEdit(supabase, orderId, menuItemId, oldQty - newQty, profile.id);
-  }
-
-  await recalcTotal(supabase, orderId);
   revalidatePath(`/cashier/${orderId}`);
   revalidatePath("/cashier");
-  revalidatePath("/waiter");
   revalidatePath("/admin/stok");
   return { ok: true };
 }
@@ -210,44 +74,9 @@ export async function removeOrderItem(
   orderId: string,
   itemId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const profile = await requireRole(["cashier", "admin", "waiter"]);
-  const supabase = await createClient();
-
-  const { data: order } = await supabase
-    .from("orders")
-    .select("payment_status")
-    .eq("id", orderId)
-    .maybeSingle();
-  if (!order) return { ok: false, error: "Pesanan tidak ditemukan" };
-  if (order.payment_status === "paid") return { ok: false, error: "Pesanan sudah dibayar" };
-
-  // Capture the line being removed so we can restore its stock after delete.
-  const { data: existing } = await supabase
-    .from("order_items")
-    .select("menu_item_id, quantity")
-    .eq("id", itemId)
-    .eq("order_id", orderId)
-    .maybeSingle();
-
-  const { error } = await supabase
-    .from("order_items")
-    .delete()
-    .eq("id", itemId)
-    .eq("order_id", orderId);
-  if (error) return { ok: false, error: error.message };
-
-  const menuItemId = (existing?.menu_item_id as string | null | undefined) ?? null;
-  const oldQty = (existing?.quantity as number | undefined) ?? 0;
-  if (menuItemId && oldQty > 0) {
-    await adjustStockForEdit(supabase, orderId, menuItemId, oldQty, profile.id);
-  }
-
-  await recalcTotal(supabase, orderId);
-  revalidatePath(`/cashier/${orderId}`);
-  revalidatePath("/cashier");
-  revalidatePath("/waiter");
-  revalidatePath("/admin/stok");
-  return { ok: true };
+  // Removing is the same as setting qty=0; the RPC handles delete + stock
+  // restore + recalc in one transaction.
+  return updateOrderItemQty(orderId, itemId, 0);
 }
 
 export async function applyDiscount(params: {
@@ -321,7 +150,7 @@ export async function applyDiscount(params: {
   });
   if (error) return { ok: false, error: error.message };
 
-  await recalcTotal(supabase, orderId);
+  await supabase.rpc("recalc_order_total", { p_order_id: orderId });
   revalidatePath(`/cashier/${orderId}`);
   revalidatePath("/cashier");
   return { ok: true };
@@ -388,7 +217,7 @@ export async function autoApplyDailyDiscounts(
   const { error } = await supabase.from("order_discounts").insert(toInsert);
   if (error) return { ok: false, error: error.message };
 
-  await recalcTotal(supabase, orderId);
+  await supabase.rpc("recalc_order_total", { p_order_id: orderId });
   return { ok: true, applied: toInsert.length };
 }
 
@@ -416,7 +245,7 @@ export async function removeOrderDiscount(
     .eq("order_id", orderId);
   if (error) return { ok: false, error: error.message };
 
-  await recalcTotal(supabase, orderId);
+  await supabase.rpc("recalc_order_total", { p_order_id: orderId });
   revalidatePath(`/cashier/${orderId}`);
   revalidatePath("/cashier");
   return { ok: true };
@@ -509,7 +338,7 @@ export async function addOrderItem(
     await adjustStockForEdit(supabase, orderId, menuItemId, -qty, profile.id);
   }
 
-  await recalcTotal(supabase, orderId);
+  await supabase.rpc("recalc_order_total", { p_order_id: orderId });
   revalidatePath(`/cashier/${orderId}`);
   revalidatePath("/cashier");
   revalidatePath("/waiter");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Search, Tag, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -66,29 +66,40 @@ export function EditableOrderItems({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [busyDiscountId, setBusyDiscountId] = useState<string | null>(null);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [discountSheetOpen, setDiscountSheetOpen] = useState(false);
   const [search, setSearch] = useState("");
 
+  // Optimistic items: +/- buttons update local state instantly while the
+  // server action runs in the background. React resets this back to the
+  // `items` prop when the transition completes (router.refresh fires).
+  const [optimisticItems, applyOptimistic] = useOptimistic(
+    items,
+    (state: OrderItem[], action: { type: "setQty"; itemId: string; qty: number } | { type: "remove"; itemId: string }) => {
+      if (action.type === "remove") return state.filter((i) => i.id !== action.itemId);
+      if (action.qty <= 0) return state.filter((i) => i.id !== action.itemId);
+      return state.map((i) =>
+        i.id === action.itemId ? { ...i, quantity: action.qty } : i,
+      );
+    },
+  );
+
   function setQty(itemId: string, qty: number) {
-    setBusyItemId(itemId);
     start(async () => {
+      applyOptimistic({ type: "setQty", itemId, qty });
       const res = await updateOrderItemQty(orderId, itemId, qty);
       if (!res.ok) toast.error(res.error);
       else router.refresh();
-      setBusyItemId(null);
     });
   }
 
   function remove(itemId: string) {
-    setBusyItemId(itemId);
     start(async () => {
+      applyOptimistic({ type: "remove", itemId });
       const res = await removeOrderItem(orderId, itemId);
       if (!res.ok) toast.error(res.error);
       else router.refresh();
-      setBusyItemId(null);
     });
   }
 
@@ -174,7 +185,7 @@ export function EditableOrderItems({
   return (
     <>
       <div className="py-4 space-y-2">
-        {items.map((i) => (
+        {optimisticItems.map((i) => (
           <div key={i.id} className="flex justify-between gap-3 items-center">
             <div className="min-w-0 flex-1">
               <div>
@@ -192,24 +203,18 @@ export function EditableOrderItems({
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7"
-                  disabled={pending && busyItemId === i.id}
                   onClick={() => setQty(i.id, i.quantity - 1)}
                 >
                   <Minus className="h-3.5 w-3.5" />
                 </Button>
                 <div className="w-7 text-center text-sm tabular-nums font-semibold">
-                  {busyItemId === i.id && pending ? (
-                    <Spinner size="xs" />
-                  ) : (
-                    i.quantity
-                  )}
+                  {i.quantity}
                 </div>
                 <Button
                   type="button"
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7"
-                  disabled={pending && busyItemId === i.id}
                   onClick={() => setQty(i.id, i.quantity + 1)}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -223,7 +228,6 @@ export function EditableOrderItems({
                 size="icon"
                 variant="ghost"
                 className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                disabled={pending && busyItemId === i.id}
                 onClick={() => remove(i.id)}
               >
                 <Trash2 className="h-3.5 w-3.5" />
