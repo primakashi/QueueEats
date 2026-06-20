@@ -159,66 +159,84 @@ export async function applyDiscount(params: {
 export async function autoApplyDailyDiscounts(
   orderId: string,
 ): Promise<{ ok: true; applied: number } | { ok: false; error: string }> {
-  await requireRole(["cashier", "admin", "branch_manager", "waiter"]);
-  const supabase = await createClient();
+  // Runs inside the cashier order page's Promise.all on every render.
+  // If anything below throws (Supabase blip, RLS quirk, missing env), the
+  // whole page would crash — so we catch everything and return ok:false.
+  // Worst case: daily discounts aren't auto-applied this load; user can
+  // reopen the page or apply them manually.
+  try {
+    await requireRole(["cashier", "admin", "branch_manager", "waiter"]);
+    const supabase = await createClient();
 
-  const { data: order } = await supabase
-    .from("orders")
-    .select("payment_status, restaurant_id")
-    .eq("id", orderId)
-    .maybeSingle();
-  if (!order) return { ok: false, error: "Pesanan tidak ditemukan" };
-  if (order.payment_status === "paid") return { ok: true, applied: 0 };
+    const { data: order } = await supabase
+      .from("orders")
+      .select("payment_status, restaurant_id")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (!order) return { ok: false, error: "Pesanan tidak ditemukan" };
+    if (order.payment_status === "paid") return { ok: true, applied: 0 };
 
-  const today = new Date().toISOString().slice(0, 10);
-  const adminDb = createAdminClient();
-  let q = adminDb
-    .from("discounts")
-    .select("id, name, value_type, value, active_from, active_until")
-    .eq("scope", "daily")
-    .eq("is_active", true);
-  if (order.restaurant_id) q = q.eq("restaurant_id", order.restaurant_id);
-  const { data: dailiesRaw } = await q;
-  const dailies = (dailiesRaw ?? []).filter((d) => {
-    const from = (d as { active_from: string | null }).active_from;
-    const until = (d as { active_until: string | null }).active_until;
-    if (from && from > today) return false;
-    if (until && until < today) return false;
-    return true;
-  });
-  if (dailies.length === 0) return { ok: true, applied: 0 };
+    const today = new Date().toISOString().slice(0, 10);
+    const adminDb = createAdminClient();
+    let q = adminDb
+      .from("discounts")
+      .select("id, name, value_type, value, active_from, active_until")
+      .eq("scope", "daily")
+      .eq("is_active", true);
+    if (order.restaurant_id) q = q.eq("restaurant_id", order.restaurant_id);
+    const { data: dailiesRaw } = await q;
+    const dailies = (dailiesRaw ?? []).filter((d) => {
+      const from = (d as { active_from: string | null }).active_from;
+      const until = (d as { active_until: string | null }).active_until;
+      if (from && from > today) return false;
+      if (until && until < today) return false;
+      return true;
+    });
+    if (dailies.length === 0) return { ok: true, applied: 0 };
 
-  const { data: appliedRows } = await supabase
-    .from("order_discounts")
-    .select("discount_id")
-    .eq("order_id", orderId);
-  const appliedIds = new Set(
-    (appliedRows ?? [])
-      .map((r) => (r as { discount_id: string | null }).discount_id)
-      .filter(Boolean),
-  );
+    const { data: appliedRows } = await supabase
+      .from("order_discounts")
+      .select("discount_id")
+      .eq("order_id", orderId);
+    const appliedIds = new Set(
+      (appliedRows ?? [])
+        .map((r) => (r as { discount_id: string | null }).discount_id)
+        .filter(Boolean),
+    );
 
-  const toInsert = dailies
-    .filter((d) => !appliedIds.has(d.id as string))
-    .map((d) => ({
-      order_id: orderId,
-      discount_id: d.id,
-      scope: "daily" as const,
-      name_snapshot: d.name,
-      value_type: d.value_type,
-      value_snapshot: Number(d.value),
-      amount: 0,
-      order_item_id: null,
-      reason: null,
-      applied_by: null,
-    }));
-  if (toInsert.length === 0) return { ok: true, applied: 0 };
+    const toInsert = dailies
+      .filter((d) => !appliedIds.has(d.id as string))
+      .map((d) => ({
+        order_id: orderId,
+        discount_id: d.id,
+        scope: "daily" as const,
+        name_snapshot: d.name,
+        value_type: d.value_type,
+        value_snapshot: Number(d.value),
+        amount: 0,
+        order_item_id: null,
+        reason: null,
+        applied_by: null,
+      }));
+    if (toInsert.length === 0) return { ok: true, applied: 0 };
 
-  const { error } = await supabase.from("order_discounts").insert(toInsert);
-  if (error) return { ok: false, error: error.message };
+    const { error } = await supabase.from("order_discounts").insert(toInsert);
+    if (error) return { ok: false, error: error.message };
 
-  await supabase.rpc("recalc_order_total", { p_order_id: orderId });
-  return { ok: true, applied: toInsert.length };
+    await supabase.rpc("recalc_order_total", { p_order_id: orderId });
+    return { ok: true, applied: toInsert.length };
+  } catch (err) {
+    // Re-throw Next.js control-flow exceptions (redirect, notFound).
+    // Other errors are swallowed so the page render continues.
+    if (err && typeof err === "object" && "digest" in err) {
+      const digest = String((err as { digest?: unknown }).digest ?? "");
+      if (digest.startsWith("NEXT_REDIRECT") || digest === "NEXT_HTTP_ERROR_FALLBACK;404") {
+        throw err;
+      }
+    }
+    console.error("[autoApplyDailyDiscounts] failed", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Gagal memuat diskon harian" };
+  }
 }
 
 export async function removeOrderDiscount(
