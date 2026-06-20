@@ -1,12 +1,5 @@
-import { Spinner } from "@/components/ui/spinner";
+import { PageLoader } from "@/components/page-loader";
 
 export default function AppLoading() {
-  return (
-    <div className="flex flex-1 items-center justify-center p-12 text-muted-foreground">
-      <div className="flex items-center gap-2 text-sm">
-        <Spinner size="sm" />
-        <span>Memuat…</span>
-      </div>
-    </div>
-  );
+  return <PageLoader />;
 }

@@ -1,5 +1,5 @@
 import { PageLoader } from "@/components/page-loader";
 
 export default function Loading() {
-  return <PageLoader title="Memuat rekonsiliasi…" />;
+  return <PageLoader title="Memuat stok…" />;
 }
