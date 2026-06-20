@@ -243,8 +243,9 @@ BEGIN
   v_parent_order_id := NULLIF(p_payload->>'parent_order_id', '')::uuid;
 
   -- All three patches in one UPDATE.
+  -- service_type column is an enum (order_service_type) so cast explicitly.
   UPDATE public.orders SET
-    service_type = v_service_type,
+    service_type = v_service_type::public.order_service_type,
     parent_order_id = COALESCE(v_parent_order_id, parent_order_id),
     restaurant_id = COALESCE(restaurant_id, p_restaurant_id)
   WHERE id = v_order_id;
