@@ -1070,7 +1070,28 @@ function doExport(args: {
   menuItems: MenuItem[];
   sessions: SalesCashierSession[];
 }) {
-  const { sales, filter, days, omzet, orderCount, itemCount, aov, perDay, periodLabel, outletName, channelLabelOf, categoryNameOf } = args;
+  const { sales, filter, days, omzet, orderCount, itemCount, aov, perDay, periodLabel, outletName, channelLabelOf, categoryNameOf, sessions } = args;
+
+  // Cashier sessions in range (mirrors in-app CashRecap filtering)
+  const fromKey = toInput(filter.from);
+  const toKey = toInput(filter.to);
+  const sessionsInRange = sessions.filter((s) => {
+    if (s.session_date < fromKey || s.session_date > toKey) return false;
+    if (filter.outlet !== ALL && s.outlet_id !== filter.outlet) return false;
+    return true;
+  });
+  let cashSalesSum = 0, cashInSum = 0, cashOutSum = 0, openingSum = 0, actualSum = 0, withActual = 0;
+  for (const s of sessionsInRange) {
+    cashSalesSum += s.cash_sales;
+    cashInSum += s.cash_in;
+    cashOutSum += s.cash_out;
+    openingSum += s.opening_cash;
+    if (s.actual_closing_cash != null) {
+      actualSum += s.actual_closing_cash - (s.opening_cash + s.cash_in - s.cash_out + s.cash_sales);
+      withActual += 1;
+    }
+  }
+  const netCash = cashSalesSum + cashInSum - cashOutSum;
 
   // Per shift
   const slotData = SLOTS.map((s) => ({ ...s, v: 0, n: 0 }));
@@ -1173,6 +1194,19 @@ td{padding:5px 6px 5px 0;border-bottom:1px solid rgba(36,28,21,.06);vertical-ali
   <div style="flex:1;min-width:120px"><div class="hlabel">Rata-rata/hari</div><div class="hval">${fmt(perDay)}</div><div class="hsub">${days} hari periode</div></div>
   <div style="flex:1;min-width:120px"><div class="hlabel">Rata-rata/pesanan</div><div class="hval">${fmt(aov)}</div><div class="hsub">average order value</div></div>
 </div>
+
+${sessionsInRange.length > 0 ? `
+<div class="section"><div class="stitle">Ringkasan Kasir</div>
+<table><tbody>
+<tr><td>Jumlah sesi kasir</td><td class="num">${sessionsInRange.length} sesi</td></tr>
+<tr><td>Modal awal (kas pembuka)</td><td class="num">${fmt(openingSum)}</td></tr>
+<tr><td>Kas masuk <span style="color:#6E665B;font-size:10px">penjualan tunai</span></td><td class="num" style="color:#1e8c66">+ ${fmt(cashSalesSum)}</td></tr>
+<tr><td>Setoran tambahan <span style="color:#6E665B;font-size:10px">top-up & koreksi</span></td><td class="num" style="color:#1e8c66">+ ${fmt(cashInSum)}</td></tr>
+<tr><td>Kas keluar <span style="color:#6E665B;font-size:10px">pengeluaran operasional</span></td><td class="num" style="color:#a8392b">− ${fmt(cashOutSum)}</td></tr>
+<tr><td style="font-weight:600">Arus kas bersih (tunai)</td><td class="num" style="font-weight:600">${fmt(netCash)}</td></tr>
+<tr><td>Total selisih laci <span style="color:#6E665B;font-size:10px">${withActual}/${sessionsInRange.length} sesi ditutup</span></td><td class="num" style="color:${actualSum === 0 ? "#1e8c66" : "#a8392b"}">${withActual === 0 ? "—" : `${actualSum > 0 ? "+ " : actualSum < 0 ? "− " : ""}${fmt(Math.abs(actualSum))}`}</td></tr>
+</tbody></table></div>
+` : ""}
 
 <div class="section"><div class="stitle">Top 5 Menu Terlaris</div>
 <table><thead><tr><th>Menu</th><th class="num">Qty</th><th class="num">Pendapatan</th><th class="num">%</th></tr></thead><tbody>
