@@ -33,7 +33,13 @@ import {
   type OrderChannelConfig,
   type OrderChannelKind,
 } from "@/lib/types";
-import { createChannel, updateChannel, toggleChannelActive, deleteChannel } from "./actions";
+import {
+  createChannel,
+  updateChannel,
+  toggleChannelActive,
+  togglePresetDirectChannel,
+  deleteChannel,
+} from "./actions";
 import { Toggle } from "./toggle";
 
 type IconStyle = { icon: React.ComponentType<{ className?: string }>; bg: string };
@@ -286,6 +292,58 @@ function ChannelRow({ channel }: { channel: OrderChannelConfig }) {
   );
 }
 
+const DIRECT_PRESETS: Array<{ name: string; description: string }> = [
+  { name: "Dine-in", description: "Makan di tempat" },
+  { name: "Takeaway", description: "Bawa pulang" },
+];
+
+function PresetDirectRow({
+  presetName,
+  description,
+  channel,
+}: {
+  presetName: string;
+  description: string;
+  channel: OrderChannelConfig | undefined;
+}) {
+  const [pending, start] = useTransition();
+  const isActive = !!channel?.is_active;
+  const { icon: Icon, bg } = presetName.toLowerCase().includes("takeaway")
+    ? CHANNEL_ICONS.takeaway!
+    : CHANNEL_ICONS["dine-in"]!;
+
+  function toggle() {
+    start(async () => {
+      try {
+        const res = await togglePresetDirectChannel(presetName, !isActive);
+        if (!res.ok) toast.error(res.error);
+        else toast.success(isActive ? "Saluran dinonaktifkan" : "Saluran diaktifkan");
+      } catch (err) {
+        console.error("[channels] preset toggle threw", err);
+        toast.error("Gagal mengubah status saluran. Coba lagi.");
+      }
+    });
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-dashed bg-card/60 px-4 py-2.5 ml-4">
+      <div className={`h-8 w-8 rounded-md ${bg} text-white grid place-items-center shrink-0`}>
+        <Icon className="size-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium truncate">{presetName}</div>
+        <div className="text-xs text-muted-foreground truncate">{description}</div>
+      </div>
+      <Toggle
+        checked={isActive}
+        onChange={toggle}
+        disabled={pending}
+        ariaLabel={isActive ? "Nonaktifkan" : "Aktifkan"}
+      />
+    </div>
+  );
+}
+
 function channelDescription(channel: OrderChannelConfig): string | null {
   const lower = channel.name.toLowerCase();
   if (lower.includes("dine")) return "Makan di tempat";
@@ -342,27 +400,54 @@ export function ChannelsManager({ channels }: { channels: OrderChannelConfig[] }
         </Dialog>
       </div>
 
-      {channels.length === 0 ? (
-        <Card className="p-10 text-center text-muted-foreground text-sm">
-          Belum ada saluran. Klik &quot;Tambah saluran&quot; untuk memulai.
-        </Card>
-      ) : (
-        (["direct", "online", "popup", "uncategorized"] as const).map((kind) => {
-          const list = groups[kind];
-          if (list.length === 0) return null;
-          return (
-            <div key={kind} className="space-y-2">
-              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {GROUP_LABEL[kind]}
-              </div>
-              <div className="space-y-2">
-                {list.map((ch) => (
-                  <ChannelRow key={ch.id} channel={ch} />
-                ))}
-              </div>
+      {(["direct", "online", "popup", "uncategorized"] as const).map((kind) => {
+        const list = groups[kind];
+
+        // The Direct section is always shown so the preset Dine-in / Takeaway
+        // sub-rows are visible even before any direct channel exists.
+        if (kind !== "direct" && list.length === 0) return null;
+
+        const presetMap = new Map<string, OrderChannelConfig>();
+        if (kind === "direct") {
+          for (const ch of list) {
+            presetMap.set(ch.name.toLowerCase(), ch);
+          }
+        }
+        const presetNamesLower = new Set(DIRECT_PRESETS.map((p) => p.name.toLowerCase()));
+        const otherDirect = kind === "direct"
+          ? list.filter((ch) => !presetNamesLower.has(ch.name.toLowerCase()))
+          : list;
+
+        return (
+          <div key={kind} className="space-y-2">
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {GROUP_LABEL[kind]}
             </div>
-          );
-        })
+            <div className="space-y-2">
+              {kind === "direct" && (
+                <div className="space-y-2">
+                  {DIRECT_PRESETS.map((p) => (
+                    <PresetDirectRow
+                      key={p.name}
+                      presetName={p.name}
+                      description={p.description}
+                      channel={presetMap.get(p.name.toLowerCase())}
+                    />
+                  ))}
+                </div>
+              )}
+              {otherDirect.map((ch) => (
+                <ChannelRow key={ch.id} channel={ch} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {channels.length === 0 && groups.direct.length === 0 && (
+        <p className="text-xs text-muted-foreground text-center">
+          Aktifkan Dine-in / Takeaway di atas, atau klik &quot;Tambah saluran&quot; untuk Online / Pop-up.
+        </p>
       )}
     </div>
   );

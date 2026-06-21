@@ -148,6 +148,63 @@ export async function toggleChannelActive(id: string, is_active: boolean): Promi
   return { ok: true };
 }
 
+/**
+ * Toggle a preset Direct channel by name (Dine-in or Takeaway). Creates the
+ * channel record on first activation so the list can render these as always-on
+ * sub-items under the Direct group, even before the user has set them up.
+ */
+export async function togglePresetDirectChannel(
+  presetName: string,
+  is_active: boolean,
+): Promise<Result> {
+  const profile = await requireRole(["admin", "owner"]);
+  const supabase = await createClient();
+  const restaurant_id = getRestaurantFilter(profile);
+
+  let q = supabase
+    .from("order_channels")
+    .select("*")
+    .eq("kind", "direct")
+    .ilike("name", presetName);
+  if (restaurant_id) q = q.eq("restaurant_id", restaurant_id);
+  const { data: existing } = await q.maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("order_channels")
+      .update({ is_active })
+      .eq("id", (existing as { id: string }).id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    if (!is_active) {
+      // Nothing to deactivate; treat as a no-op success.
+      revalidatePath("/admin/channels");
+      return { ok: true };
+    }
+    const id = await uniqueChannelId(supabase, slugify(presetName));
+    let sortQ = supabase.from("order_channels").select("sort_order").order("sort_order", { ascending: false }).limit(1);
+    if (restaurant_id) sortQ = sortQ.eq("restaurant_id", restaurant_id);
+    const { data: lastRow } = await sortQ.maybeSingle();
+    const sort_order = ((lastRow?.sort_order as number) ?? -1) + 1;
+    const { error } = await supabase
+      .from("order_channels")
+      .insert({
+        id,
+        name: presetName,
+        sort_order,
+        restaurant_id,
+        kind: "direct",
+        commission_rate: 0,
+        requires_acceptance: false,
+        is_active: true,
+      });
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/admin/channels");
+  return { ok: true };
+}
+
 export async function deleteChannel(id: string): Promise<Result> {
   await requireRole(["admin", "owner"]);
   const supabase = await createClient();

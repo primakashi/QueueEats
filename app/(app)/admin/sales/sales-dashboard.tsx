@@ -628,10 +628,15 @@ export function SalesDashboard({
         <MenuSection
           sales={sales}
           outlets={outlets}
-          channelOptions={channelOptions}
+          outletF={outletF}
+          setOutletF={setOutletF}
+          channelKind={channelKind}
+          setChannelKind={(k) => { setChannelKind(k); setChannel(ALL); }}
+          channel={channel}
+          setChannel={setChannel}
+          channelOptionsFiltered={channelOptionsFiltered}
           lockedOutletId={lockedOutletId}
           categoryNameOf={categoryNameOf}
-          channelLabelOf={channelLabelOf}
         />
 
         {/* TRANSACTIONS */}
@@ -993,29 +998,30 @@ function CashRecap({
 function MenuSection({
   sales,
   outlets,
-  channelOptions,
+  outletF,
+  setOutletF,
+  channelKind,
+  setChannelKind,
+  channel,
+  setChannel,
+  channelOptionsFiltered,
   lockedOutletId,
   categoryNameOf,
-  channelLabelOf,
 }: {
   sales: SalesOrder[];
   outlets: Pick<Outlet, "id" | "name">[];
-  channelOptions: string[];
+  outletF: string;
+  setOutletF: (v: string) => void;
+  channelKind: string;
+  setChannelKind: (k: string) => void;
+  channel: string;
+  setChannel: (c: string) => void;
+  channelOptionsFiltered: string[];
   lockedOutletId: string | null;
   categoryNameOf: (id: string | null) => string;
-  channelLabelOf: (id: string | null) => string;
 }) {
-  const [menuOutlet, setMenuOutlet] = useState<string>(ALL);
-  const [menuChannel, setMenuChannel] = useState<string>(ALL);
-
-  const filtered = useMemo(() => {
-    if (menuOutlet === ALL && menuChannel === ALL) return sales;
-    return sales.filter((o) => {
-      if (menuOutlet !== ALL && o.outlet_id !== menuOutlet) return false;
-      if (menuChannel !== ALL && channelLabelOf(o.order_channel) !== menuChannel) return false;
-      return true;
-    });
-  }, [sales, menuOutlet, menuChannel, channelLabelOf]);
+  // Sales is already outlet-filtered upstream when outletF is set.
+  const filtered = sales;
 
   return (
     <>
@@ -1023,21 +1029,41 @@ function MenuSection({
         Rekap penjualan per menu <span className={styles.noteSm}>— per item menu, berdasarkan filter aktif</span>
       </div>
       <div className={styles.tcard}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
           {!lockedOutletId && outlets.length > 0 && (
             <div className={styles.field}>
               <span className={styles.flabel}>Outlet</span>
-              <select className={styles.select} value={menuOutlet} onChange={(e) => setMenuOutlet(e.target.value)}>
+              <select className={styles.select} value={outletF} onChange={(e) => setOutletF(e.target.value)}>
                 <option value={ALL}>Semua outlet</option>
                 {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             </div>
           )}
+          <div>
+            <span className={styles.flabel}>Tipe channel</span>
+            <div className={styles.seg}>
+              {([
+                [ALL, "Semua"],
+                ["direct", "Direct"],
+                ["online", "Online"],
+                ["popup", "Pop-up"],
+              ] as [string, string][]).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  className={channelKind === k ? styles.segOn : ""}
+                  onClick={() => setChannelKind(k)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className={styles.field}>
-            <span className={styles.flabel}>Channel</span>
-            <select className={styles.select} value={menuChannel} onChange={(e) => setMenuChannel(e.target.value)}>
-              <option value={ALL}>Semua channel</option>
-              {channelOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+            <span className={styles.flabel}>Saluran</span>
+            <select className={styles.select} value={channel} onChange={(e) => setChannel(e.target.value)}>
+              <option value={ALL}>Semua saluran</option>
+              {channelOptionsFiltered.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         </div>
