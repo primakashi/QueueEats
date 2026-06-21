@@ -378,14 +378,14 @@ export async function updateStaffRole(
   const profile = await requireRole(["admin", "owner"]);
   const isOwnerCaller = profile.role === "owner";
   if (!isOwnerCaller && role === "owner") return { ok: false, error: "Peran owner tidak dapat ditetapkan oleh admin" };
-  const supabase = await createClient();
-  const { data: existing } = await supabase
+  const adminClient = createAdminClient();
+  const { data: existing } = await adminClient
     .from("profiles")
     .select("full_name, role")
     .eq("id", id)
     .single();
   if (!isOwnerCaller && existing?.role === "owner") return { ok: false, error: "Akun owner tidak dapat diubah oleh admin" };
-  const { error } = await supabase
+  const { error } = await adminClient
     .from("profiles")
     .update({ role })
     .eq("id", id);

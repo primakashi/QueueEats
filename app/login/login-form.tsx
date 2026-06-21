@@ -20,11 +20,12 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
 
-  function submit(email: string, password: string) {
+  function submit(emailVal: string, password: string) {
     setError(null);
     const fd = new FormData();
-    fd.set("email", email);
+    fd.set("email", emailVal);
     fd.set("password", password);
     if (redirectTo) fd.set("redirect", redirectTo);
     startTransition(async () => {
@@ -73,6 +74,8 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
               autoComplete="email"
               required
               placeholder="staf@restoran.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div className="space-y-2">
