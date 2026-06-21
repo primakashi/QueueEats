@@ -7,7 +7,7 @@ import { MenuItemForm } from "../menu-item-form";
 import { MenuItemFormSkeleton } from "../menu-item-form-skeleton";
 
 export default async function NewMenuItemPage() {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "branch_manager", "cashier"]);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -20,7 +20,7 @@ export default async function NewMenuItemPage() {
 }
 
 async function NewFormLoader() {
-  const profile = await requireRole(["admin"]);
+  const profile = await requireRole(["admin", "branch_manager", "cashier"]);
   const supabase = await createClient();
   const rid = getRestaurantFilter(profile);
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/types";
 
 type AuditAction = "create" | "update" | "delete";
@@ -20,7 +20,7 @@ type LogParams = {
 };
 
 export async function logAudit(by: Profile, params: LogParams): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const rows =
     params.changes && params.changes.length > 0

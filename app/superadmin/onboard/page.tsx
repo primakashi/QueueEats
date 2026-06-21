@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { onboardRestaurant } from "./actions";
 
 export default function OnboardPage() {
@@ -24,6 +25,7 @@ export default function OnboardPage() {
         const res = await onboardRestaurant(fd);
         if (res && !res.ok) setError(res.error);
       } catch (err) {
+        if (isRedirectError(err)) throw err;
         console.error("[onboard] onboardRestaurant threw", err);
         setError("Gagal mendaftarkan restoran. Coba lagi.");
       }

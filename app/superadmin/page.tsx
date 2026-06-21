@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,9 +14,9 @@ import { formatDateTime } from "@/lib/format";
 import { SubscriptionEditor } from "./subscription-editor";
 
 export default async function SuperAdminPage() {
-  const supabase = await createClient();
+  const adminClient = createAdminClient();
 
-  const { data: restaurants } = await supabase
+  const { data: restaurants } = await adminClient
     .from("restaurants")
     .select("*")
     .order("created_at", { ascending: false });
@@ -25,17 +24,15 @@ export default async function SuperAdminPage() {
   // Fetch owner + outlet counts per restaurant
   const ids = (restaurants ?? []).map((r) => r.id as string);
 
-  const adminClient = createAdminClient();
-
   const [{ data: owners }, { data: outletCounts }] = await Promise.all(
     ids.length
       ? [
-          supabase
+          adminClient
             .from("profiles")
             .select("id, restaurant_id, full_name, created_at")
             .in("restaurant_id", ids)
             .eq("role", "owner"),
-          supabase
+          adminClient
             .from("outlets")
             .select("restaurant_id")
             .in("restaurant_id", ids)

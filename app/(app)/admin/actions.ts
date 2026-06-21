@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { type UserRole, HQ_ROLES } from "@/lib/types";
@@ -14,12 +15,13 @@ type Result<T = undefined> =
 // ========== Categories ==========
 
 export async function createCategory(formData: FormData): Promise<Result> {
-  const profile = await requireRole(["admin", "branch_manager"]);
+  const profile = await requireRole(["admin", "branch_manager", "cashier"]);
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { ok: false, error: "Nama wajib diisi" };
   const restaurant_id = getRestaurantFilter(profile);
 
   const supabase = await createClient();
+  const adminClient = createAdminClient();
   // Auto-append to end of list.
   let maxQ = supabase
     .from("menu_categories")
@@ -30,7 +32,7 @@ export async function createCategory(formData: FormData): Promise<Result> {
   const { data: lastRow } = await maxQ.maybeSingle();
   const sort_order = ((lastRow?.sort_order as number) ?? -1) + 1;
 
-  const { error } = await supabase
+  const { error } = await adminClient
     .from("menu_categories")
     .insert({ name, sort_order, restaurant_id });
   if (error) return { ok: false, error: error.message };
@@ -153,7 +155,7 @@ async function uploadImage(file: File | null): Promise<string | null> {
 }
 
 export async function createMenuItem(formData: FormData): Promise<Result> {
-  const profile = await requireRole(["admin", "branch_manager"]);
+  const profile = await requireRole(["admin", "branch_manager", "cashier"]);
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const price = Number(formData.get("price") ?? 0);
@@ -181,6 +183,7 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
 
   const restaurant_id = getRestaurantFilter(profile);
   const supabase = await createClient();
+  const adminClient = createAdminClient();
 
   // If the form leaves sort_order at the default 0, append to the end of the
   // category so manual drag-order isn't immediately disturbed by new items.
@@ -197,7 +200,7 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
     sort_order = ((lastRow?.sort_order as number | null) ?? -1) + 1;
   }
 
-  const { data: inserted, error } = await supabase
+  const { data: inserted, error } = await adminClient
     .from("menu_items")
     .insert({ name, description, price, cost_price, sort_order, category_id, is_available, image_url, restaurant_id, commission_rate })
     .select("id")
@@ -208,7 +211,7 @@ export async function createMenuItem(formData: FormData): Promise<Result> {
   const channelIds = formData.getAll("channel_ids").map((v) => String(v)).filter(Boolean);
   if (channelIds.length > 0) {
     const rows = channelIds.map((channel_id) => ({ menu_item_id: inserted.id, channel_id }));
-    const { error: chErr } = await supabase.from("menu_item_channels").insert(rows);
+    const { error: chErr } = await adminClient.from("menu_item_channels").insert(rows);
     if (chErr) return { ok: false, error: chErr.message };
   }
 
