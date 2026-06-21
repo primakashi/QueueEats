@@ -320,12 +320,14 @@ export function SalesDashboard({
     ? prettyDate(from)
     : `${prettyDate(from)} – ${prettyDate(to)} (${days} hari)`;
 
-  // Channel options derived from data
+  // Channel options: all configured channels + any from order history
   const channelOptions = useMemo(() => {
     const set = new Set<string>();
+    for (const c of channels) set.add(c.name);
+    set.add("Langsung");
     for (const o of orders) set.add(channelLabelOf(o.order_channel));
     return [...set].sort();
-  }, [orders, channelLabelOf]);
+  }, [channels, orders, channelLabelOf]);
 
   // Payment method options derived from data
   const payOptions = useMemo(() => {
@@ -569,45 +571,15 @@ export function SalesDashboard({
           <CashRecap sessions={sessions} from={from} to={to} outlet={filter.outlet} single={single} />
         </div>
 
-        {/* TIME SLOTS */}
-        <div className={styles.note}>
-          Penjualan per kelompok jam <span className={styles.noteSm}>— berdasarkan jam transaksi</span>
-        </div>
-        <div className={styles.grid2}>
-          <div className={styles.rcard}>
-            <h4>Omzet per shift</h4>
-            <div className={styles.csub}>Rupiah & jumlah pesanan per kelompok jam</div>
-            <SlotBars sales={sales} product={filter.product} />
-          </div>
-          <div className={styles.rcard}>
-            <h4>Komposisi shift</h4>
-            <div className={styles.csub}>% kontribusi per kelompok jam</div>
-            <SlotPie sales={sales} product={filter.product} />
-          </div>
-        </div>
-
         {/* PER MENU */}
-        <div className={styles.note}>
-          Rekap penjualan per menu <span className={styles.noteSm}>— per item menu, berdasarkan filter aktif</span>
-        </div>
-        <div className={styles.tcard}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Menu</th>
-                <th>Kategori</th>
-                <th className={styles.num}>Qty terjual</th>
-                <th className={styles.num}>Harga menu</th>
-                <th className={styles.num}>% Pendapatan</th>
-                <th className={styles.num}>Pendapatan (Rp)</th>
-                <th className={styles.num}>Rata-rata/pesanan</th>
-              </tr>
-            </thead>
-            <tbody>
-              <MenuRows sales={sales} categoryNameOf={categoryNameOf} />
-            </tbody>
-          </table>
-        </div>
+        <MenuSection
+          sales={sales}
+          outlets={outlets}
+          channelOptions={channelOptions}
+          lockedOutletId={lockedOutletId}
+          categoryNameOf={categoryNameOf}
+          channelLabelOf={channelLabelOf}
+        />
 
         {/* TRANSACTIONS */}
         <div className={styles.note}>
@@ -960,6 +932,78 @@ function CashRecap({
           Total selisih laci <small>{withActual}/{filtered.length} sesi ditutup</small>
         </span>
         <span className={`${styles.cashAmt} ${selClass}`}>{withActual === 0 ? "—" : selTxt}</span>
+      </div>
+    </>
+  );
+}
+
+function MenuSection({
+  sales,
+  outlets,
+  channelOptions,
+  lockedOutletId,
+  categoryNameOf,
+  channelLabelOf,
+}: {
+  sales: SalesOrder[];
+  outlets: Pick<Outlet, "id" | "name">[];
+  channelOptions: string[];
+  lockedOutletId: string | null;
+  categoryNameOf: (id: string | null) => string;
+  channelLabelOf: (id: string | null) => string;
+}) {
+  const [menuOutlet, setMenuOutlet] = useState<string>(ALL);
+  const [menuChannel, setMenuChannel] = useState<string>(ALL);
+
+  const filtered = useMemo(() => {
+    if (menuOutlet === ALL && menuChannel === ALL) return sales;
+    return sales.filter((o) => {
+      if (menuOutlet !== ALL && o.outlet_id !== menuOutlet) return false;
+      if (menuChannel !== ALL && channelLabelOf(o.order_channel) !== menuChannel) return false;
+      return true;
+    });
+  }, [sales, menuOutlet, menuChannel, channelLabelOf]);
+
+  return (
+    <>
+      <div className={styles.note}>
+        Rekap penjualan per menu <span className={styles.noteSm}>— per item menu, berdasarkan filter aktif</span>
+      </div>
+      <div className={styles.tcard}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+          {!lockedOutletId && outlets.length > 0 && (
+            <div className={styles.field}>
+              <span className={styles.flabel}>Outlet</span>
+              <select className={styles.select} value={menuOutlet} onChange={(e) => setMenuOutlet(e.target.value)}>
+                <option value={ALL}>Semua outlet</option>
+                {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </div>
+          )}
+          <div className={styles.field}>
+            <span className={styles.flabel}>Channel</span>
+            <select className={styles.select} value={menuChannel} onChange={(e) => setMenuChannel(e.target.value)}>
+              <option value={ALL}>Semua channel</option>
+              {channelOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Menu</th>
+              <th>Kategori</th>
+              <th className={styles.num}>Qty terjual</th>
+              <th className={styles.num}>Harga menu</th>
+              <th className={styles.num}>% Pendapatan</th>
+              <th className={styles.num}>Pendapatan (Rp)</th>
+              <th className={styles.num}>Rata-rata/pesanan</th>
+            </tr>
+          </thead>
+          <tbody>
+            <MenuRows sales={filtered} categoryNameOf={categoryNameOf} />
+          </tbody>
+        </table>
       </div>
     </>
   );
