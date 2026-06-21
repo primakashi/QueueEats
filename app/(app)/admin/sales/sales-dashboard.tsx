@@ -95,11 +95,17 @@ type FilterState = {
   to: Date;
   product: string;
   pay: string;
+  channelKind: string;
   channel: string;
   outlet: string;
 };
 
-function passSales(o: SalesOrder, f: FilterState, channelLabelOf: (id: string | null) => string): boolean {
+function passSales(
+  o: SalesOrder,
+  f: FilterState,
+  channelLabelOf: (id: string | null) => string,
+  channelKindOf: (id: string | null) => string,
+): boolean {
   const t = new Date(o.created_at).getTime();
   const fromT = f.from.getTime();
   const toT = new Date(f.to).setHours(23, 59, 59, 999);
@@ -107,6 +113,7 @@ function passSales(o: SalesOrder, f: FilterState, channelLabelOf: (id: string | 
   if (o.payment_status !== "paid") return false;
   if (f.outlet !== ALL && o.outlet_id !== f.outlet) return false;
   if (f.pay !== ALL && o.payment_method !== f.pay) return false;
+  if (f.channelKind !== ALL && channelKindOf(o.order_channel) !== f.channelKind) return false;
   if (f.channel !== ALL && channelLabelOf(o.order_channel) !== f.channel) return false;
   if (f.product !== ALL && !o.items.some((it) => it.menu_item_id === f.product)) return false;
   return true;
@@ -234,6 +241,14 @@ export function SalesDashboard({
     };
   }, [channels]);
 
+  const channelKindOf = useMemo(() => {
+    const map = new Map(channels.map((c) => [c.id, c.kind ?? "direct"]));
+    return (id: string | null): string => {
+      if (!id) return "direct";
+      return map.get(id) ?? "direct";
+    };
+  }, [channels]);
+
   const categoryNameOf = useMemo(() => {
     const cats = new Map(categories.map((c) => [c.id, c.name]));
     const items = new Map(menuItems.map((m) => [m.id, m.category_id]));
@@ -252,6 +267,7 @@ export function SalesDashboard({
   const [chartType, setChartType] = useState<ChartType>("bar");
   const [product, setProduct] = useState<string>(ALL);
   const [pay, setPay] = useState<string>(ALL);
+  const [channelKind, setChannelKind] = useState<string>(ALL);
   const [channel, setChannel] = useState<string>(ALL);
   const [outletF, setOutletF] = useState<string>(initialOutlet ?? ALL);
 
@@ -283,6 +299,7 @@ export function SalesDashboard({
   function reset() {
     setProduct(ALL);
     setPay(ALL);
+    setChannelKind(ALL);
     setChannel(ALL);
     if (!lockedOutletId) setOutletF(ALL);
     setGran("day");
@@ -295,13 +312,14 @@ export function SalesDashboard({
     to,
     product,
     pay,
+    channelKind,
     channel,
     outlet: lockedOutletId ?? outletF,
-  }), [from, to, product, pay, channel, outletF, lockedOutletId]);
+  }), [from, to, product, pay, channelKind, channel, outletF, lockedOutletId]);
 
   const sales = useMemo(
-    () => orders.filter((o) => passSales(o, filter, channelLabelOf)),
-    [orders, filter, channelLabelOf],
+    () => orders.filter((o) => passSales(o, filter, channelLabelOf, channelKindOf)),
+    [orders, filter, channelLabelOf, channelKindOf],
   );
 
   const days = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86400000) + 1);
@@ -312,7 +330,7 @@ export function SalesDashboard({
   const itemCount = useMemo(() => sales.reduce((s, o) => s + lineQty(o, filter.product), 0), [sales, filter.product]);
   const aov = orderCount > 0 ? omzet / orderCount : 0;
   const perDay = days > 0 ? omzet / days : 0;
-  const fset = product !== ALL || pay !== ALL || channel !== ALL || (!lockedOutletId && outletF !== ALL);
+  const fset = product !== ALL || pay !== ALL || channelKind !== ALL || channel !== ALL || (!lockedOutletId && outletF !== ALL);
 
   const bk = useMemo(() => buckets(sales, gran, filter), [sales, gran, filter]);
 
@@ -328,6 +346,17 @@ export function SalesDashboard({
     for (const o of orders) set.add(channelLabelOf(o.order_channel));
     return [...set].sort();
   }, [channels, orders, channelLabelOf]);
+
+  // Channel options filtered by selected kind
+  const channelOptionsFiltered = useMemo(() => {
+    if (channelKind === ALL) return channelOptions;
+    const kindNames = new Set<string>();
+    for (const c of channels) {
+      if (c.kind === channelKind) kindNames.add(c.name);
+    }
+    if (channelKind === "direct") kindNames.add("Langsung");
+    return channelOptions.filter((n) => kindNames.has(n));
+  }, [channelOptions, channelKind, channels]);
 
   // Payment method options derived from data
   const payOptions = useMemo(() => {
@@ -504,11 +533,35 @@ export function SalesDashboard({
                 ))}
               </select>
             </div>
+            <div>
+              <span className={styles.flabel}>Tipe channel</span>
+              <div className={styles.seg}>
+                {([
+                  [ALL, "Semua"],
+                  ["direct", "Direct"],
+                  ["online", "Online"],
+                  ["popup", "Pop-up"],
+                ] as [string, string][]).map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className={channelKind === k ? styles.segOn : ""}
+                    onClick={() => { setChannelKind(k); setChannel(ALL); }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className={styles.field}>
-              <span className={styles.flabel}>Channel pesanan</span>
-              <select className={styles.select} value={channel} onChange={(e) => setChannel(e.target.value)}>
-                <option value={ALL}>Semua channel</option>
-                {channelOptions.map((c) => (
+              <span className={styles.flabel}>Saluran</span>
+              <select
+                className={styles.select}
+                value={channel}
+                onChange={(e) => setChannel(e.target.value)}
+              >
+                <option value={ALL}>Semua saluran</option>
+                {channelOptionsFiltered.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>

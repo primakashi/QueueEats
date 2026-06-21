@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { updatePassword } from "./actions";
 
 export default function UpdatePasswordPage() {
   const router = useRouter();
@@ -56,20 +55,28 @@ export default function UpdatePasswordPage() {
   }, [searchParams]);
 
   function submit(formData: FormData) {
+    const password = String(formData.get("password") ?? "");
+    const confirm = String(formData.get("confirm") ?? "");
     setError(null);
+
+    if (!password || password.length < 6) {
+      setError("Kata sandi minimal 6 karakter");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Konfirmasi kata sandi tidak cocok");
+      return;
+    }
+
     startTransition(async () => {
-      try {
-        const result = await updatePassword(formData);
-        if (!result.ok) {
-          setError(result.error);
-          return;
-        }
-        toast.success("Kata sandi berhasil diperbarui");
-        router.push("/login");
-      } catch (err) {
-        console.error("[update-password] updatePassword threw", err);
-        setError("Gagal memperbarui kata sandi. Coba lagi.");
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        setError(error.message);
+        return;
       }
+      toast.success("Kata sandi berhasil diperbarui");
+      router.push("/login");
     });
   }
 

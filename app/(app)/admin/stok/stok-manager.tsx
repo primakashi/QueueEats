@@ -7,11 +7,13 @@ import {
   Check,
   CircleDot,
   Image as ImageIcon,
+  Loader2,
   Minus,
   Plus,
   Lock,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -260,7 +262,7 @@ function DefaultRow({
             setQuotaStr(next);
             persist(next);
           }}
-          disabled={pending}
+          loading={pending}
         />
       </td>
       <td className="px-3 py-3 text-center text-xs text-muted-foreground tabular-nums">
@@ -336,10 +338,11 @@ function OpeningStage({
           <thead>
             <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b">
               <th className="px-4 py-3 font-medium">Item menu</th>
+              <th className="px-3 py-3 font-medium text-center text-muted-foreground/80">Default</th>
               <th className="px-3 py-3 font-medium text-center text-muted-foreground/80">
                 Kemarin (sisa)
               </th>
-              <th className="px-3 py-3 font-medium text-center">Default</th>
+              <th className="px-3 py-3 font-medium text-center">Tambahan stok hari ini</th>
               <th className="px-3 py-3 font-medium text-center">Stok awal hari ini</th>
               <th className="px-3 py-3 font-medium">Status</th>
             </tr>
@@ -352,8 +355,9 @@ function OpeningStage({
           <tfoot>
             <tr className="bg-muted/30 border-t text-sm font-medium">
               <td className="px-4 py-3">{snapshot.items.length} item</td>
-              <td />
               <td className="px-3 py-3 text-center tabular-nums">{sumDefault}</td>
+              <td />
+              <td />
               <td className="px-3 py-3 text-center tabular-nums">{sumOpening}</td>
               <td />
             </tr>
@@ -367,21 +371,24 @@ function OpeningStage({
 function OpeningRow({ item }: { item: StockSnapshot["items"][number] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  // Autofill: if opening_stock was never manually set (equals quota or is 0),
-  // initialise the input with the effective_quota so staff can see the default.
-  const initialValue = item.daily_stock.opening_stock > 0
-    ? item.daily_stock.opening_stock.toString()
-    : (item.effective_quota ?? 0).toString();
-  const [openingStr, setOpeningStr] = useState<string>(initialValue);
+  const kemarin = item.yesterday_closing ?? 0;
+  // Tambahan = how much stock is being added today on top of yesterday's remainder.
+  // Reverse-calculate from any previously saved opening_stock.
+  const initialTambahan = item.daily_stock.opening_stock > 0
+    ? Math.max(0, item.daily_stock.opening_stock - kemarin)
+    : (item.effective_quota ?? 0);
+  const [tambahanStr, setTambahanStr] = useState<string>(initialTambahan.toString());
   const confirmed = !!item.daily_stock.confirmed_at;
+  const stokAwal = kemarin + (Number(tambahanStr) || 0);
 
   function persist(next: string) {
-    const parsed = Math.max(0, Math.floor(Number(next) || 0));
+    const tambahan = Math.max(0, Math.floor(Number(next) || 0));
+    const opening = kemarin + tambahan;
     start(async () => {
       try {
         const res = await updateOpeningStock(
           item.daily_stock.id,
-          parsed,
+          opening,
           item.effective_quota,
         );
         if (!res.ok) toast.error(res.error);
@@ -399,23 +406,27 @@ function OpeningRow({ item }: { item: StockSnapshot["items"][number] }) {
         <MenuCell item={item} />
       </td>
       <td className="px-3 py-3 text-center text-xs text-muted-foreground tabular-nums">
-        {item.yesterday_closing ?? "—"}
+        {item.effective_quota ?? "—"}
       </td>
       <td className="px-3 py-3 text-center text-xs text-muted-foreground tabular-nums">
-        {item.effective_quota ?? "—"}
+        {item.yesterday_closing ?? "—"}
       </td>
       <td className="px-3 py-3 text-center">
         <Stepper
-          value={openingStr}
-          onChange={setOpeningStr}
+          value={tambahanStr}
+          onChange={setTambahanStr}
           onCommit={persist}
           onDelta={(d) => {
-            const next = Math.max(0, (Number(openingStr) || 0) + d).toString();
-            setOpeningStr(next);
+            const next = Math.max(0, (Number(tambahanStr) || 0) + d).toString();
+            setTambahanStr(next);
             persist(next);
           }}
-          disabled={pending}
+          disabled={confirmed}
+          loading={pending}
         />
+      </td>
+      <td className="px-3 py-3 text-center font-semibold tabular-nums text-sm">
+        {stokAwal}
       </td>
       <td className="px-3 py-3">
         {confirmed ? (
@@ -841,12 +852,14 @@ function Stepper({
   onCommit,
   onDelta,
   disabled,
+  loading,
 }: {
   value: string;
   onChange: (v: string) => void;
   onCommit: (v: string) => void;
   onDelta: (delta: number) => void;
   disabled?: boolean;
+  loading?: boolean;
 }) {
   return (
     <div className="inline-flex items-center gap-1">
@@ -856,29 +869,36 @@ function Stepper({
         variant="outline"
         className="h-7 w-7"
         onClick={() => onDelta(-1)}
-        disabled={disabled}
+        disabled={disabled || loading}
         aria-label="Kurangi"
       >
         <Minus className="size-3" />
       </Button>
-      <Input
-        value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ""))}
-        onBlur={(e) => onCommit(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        }}
-        className="h-7 w-14 text-center px-1 tabular-nums"
-        inputMode="numeric"
-        disabled={disabled}
-      />
+      <div className="relative">
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ""))}
+          onBlur={(e) => onCommit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          className={cn("h-7 w-14 text-center px-1 tabular-nums", loading && "opacity-0")}
+          inputMode="numeric"
+          disabled={disabled || loading}
+        />
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </div>
       <Button
         type="button"
         size="icon"
         variant="outline"
         className="h-7 w-7"
         onClick={() => onDelta(1)}
-        disabled={disabled}
+        disabled={disabled || loading}
         aria-label="Tambah"
       >
         <Plus className="size-3" />
