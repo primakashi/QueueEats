@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -15,36 +15,42 @@ export function AvailabilityToggle({
   available: boolean;
 }) {
   const [pending, start] = useTransition();
-  const next = !available;
+  const [optimistic, setOptimistic] = useState(available);
+  const next = !optimistic;
   return (
     <button
       type="button"
       disabled={pending}
       aria-busy={pending}
-      onClick={() =>
+      onClick={() => {
+        setOptimistic(next);
         start(async () => {
           try {
             const res = await toggleMenuItemAvailability(id, next);
-            if (!res.ok) toast.error(res.error);
+            if (!res.ok) {
+              toast.error(res.error);
+              setOptimistic(!next);
+            }
           } catch (err) {
             console.error("[menu] toggleMenuItemAvailability threw", err);
             toast.error("Gagal mengubah ketersediaan. Coba lagi.");
+            setOptimistic(!next);
           }
-        })
-      }
+        });
+      }}
       className="disabled:opacity-80"
-      aria-label={available ? "Tandai tidak tersedia" : "Tandai tersedia"}
+      aria-label={optimistic ? "Tandai tidak tersedia" : "Tandai tersedia"}
     >
       <Badge
         className={cn(
           "border gap-1",
-          available
+          optimistic
             ? "bg-emerald-500 hover:bg-emerald-600 text-white border-transparent"
             : "bg-background text-muted-foreground",
         )}
       >
         {pending && <Spinner size="xs" />}
-        {available ? "Tersedia" : "Disembunyikan"}
+        {optimistic ? "Tersedia" : "Disembunyikan"}
       </Badge>
     </button>
   );

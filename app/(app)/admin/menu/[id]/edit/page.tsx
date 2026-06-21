@@ -33,32 +33,31 @@ async function EditFormLoader({ params }: Props) {
     .from("order_channels")
     .select("id, name, sort_order, is_active, kind, commission_rate")
     .eq("is_active", true);
+  let allItemsQ = supabase
+    .from("menu_items")
+    .select("id, name, sort_order, category_id")
+    .order("sort_order", { ascending: true });
   if (rid) {
     catsQ = catsQ.eq("restaurant_id", rid);
     chQ = chQ.eq("restaurant_id", rid);
+    allItemsQ = allItemsQ.eq("restaurant_id", rid);
   }
 
-  const [{ data: itemRaw }, { data: categories }, { data: channels }, { data: assignments }] =
+  const [{ data: itemRaw }, { data: categories }, { data: channels }, { data: assignments }, { data: allItemsRaw }] =
     await Promise.all([
       supabase.from("menu_items").select("*").eq("id", id).maybeSingle(),
       catsQ.order("sort_order", { ascending: true }),
       chQ.order("sort_order", { ascending: true }),
       supabase.from("menu_item_channels").select("channel_id").eq("menu_item_id", id),
+      allItemsQ,
     ]);
 
   if (!itemRaw) notFound();
   const item = itemRaw as MenuItem;
 
-  // Fetch siblings (same category) for the position select
-  const catId = item.category_id;
-  let siblingsQ = supabase
-    .from("menu_items")
-    .select("id, name, sort_order")
-    .order("sort_order", { ascending: true });
-  if (rid) siblingsQ = siblingsQ.eq("restaurant_id", rid);
-  if (catId === null) siblingsQ = siblingsQ.is("category_id", null);
-  else siblingsQ = siblingsQ.eq("category_id", catId);
-  const { data: siblingsRaw } = await siblingsQ;
+  const siblingItems = (allItemsRaw ?? []).filter(
+    (i) => i.category_id === item.category_id,
+  ) as Array<{ id: string; name: string; sort_order: number }>;
 
   return (
     <MenuItemForm
@@ -66,7 +65,7 @@ async function EditFormLoader({ params }: Props) {
       channels={(channels ?? []) as OrderChannelConfig[]}
       assignedChannelIds={((assignments ?? []) as Array<{ channel_id: string }>).map((a) => a.channel_id)}
       item={item}
-      siblingItems={(siblingsRaw ?? []) as Array<{ id: string; name: string; sort_order: number }>}
+      siblingItems={siblingItems}
     />
   );
 }

@@ -9,12 +9,49 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { formatIDR } from "@/lib/format";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 import { reorderMenuItems } from "@/app/(app)/admin/actions";
 import { AvailabilityToggle } from "./availability-toggle";
 import { DeleteMenuItemButton } from "./delete-button";
+
+export function MenuBoardSkeleton() {
+  return (
+    <div className="space-y-8">
+      {[0, 1].map((g) => (
+        <section key={g} className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-3.5 w-40" />
+          </div>
+          <div className="space-y-2">
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5"
+              >
+                <Skeleton className="hidden sm:block h-4 w-4 shrink-0" />
+                <Skeleton className="hidden sm:block h-12 w-12 rounded-md shrink-0" />
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="hidden sm:block h-3 w-48" />
+                </div>
+                <Skeleton className="hidden sm:block h-6 w-20" />
+                <div className="flex gap-2 shrink-0">
+                  <Skeleton className="h-7 w-20" />
+                  <Skeleton className="h-7 w-14" />
+                  <Skeleton className="h-7 w-7" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
 
 type GroupKey = string; // category id, or "__none__" for uncategorized
 const UNCATEGORIZED: GroupKey = "__none__";

@@ -126,7 +126,6 @@ export function MenuItemForm({
         toast.success(item ? "Item menu diperbarui" : "Item menu dibuat");
         startRouteProgress();
         router.push("/admin/menu");
-        router.refresh();
       } catch (err) {
         console.error("[menu-form] save threw", err);
         toast.error("Gagal menyimpan menu. Coba lagi.");
