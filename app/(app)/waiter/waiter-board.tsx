@@ -126,6 +126,7 @@ const SKIP_KITCHEN: { next: OrderStatus; label: string } = {
 
 type ServiceFilter = "all" | "dine_in" | "takeaway";
 type PaymentFilter = "all" | "unpaid" | "paid";
+type ChannelKindFilter = "all" | OrderChannelKind;
 
 export function WaiterBoard({
   initialOrders,
@@ -143,7 +144,17 @@ export function WaiterBoard({
   const [statusFilter, setStatusFilter] = useState<Set<OrderStatus>>(new Set());
   const [serviceFilter, setServiceFilter] = useState<ServiceFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
+  const [channelKindFilter, setChannelKindFilter] = useState<ChannelKindFilter>("all");
+  const [channelNameFilter, setChannelNameFilter] = useState<string>("all");
   const [, start] = useTransition();
+
+  const channelNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const o of initialOrders) {
+      if (o.order_channel) names.add(o.order_channel);
+    }
+    return [...names].sort();
+  }, [initialOrders]);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -174,6 +185,11 @@ export function WaiterBoard({
     if (serviceFilter !== "all" && o.service_type !== serviceFilter) return false;
     if (paymentFilter === "unpaid" && o.payment_status === "paid") return false;
     if (paymentFilter === "paid" && o.payment_status !== "paid") return false;
+    if (channelKindFilter !== "all") {
+      const kind = o.order_channel ? channelKindByName[o.order_channel.toLowerCase()] : null;
+      if (kind !== channelKindFilter) return false;
+    }
+    if (channelNameFilter !== "all" && o.order_channel !== channelNameFilter) return false;
     return true;
   });
 
@@ -287,6 +303,73 @@ export function WaiterBoard({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        {/* Channel kind filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button variant="outline" size="sm" className="h-9 gap-1.5" />}
+          >
+            Channel
+            {channelKindFilter !== "all" && (
+              <Badge variant="secondary" className="rounded-full px-1.5 text-xs">1</Badge>
+            )}
+            <ChevronDown className="size-3.5 opacity-60" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-40">
+            {([
+              ["all", "Semua"],
+              ["direct", "Direct"],
+              ["online", "Online"],
+              ["popup", "Pop-up"],
+            ] as [ChannelKindFilter, string][]).map(([k, label]) => (
+              <DropdownMenuCheckboxItem
+                key={k}
+                checked={channelKindFilter === k}
+                onCheckedChange={() => { setChannelKindFilter(k); setChannelNameFilter("all"); }}
+                closeOnClick={true}
+              >
+                {label}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {/* Saluran filter */}
+        {channelNames.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="outline" size="sm" className="h-9 gap-1.5" />}
+            >
+              Saluran
+              {channelNameFilter !== "all" && (
+                <Badge variant="secondary" className="rounded-full px-1.5 text-xs">1</Badge>
+              )}
+              <ChevronDown className="size-3.5 opacity-60" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-44">
+              <DropdownMenuCheckboxItem
+                checked={channelNameFilter === "all"}
+                onCheckedChange={() => setChannelNameFilter("all")}
+                closeOnClick={true}
+              >
+                Semua saluran
+              </DropdownMenuCheckboxItem>
+              {channelNames
+                .filter((name) =>
+                  channelKindFilter === "all" ||
+                  channelKindByName[name.toLowerCase()] === channelKindFilter
+                )
+                .map((name) => (
+                  <DropdownMenuCheckboxItem
+                    key={name}
+                    checked={channelNameFilter === name}
+                    onCheckedChange={() => setChannelNameFilter(name)}
+                    closeOnClick={true}
+                  >
+                    {name}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         {/* View toggle */}
         <div className="flex border rounded-md overflow-hidden">
           <button

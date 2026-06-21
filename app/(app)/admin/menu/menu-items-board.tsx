@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GripVertical, Pencil, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -91,8 +91,28 @@ export function MenuItemsBoard({
     persistGroup(group);
   }
 
+  function moveItem(group: GroupKey, id: string, direction: -1 | 1) {
+    const list = order.get(group);
+    if (!list) return;
+    const from = list.findIndex((it) => it.id === id);
+    const to = from + direction;
+    if (from < 0 || to < 0 || to >= list.length) return;
+    const next = [...list];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setOrder((current) => {
+      const map = new Map(current);
+      map.set(group, next);
+      return map;
+    });
+    persistList(group, next);
+  }
+
   function persistGroup(group: GroupKey) {
-    const list = order.get(group) ?? [];
+    persistList(group, order.get(group) ?? []);
+  }
+
+  function persistList(group: GroupKey, list: MenuItem[]) {
     const baseline = buildGroups(items).get(group) ?? [];
     if (list.length === 0) return;
     if (list.map((i) => i.id).join(",") === baseline.map((i) => i.id).join(",")) return;
@@ -140,18 +160,29 @@ export function MenuItemsBoard({
         if (list.length === 0) return null;
         const categoryName =
           g === UNCATEGORIZED ? "Tanpa kategori" : categoryById.get(g)?.name ?? "—";
+        const saving = busyGroup === g;
         return (
-          <section key={g} className="space-y-2">
+          <section key={g} className="space-y-2 relative">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 {categoryName}
               </h3>
               <span className="text-xs text-muted-foreground">
-                {list.length} item · seret untuk urutkan
+                {saving ? (
+                  <span className="inline-flex items-center gap-1.5 text-foreground">
+                    <Spinner /> Menyimpan urutan…
+                  </span>
+                ) : (
+                  <>{list.length} item · seret atau gunakan tombol untuk urutkan</>
+                )}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-1 sm:gap-2">
-              {list.map((item) => (
+            <div
+              className={`grid grid-cols-2 gap-3 sm:grid-cols-1 sm:gap-2 transition-opacity ${
+                saving ? "opacity-60 pointer-events-none" : ""
+              }`}
+            >
+              {list.map((item, idx) => (
                 <MenuRow
                   key={item.id}
                   item={item}
@@ -160,14 +191,11 @@ export function MenuItemsBoard({
                   onDragOver={(e) => handleDragOver(e, g, item.id)}
                   onDragEnd={() => handleDragEnd(g)}
                   disabled={pending}
+                  onMoveUp={idx > 0 ? () => moveItem(g, item.id, -1) : undefined}
+                  onMoveDown={idx < list.length - 1 ? () => moveItem(g, item.id, 1) : undefined}
                 />
               ))}
             </div>
-            {busyGroup === g && (
-              <div className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1">
-                <Spinner /> Menyimpan urutan…
-              </div>
-            )}
           </section>
         );
       })}
@@ -182,6 +210,8 @@ function MenuRow({
   onDragOver,
   onDragEnd,
   disabled,
+  onMoveUp,
+  onMoveDown,
 }: {
   item: MenuItem;
   isDragging: boolean;
@@ -189,6 +219,8 @@ function MenuRow({
   onDragOver: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   disabled: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }) {
   return (
     <div
@@ -215,9 +247,31 @@ function MenuRow({
             Tanpa gambar
           </div>
         )}
-        <GripVertical
-          className={`absolute top-1 left-1 h-4 w-4 text-muted-foreground/70 bg-white/70 rounded ${disabled ? "" : "cursor-grab"}`}
-        />
+        {/* Mobile reorder buttons (touch-friendly, drag-free) */}
+        <div className="absolute top-1 right-1 flex flex-col gap-1">
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className="h-7 w-7 bg-white/90 hover:bg-white shadow-sm"
+            aria-label="Pindah ke atas"
+            disabled={disabled || !onMoveUp}
+            onClick={onMoveUp}
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className="h-7 w-7 bg-white/90 hover:bg-white shadow-sm"
+            aria-label="Pindah ke bawah"
+            disabled={disabled || !onMoveDown}
+            onClick={onMoveDown}
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       {/* Desktop: drag handle + thumb inline */}
