@@ -17,15 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -575,9 +566,8 @@ function OrderRow({
   );
 }
 
-// Renders the per-order action buttons with a confirmation dialog on every action.
-// Depends on (a) the channel's requires_acceptance flag and (b) the restaurant's
-// order_workflow mode.
+// Renders the per-order action buttons. Behaviour depends on (a) the channel's
+// requires_acceptance flag and (b) the restaurant's order_workflow mode.
 function PendingActions({
   status,
   isBusy,
@@ -593,134 +583,91 @@ function PendingActions({
   advance: { next: OrderStatus; label: string } | undefined;
   onAdvance: (next: OrderStatus) => void;
 }) {
-  const [pending, setPending] = useState<{ next: OrderStatus; label: string; destructive?: boolean } | null>(null);
-
-  function request(next: OrderStatus, label: string, destructive = false) {
-    setPending({ next, label, destructive });
-  }
-
-  function confirm() {
-    if (!pending) return;
-    onAdvance(pending.next);
-    setPending(null);
-  }
-
   const showReject =
     requiresAcceptance && (status === "pending" || status === "accepted");
 
-  const buttons = (() => {
-    if (status === "pending") {
-      const showSkipKitchen = !requiresAcceptance && orderWorkflow === "standard";
-      return (
-        <div className="flex gap-1.5">
-          {showReject && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={isBusy}
-              onClick={() => request("cancelled", "Tolak", true)}
-              className="h-7 text-xs text-destructive hover:text-destructive"
-            >
-              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Tolak"}
-            </Button>
-          )}
-          {showSkipKitchen && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={isBusy}
-              onClick={() => request(SKIP_KITCHEN.next, SKIP_KITCHEN.label)}
-              className="h-7 text-xs text-muted-foreground"
-            >
-              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : SKIP_KITCHEN.label}
-            </Button>
-          )}
-          {advance && (
-            <Button
-              size="sm"
-              disabled={isBusy}
-              onClick={() => request(advance.next, advance.label)}
-              className="h-7 text-xs"
-            >
-              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
-            </Button>
-          )}
-        </div>
-      );
-    }
-
-    if (status === "accepted") {
-      return (
-        <div className="flex gap-1.5">
-          {showReject && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={isBusy}
-              onClick={() => request("cancelled", "Batalkan", true)}
-              className="h-7 text-xs text-destructive hover:text-destructive"
-            >
-              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Batalkan"}
-            </Button>
-          )}
-          {advance && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isBusy}
-              onClick={() => request(advance.next, advance.label)}
-              className="h-7 text-xs"
-            >
-              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
-            </Button>
-          )}
-        </div>
-      );
-    }
-
-    // preparing / ready: only advance, no cancel.
-    if (!advance) return null;
+  if (status === "pending") {
+    const showSkipKitchen = !requiresAcceptance && orderWorkflow === "standard";
     return (
       <div className="flex gap-1.5">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={isBusy}
-          onClick={() => request(advance.next, advance.label)}
-          className="h-7 text-xs"
-        >
-          {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
-        </Button>
+        {showReject && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={isBusy}
+            onClick={() => onAdvance("cancelled")}
+            className="h-7 text-xs text-destructive hover:text-destructive"
+          >
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Tolak"}
+          </Button>
+        )}
+        {showSkipKitchen && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={isBusy}
+            onClick={() => onAdvance(SKIP_KITCHEN.next)}
+            className="h-7 text-xs text-muted-foreground"
+          >
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : SKIP_KITCHEN.label}
+          </Button>
+        )}
+        {advance && (
+          <Button
+            size="sm"
+            disabled={isBusy}
+            onClick={() => onAdvance(advance.next)}
+            className="h-7 text-xs"
+          >
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
+          </Button>
+        )}
       </div>
     );
-  })();
+  }
 
+  if (status === "accepted") {
+    return (
+      <div className="flex gap-1.5">
+        {showReject && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={isBusy}
+            onClick={() => onAdvance("cancelled")}
+            className="h-7 text-xs text-destructive hover:text-destructive"
+          >
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Batalkan"}
+          </Button>
+        )}
+        {advance && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isBusy}
+            onClick={() => onAdvance(advance.next)}
+            className="h-7 text-xs"
+          >
+            {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  // preparing / ready: only advance, no cancel.
+  if (!advance) return null;
   return (
-    <>
-      {buttons}
-      <Dialog open={!!pending} onOpenChange={(open) => { if (!open) setPending(null); }}>
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>Konfirmasi perubahan status</DialogTitle>
-            <DialogDescription>
-              {pending?.destructive
-                ? `Pesanan akan dibatalkan. Tindakan ini tidak dapat diurungkan.`
-                : `Pesanan akan diubah ke status "${pending?.label}".`}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>
-              Batal
-            </DialogClose>
-            <Button
-              onClick={confirm}
-              variant={pending?.destructive ? "destructive" : "default"}
-            >
-              {pending?.label ?? "Konfirmasi"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <div className="flex gap-1.5">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={isBusy}
+        onClick={() => onAdvance(advance.next)}
+        className="h-7 text-xs"
+      >
+        {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : advance.label}
+      </Button>
+    </div>
   );
 }
