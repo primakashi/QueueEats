@@ -143,14 +143,14 @@ export async function reorderMenuItems(
 
 async function uploadImage(file: File | null): Promise<string | null> {
   if (!file || file.size === 0) return null;
-  const supabase = await createClient();
+  const adminClient = createAdminClient();
   const ext = file.name.split(".").pop() || "jpg";
   const path = `items/${randomUUID()}.${ext}`;
-  const { error } = await supabase.storage
+  const { error } = await adminClient.storage
     .from("menu-images")
     .upload(path, file, { contentType: file.type, upsert: false });
   if (error) throw new Error(error.message);
-  const { data } = supabase.storage.from("menu-images").getPublicUrl(path);
+  const { data } = adminClient.storage.from("menu-images").getPublicUrl(path);
   return data.publicUrl;
 }
 
