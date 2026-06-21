@@ -14,6 +14,7 @@ import {
 } from "@/components/route-progress";
 import { signIn } from "./actions";
 import { toast } from "sonner";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const [isPending, startTransition] = useTransition();
@@ -36,6 +37,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           toast.error(result.error);
         }
       } catch (err) {
+        if (isRedirectError(err)) throw err;
         console.error("[login] signIn threw", err);
         endRouteProgress();
         const msg = "Gagal masuk. Coba lagi.";
