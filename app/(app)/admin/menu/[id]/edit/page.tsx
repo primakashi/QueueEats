@@ -38,7 +38,7 @@ async function EditFormLoader({ params }: Props) {
     chQ = chQ.eq("restaurant_id", rid);
   }
 
-  const [{ data: item }, { data: categories }, { data: channels }, { data: assignments }] =
+  const [{ data: itemRaw }, { data: categories }, { data: channels }, { data: assignments }] =
     await Promise.all([
       supabase.from("menu_items").select("*").eq("id", id).maybeSingle(),
       catsQ.order("sort_order", { ascending: true }),
@@ -46,14 +46,27 @@ async function EditFormLoader({ params }: Props) {
       supabase.from("menu_item_channels").select("channel_id").eq("menu_item_id", id),
     ]);
 
-  if (!item) notFound();
+  if (!itemRaw) notFound();
+  const item = itemRaw as MenuItem;
+
+  // Fetch siblings (same category) for the position select
+  const catId = item.category_id;
+  let siblingsQ = supabase
+    .from("menu_items")
+    .select("id, name, sort_order")
+    .order("sort_order", { ascending: true });
+  if (rid) siblingsQ = siblingsQ.eq("restaurant_id", rid);
+  if (catId === null) siblingsQ = siblingsQ.is("category_id", null);
+  else siblingsQ = siblingsQ.eq("category_id", catId);
+  const { data: siblingsRaw } = await siblingsQ;
 
   return (
     <MenuItemForm
       categories={(categories ?? []) as MenuCategory[]}
       channels={(channels ?? []) as OrderChannelConfig[]}
       assignedChannelIds={((assignments ?? []) as Array<{ channel_id: string }>).map((a) => a.channel_id)}
-      item={item as MenuItem}
+      item={item}
+      siblingItems={(siblingsRaw ?? []) as Array<{ id: string; name: string; sort_order: number }>}
     />
   );
 }

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,22 +21,27 @@ import {
 import {
   createMenuItem,
   updateMenuItem,
+  reorderMenuItems,
 } from "@/app/(app)/admin/actions";
 import { startRouteProgress } from "@/components/route-progress";
 import type { MenuCategory, MenuItem, OrderChannelConfig } from "@/lib/types";
 
 const UNCATEGORIZED = "__none__";
 
+type SiblingItem = { id: string; name: string; sort_order: number };
+
 export function MenuItemForm({
   categories,
   channels,
   assignedChannelIds,
   item,
+  siblingItems,
 }: {
   categories: MenuCategory[];
   channels: OrderChannelConfig[];
   assignedChannelIds?: string[];
   item?: MenuItem;
+  siblingItems?: SiblingItem[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -51,6 +56,16 @@ export function MenuItemForm({
   const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(
     new Set(assignedChannelIds ?? []),
   );
+
+  const initialCategoryId = item?.category_id ?? UNCATEGORIZED;
+  const categoryChanged = categoryId !== initialCategoryId;
+
+  const currentPositionIdx = useMemo(() => {
+    if (!item || !siblingItems) return -1;
+    return siblingItems.findIndex((s) => s.id === item.id);
+  }, [item, siblingItems]);
+
+  const [positionIdx, setPositionIdx] = useState<number>(currentPositionIdx);
 
   function toggleChannel(id: string) {
     setSelectedChannelIds((prev) => {
@@ -93,6 +108,21 @@ export function MenuItemForm({
           toast.error(res.error);
           return;
         }
+
+        // Reorder siblings if position changed and category is unchanged
+        if (
+          item &&
+          siblingItems &&
+          siblingItems.length > 1 &&
+          !categoryChanged &&
+          positionIdx >= 0 &&
+          positionIdx !== currentPositionIdx
+        ) {
+          const without = siblingItems.filter((s) => s.id !== item.id);
+          without.splice(positionIdx, 0, { id: item.id, name: item.name, sort_order: 0 });
+          await reorderMenuItems(item.category_id, without.map((s) => s.id));
+        }
+
         toast.success(item ? "Item menu diperbarui" : "Item menu dibuat");
         startRouteProgress();
         router.push("/admin/menu");
@@ -205,6 +235,30 @@ export function MenuItemForm({
                   </SelectContent>
                 </Select>
               </div>
+
+              {item && siblingItems && siblingItems.length > 1 && !categoryChanged && (
+                <div className="space-y-2">
+                  <Label htmlFor="position">Urutan dalam kategori</Label>
+                  <Select
+                    value={String(positionIdx + 1)}
+                    onValueChange={(v) => setPositionIdx(Number(v) - 1)}
+                  >
+                    <SelectTrigger id="position">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {siblingItems.map((_, idx) => (
+                        <SelectItem key={idx} value={String(idx + 1)}>
+                          {idx + 1}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Pilih posisi urutan item ini dalam kategorinya.
+                  </p>
+                </div>
+              )}
 
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <input
