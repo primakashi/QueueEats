@@ -119,7 +119,7 @@ export default async function SuperAdminAnalyticsPage({ searchParams }: Props) {
   const cutoffISO = new Date(cutoffMs).toISOString();
 
   const [{ data: restaurants }, { data: orders }] = await Promise.all([
-    adminClient.from("restaurants").select("id, name, created_at"),
+    adminClient.from("restaurants").select("id, name, created_at").eq("is_active", true),
     adminClient
       .from("orders")
       .select("restaurant_id, total, status, payment_status, created_at, created_by")

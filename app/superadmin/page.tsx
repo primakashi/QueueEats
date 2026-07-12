@@ -19,6 +19,7 @@ export default async function SuperAdminPage() {
   const { data: restaurants } = await adminClient
     .from("restaurants")
     .select("*")
+    .eq("is_active", true)
     .order("created_at", { ascending: false });
 
   // Fetch owner + outlet counts per restaurant
