@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, BarChart3 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,10 +75,16 @@ export default async function SuperAdminPage() {
           <h1 className="text-xl font-semibold">Restoran</h1>
           <p className="text-sm text-muted-foreground">Daftar semua restoran yang aktif di platform</p>
         </div>
-        <Button render={<Link href="/superadmin/onboard" />}>
-          <Plus className="h-4 w-4 mr-2" />
-          Onboard Restoran
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" render={<Link href="/superadmin/analytics" />}>
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Analitik
+          </Button>
+          <Button render={<Link href="/superadmin/onboard" />}>
+            <Plus className="h-4 w-4 mr-2" />
+            Onboard Restoran
+          </Button>
+        </div>
       </div>
 
       {(restaurants ?? []).length === 0 ? (
