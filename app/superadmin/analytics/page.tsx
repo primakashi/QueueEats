@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Plus, Settings } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import {
@@ -110,7 +110,7 @@ function formatBucketLabel(ts: number, granularity: Granularity): string {
 export default async function SuperAdminAnalyticsPage({ searchParams }: Props) {
   const { mode: modeParam } = await searchParams;
   const mode: ViewMode = (VIEW_MODES.find((m) => m.key === modeParam)?.key ??
-    "30d_daily") as ViewMode;
+    "24h_15min") as ViewMode;
   const { granularity, bucketMs, bucketCount, cellPx } = modeConfig(mode);
 
   const adminClient = createAdminClient();
@@ -242,37 +242,42 @@ export default async function SuperAdminAnalyticsPage({ searchParams }: Props) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" render={<Link href="/superadmin" />}>
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Kembali
-          </Button>
-          <div>
-            <h1 className="text-xl font-semibold">Analitik Klien</h1>
-            <p className="text-sm text-muted-foreground">
-              {activeMode.label} terakhir · {activeMode.hint}
-            </p>
-          </div>
+        <div>
+          <h1 className="text-xl font-semibold">Analitik Klien</h1>
+          <p className="text-sm text-muted-foreground">
+            {activeMode.label} terakhir · {activeMode.hint}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex gap-1 rounded-lg border bg-background p-1">
-            {VIEW_MODES.map((m) => (
-              <Link
-                key={m.key}
-                href={`/superadmin/analytics?mode=${m.key}`}
-                className={`px-3 py-1.5 text-xs rounded-md transition-colors leading-tight ${
-                  m.key === mode
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                <div className="font-medium">{m.label}</div>
-                <div className="text-[10px] opacity-80">{m.hint}</div>
-              </Link>
-            ))}
-          </div>
-          <RefreshButton />
+          <Button variant="outline" size="sm" render={<Link href="/superadmin/restaurants" />}>
+            <Settings className="h-3.5 w-3.5 mr-1.5" />
+            Kelola
+          </Button>
+          <Button size="sm" render={<Link href="/superadmin/onboard" />}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Onboard Restoran
+          </Button>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex gap-1 rounded-lg border bg-background p-1">
+          {VIEW_MODES.map((m) => (
+            <Link
+              key={m.key}
+              href={`/superadmin/analytics?mode=${m.key}`}
+              className={`px-3 py-1.5 text-xs rounded-md transition-colors leading-tight ${
+                m.key === mode
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <div className="font-medium">{m.label}</div>
+              <div className="text-[10px] opacity-80">{m.hint}</div>
+            </Link>
+          ))}
+        </div>
+        <RefreshButton />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">

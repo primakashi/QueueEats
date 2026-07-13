@@ -25,6 +25,6 @@ export async function updateRestaurantSubscription(
     .eq("id", restaurantId);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/superadmin");
+  revalidatePath("/superadmin/restaurants");
   return { ok: true };
 }
