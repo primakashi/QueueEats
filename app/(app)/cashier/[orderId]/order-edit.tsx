@@ -71,27 +71,48 @@ export function EditableOrderItems({
   const [discountSheetOpen, setDiscountSheetOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  // Optimistic items: +/- buttons update local state instantly while the
-  // server action runs in the background. React resets this back to the
-  // `items` prop when the transition completes (router.refresh fires).
-  const [optimisticItems, applyOptimistic] = useOptimistic(
-    items,
-    (state: OrderItem[], action: { type: "setQty"; itemId: string; qty: number } | { type: "remove"; itemId: string }) => {
-      if (action.type === "remove") return state.filter((i) => i.id !== action.itemId);
-      if (action.qty <= 0) return state.filter((i) => i.id !== action.itemId);
-      return state.map((i) =>
-        i.id === action.itemId ? { ...i, quantity: action.qty } : i,
-      );
-    },
+  // Quantity and totals are committed to the UI as one snapshot. Showing the
+  // new quantity before the RPC returns would temporarily pair it with stale
+  // subtotal/discount/tax values.
+  const [view, applyCommittedSnapshot] = useOptimistic(
+    { items, total, subtotal, taxAmount, serviceAmount, discountAmount },
+    (state, action: {
+      itemId: string;
+      qty: number;
+      order: {
+        total: number;
+        subtotal: number;
+        tax_amount: number;
+        service_charge_amount: number;
+        discount_amount: number;
+      };
+    }) => ({
+      ...state,
+      items:
+        action.qty <= 0
+          ? state.items.filter((item) => item.id !== action.itemId)
+          : state.items.map((item) =>
+              item.id === action.itemId
+                ? { ...item, quantity: action.qty }
+                : item,
+            ),
+      total: action.order.total,
+      subtotal: action.order.subtotal,
+      taxAmount: action.order.tax_amount,
+      serviceAmount: action.order.service_charge_amount,
+      discountAmount: action.order.discount_amount,
+    }),
   );
 
   function setQty(itemId: string, qty: number) {
     start(async () => {
-      applyOptimistic({ type: "setQty", itemId, qty });
       try {
         const res = await updateOrderItemQty(orderId, itemId, qty);
         if (!res.ok) toast.error(res.error);
-        else router.refresh();
+        else {
+          applyCommittedSnapshot({ itemId, qty, order: res.order });
+          router.refresh();
+        }
       } catch (err) {
         console.error("[order-edit] updateOrderItemQty threw", err);
         toast.error("Gagal memperbarui jumlah. Coba lagi.");
@@ -102,11 +123,13 @@ export function EditableOrderItems({
 
   function remove(itemId: string) {
     start(async () => {
-      applyOptimistic({ type: "remove", itemId });
       try {
         const res = await removeOrderItem(orderId, itemId);
         if (!res.ok) toast.error(res.error);
-        else router.refresh();
+        else {
+          applyCommittedSnapshot({ itemId, qty: 0, order: res.order });
+          router.refresh();
+        }
       } catch (err) {
         console.error("[order-edit] removeOrderItem threw", err);
         toast.error("Gagal menghapus item. Coba lagi.");
@@ -218,7 +241,7 @@ export function EditableOrderItems({
   return (
     <>
       <div className="py-4 space-y-2">
-        {optimisticItems.map((i) => (
+        {view.items.map((i) => (
           <div key={i.id} className="flex justify-between gap-3 items-center">
             <div className="min-w-0 flex-1">
               <div>
@@ -400,28 +423,28 @@ export function EditableOrderItems({
 
       <Separator />
       <div className="space-y-1.5 pt-4">
-        {(taxAmount > 0 || serviceAmount > 0 || discountAmount > 0) && (
+        {(view.taxAmount > 0 || view.serviceAmount > 0 || view.discountAmount > 0) && (
           <>
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>Subtotal</span>
-              <span className="tabular-nums">{formatIDR(subtotal)}</span>
+              <span className="tabular-nums">{formatIDR(view.subtotal)}</span>
             </div>
-            {discountAmount > 0 && (
+            {view.discountAmount > 0 && (
               <div className="flex justify-between text-sm text-emerald-700">
                 <span>Diskon</span>
-                <span className="tabular-nums">−{formatIDR(discountAmount)}</span>
+                <span className="tabular-nums">−{formatIDR(view.discountAmount)}</span>
               </div>
             )}
-            {taxAmount > 0 && (
+            {view.taxAmount > 0 && (
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Pajak</span>
-                <span className="tabular-nums">{formatIDR(taxAmount)}</span>
+                <span className="tabular-nums">{formatIDR(view.taxAmount)}</span>
               </div>
             )}
-            {serviceAmount > 0 && (
+            {view.serviceAmount > 0 && (
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Biaya layanan</span>
-                <span className="tabular-nums">{formatIDR(serviceAmount)}</span>
+                <span className="tabular-nums">{formatIDR(view.serviceAmount)}</span>
               </div>
             )}
             <Separator />
@@ -429,7 +452,7 @@ export function EditableOrderItems({
         )}
         <div className="flex justify-between items-center">
           <span className="font-medium">Total</span>
-          <span className="text-2xl font-semibold tabular-nums">{formatIDR(total)}</span>
+          <span className="text-2xl font-semibold tabular-nums">{formatIDR(view.total)}</span>
         </div>
       </div>
     </>

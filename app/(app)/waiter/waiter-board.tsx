@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, useEffect } from "react";
+import { useMemo, useOptimistic, useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -147,14 +147,21 @@ export function WaiterBoard({
   const [channelKindFilter, setChannelKindFilter] = useState<ChannelKindFilter>("all");
   const [channelNameFilter, setChannelNameFilter] = useState<string>("all");
   const [, start] = useTransition();
+  const [visibleOrders, commitStatus] = useOptimistic(
+    initialOrders,
+    (orders, action: { id: string; status: OrderStatus }) =>
+      orders.map((order) =>
+        order.id === action.id ? { ...order, status: action.status } : order,
+      ),
+  );
 
   const channelNames = useMemo(() => {
     const names = new Set<string>();
-    for (const o of initialOrders) {
+    for (const o of visibleOrders) {
       if (o.order_channel) names.add(o.order_channel);
     }
     return [...names].sort();
-  }, [initialOrders]);
+  }, [visibleOrders]);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -180,7 +187,7 @@ export function WaiterBoard({
     };
   }, [router]);
 
-  const filtered = initialOrders.filter((o) => {
+  const filtered = visibleOrders.filter((o) => {
     if (statusFilter.size > 0 && !statusFilter.has(o.status)) return false;
     if (serviceFilter !== "all" && o.service_type !== serviceFilter) return false;
     if (paymentFilter === "unpaid" && o.payment_status === "paid") return false;
@@ -207,6 +214,10 @@ export function WaiterBoard({
       try {
         const res = await updateOrderStatus(id, next);
         if (!res.ok) toast.error(res.error);
+        else {
+          commitStatus({ id, status: next });
+          router.refresh();
+        }
       } catch (err) {
         console.error("[waiter] updateOrderStatus threw", err);
         toast.error("Gagal memperbarui status. Coba lagi.");
@@ -393,7 +404,7 @@ export function WaiterBoard({
 
       {filtered.length === 0 ? (
         <Card className="p-12 text-center text-sm text-muted-foreground">
-          {initialOrders.length === 0 ? "Belum ada pesanan hari ini." : "Tidak ada pesanan yang sesuai filter."}
+          {visibleOrders.length === 0 ? "Belum ada pesanan hari ini." : "Tidak ada pesanan yang sesuai filter."}
         </Card>
       ) : view === "card" ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

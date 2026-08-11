@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath as invalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole, getOutletFilter, getRestaurantFilter } from "@/lib/auth";
@@ -11,6 +11,11 @@ import type {
   MenuStockOverride,
   StockMovement,
 } from "@/lib/types";
+
+function revalidatePath(path: string): void {
+  invalidatePath(path);
+  refresh();
+}
 
 type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T }))
@@ -195,7 +200,12 @@ export async function getStockSnapshot(
   const dailyIds = items.map((i) => i.daily_stock.id);
   let movements: Array<StockMovement & { menu_name: string | null; actor_name: string | null }> = [];
   if (dailyIds.length > 0) {
-    const { data: movRaw } = await supabase
+    // The stock page has already validated the tenant and outlet above. Read
+    // movements with the server client so a stale/misaligned RLS policy cannot
+    // hide rows that were written by adjust_daily_stock while the central log
+    // still shows them.
+    const movementDb = createAdminClient();
+    const { data: movRaw } = await movementDb
       .from("stock_movements")
       .select(`
         *,

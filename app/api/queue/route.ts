@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createQueueEntry } from "@/lib/queue/service";
+import { getVerifiedProfile } from "@/lib/auth";
 
 type CreateBody = {
   name?: string;
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const profile = await getVerifiedProfile();
     const created = await createQueueEntry({
       name: body.name,
       party_size: body.party_size,
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest) {
       party_has_infant: body.party_has_infant,
       party_has_elderly: body.party_has_elderly,
       party_has_child: body.party_has_child,
-    });
+    }, profile?.restaurant_id);
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     return NextResponse.json(

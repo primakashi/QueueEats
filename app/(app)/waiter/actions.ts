@@ -32,6 +32,22 @@ export async function createOrder(
   }
 
   const supabase = await createClient();
+  const requestedChannel = input.order_channel ?? "direct";
+  if (input.order_channel) {
+    let channelQuery = supabase
+      .from("order_channels")
+      .select("id")
+      .eq("id", input.order_channel)
+      .eq("is_active", true);
+    if (restaurantId) {
+      channelQuery = channelQuery.eq("restaurant_id", restaurantId);
+    }
+    const { data: channel, error: channelError } = await channelQuery.maybeSingle();
+    if (channelError) return { ok: false, error: channelError.message };
+    if (!channel) {
+      return { ok: false, error: "Saluran pesanan tidak aktif atau di luar restoran Anda" };
+    }
+  }
 
   const serviceType: OrderServiceType = input.service_type ?? "dine_in";
   const tableTrimmed =
@@ -48,7 +64,7 @@ export async function createOrder(
     notes:
       input.notes && input.notes.trim().length > 0 ? input.notes.trim() : null,
     outlet_id: input.outlet_id ?? null,
-    order_channel: input.order_channel ?? "direct",
+    order_channel: requestedChannel,
     parent_order_id: input.parent_order_id ?? null,
     items: input.items.map((i) => ({
       menu_item_id: i.menu_item_id,

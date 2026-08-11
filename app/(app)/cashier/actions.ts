@@ -1,9 +1,14 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath as invalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import type { Payment } from "@/lib/types";
+
+function revalidatePath(path: string): void {
+  invalidatePath(path);
+  refresh();
+}
 
 export async function confirmPayment(
   orderId: string,

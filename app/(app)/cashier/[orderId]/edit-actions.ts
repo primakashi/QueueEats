@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
-import type { DiscountScope, DiscountValueType } from "@/lib/types";
+import type { DiscountScope, DiscountValueType, Order } from "@/lib/types";
+
+type OrderTotals = Pick<
+  Order,
+  "subtotal" | "total" | "tax_amount" | "service_charge_amount" | "discount_amount"
+>;
 
 /**
  * Adjust today's daily_stock for an edit operation on an order line.
@@ -50,7 +55,7 @@ export async function updateOrderItemQty(
   orderId: string,
   itemId: string,
   qty: number,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; order: OrderTotals } | { ok: false; error: string }> {
   const profile = await requireRole(["cashier", "admin", "waiter"]);
   const supabase = await createClient();
 
@@ -61,19 +66,20 @@ export async function updateOrderItemQty(
     p_actor: profile.id,
   });
   if (error) return { ok: false, error: error.message };
-  const result = data as { ok: boolean; error?: string };
+  const result = data as { ok: boolean; error?: string; order?: OrderTotals };
   if (!result?.ok) return { ok: false, error: result?.error ?? "Gagal memperbarui pesanan" };
+  if (!result.order) return { ok: false, error: "Total pesanan tidak tersedia setelah pembaruan" };
 
   revalidatePath(`/cashier/${orderId}`);
   revalidatePath("/cashier");
   revalidatePath("/admin/stok");
-  return { ok: true };
+  return { ok: true, order: result.order };
 }
 
 export async function removeOrderItem(
   orderId: string,
   itemId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; order: OrderTotals } | { ok: false; error: string }> {
   // Removing is the same as setting qty=0; the RPC handles delete + stock
   // restore + recalc in one transaction.
   return updateOrderItemQty(orderId, itemId, 0);

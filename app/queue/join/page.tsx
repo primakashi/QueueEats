@@ -1,5 +1,6 @@
 import { Users } from "lucide-react";
 import { getOrCreateRestaurant } from "@/lib/queue/service";
+import { getVerifiedProfile } from "@/lib/auth";
 import { QueueJoinForm } from "./queue-join-form";
 
 export const metadata = {
@@ -8,7 +9,8 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function QueueJoinPage() {
-  const restaurant = await getOrCreateRestaurant();
+  const profile = await getVerifiedProfile();
+  const restaurant = await getOrCreateRestaurant(profile?.restaurant_id);
 
   return (
     <main className="min-h-screen bg-muted/20 px-4 py-8 sm:py-12">

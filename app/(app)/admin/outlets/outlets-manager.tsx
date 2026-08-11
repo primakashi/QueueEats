@@ -136,7 +136,9 @@ function OutletForm({
             placeholder="0"
             defaultValue={outlet ? String(((outlet.tax_rate ?? 0) * 100).toFixed(2)) : "0"}
           />
-          <p className="text-xs text-muted-foreground">Mis. 10 untuk PPN 10%</p>
+          <p className="text-xs text-muted-foreground">
+            Nilai di atas 0 menggantikan pengaturan restoran; 0 mengikuti pengaturan restoran.
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="outlet-service">Biaya layanan (%)</Label>
@@ -150,7 +152,9 @@ function OutletForm({
             placeholder="0"
             defaultValue={outlet ? String(((outlet.service_charge_rate ?? 0) * 100).toFixed(2)) : "0"}
           />
-          <p className="text-xs text-muted-foreground">Mis. 5 untuk service 5%</p>
+          <p className="text-xs text-muted-foreground">
+            Nilai di atas 0 menggantikan pengaturan restoran; 0 mengikuti pengaturan restoran.
+          </p>
         </div>
       </div>
       <Button type="submit" className="w-full" disabled={pending} aria-busy={pending}>

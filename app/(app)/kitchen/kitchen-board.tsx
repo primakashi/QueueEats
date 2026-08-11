@@ -51,9 +51,12 @@ function resolveServiceType(
 function useNow(): number {
   const [now, setNow] = useState(0);
   useEffect(() => {
-    setNow(Date.now());
+    const initial = window.setTimeout(() => setNow(Date.now()), 0);
     const id = setInterval(() => setNow(Date.now()), 15000);
-    return () => clearInterval(id);
+    return () => {
+      window.clearTimeout(initial);
+      clearInterval(id);
+    };
   }, []);
   return now;
 }
@@ -216,6 +219,16 @@ export function KitchenBoard({
   const preparing = visibleOrders.filter((o) => o.status === "preparing");
   const ready = visibleOrders.filter((o) => o.status === "ready");
 
+  function commitStatus(id: string, status: OrderStatus) {
+    setOrders((current) =>
+      KITCHEN_STATUSES.includes(status)
+        ? current.map((order) =>
+            order.id === id ? { ...order, status } : order,
+          )
+        : current.filter((order) => order.id !== id),
+    );
+  }
+
   return (
     <div className="space-y-6">
     {outlets.length > 0 && (
@@ -257,7 +270,9 @@ export function KitchenBoard({
         {accepted.length === 0 ? (
           <EmptyColumn label="Belum ada pesanan diterima" />
         ) : (
-          accepted.map((o) => <OrderCard key={o.id} order={o} now={now} />)
+          accepted.map((o) => (
+            <OrderCard key={o.id} order={o} now={now} onStatus={commitStatus} />
+          ))
         )}
       </Column>
       <Column
@@ -269,7 +284,9 @@ export function KitchenBoard({
         {preparing.length === 0 ? (
           <EmptyColumn label="Belum ada yang dimasak" />
         ) : (
-          preparing.map((o) => <OrderCard key={o.id} order={o} now={now} />)
+          preparing.map((o) => (
+            <OrderCard key={o.id} order={o} now={now} onStatus={commitStatus} />
+          ))
         )}
       </Column>
       <Column
@@ -281,7 +298,9 @@ export function KitchenBoard({
         {ready.length === 0 ? (
           <EmptyColumn label="Belum ada yang siap" />
         ) : (
-          ready.map((o) => <OrderCard key={o.id} order={o} now={now} />)
+          ready.map((o) => (
+            <OrderCard key={o.id} order={o} now={now} onStatus={commitStatus} />
+          ))
         )}
       </Column>
     </div>
@@ -329,7 +348,15 @@ function EmptyColumn({ label }: { label: string }) {
   );
 }
 
-function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
+function OrderCard({
+  order,
+  now,
+  onStatus,
+}: {
+  order: OrderWithItems;
+  now: number;
+  onStatus: (id: string, status: OrderStatus) => void;
+}) {
   const [pending, start] = useTransition();
 
   const mins =
@@ -348,6 +375,7 @@ function OrderCard({ order, now }: { order: OrderWithItems; now: number }) {
       try {
         const res = await updateOrderStatus(order.id, next);
         if (!res.ok) toast.error(res.error);
+        else onStatus(order.id, next);
       } catch (err) {
         // Don't let a thrown action crash the kitchen board.
         console.error("[kitchen] updateOrderStatus threw", err);

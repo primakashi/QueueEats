@@ -27,9 +27,13 @@ export async function POST(req: NextRequest, { params }: Props) {
 
   const isUuid = UUID_RE.test(entry);
   if (isUuid) {
-    const unauthorized = await requireHostApiAuth();
-    if (unauthorized) return unauthorized;
-    const result = await setWaitingInStoreById(entry, body.waiting_in_store);
+    const auth = await requireHostApiAuth();
+    if (!auth.ok) return auth.response;
+    const result = await setWaitingInStoreById(
+      entry,
+      body.waiting_in_store,
+      auth.profile.restaurant_id,
+    );
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: result.code });
     }
