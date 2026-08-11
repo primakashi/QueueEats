@@ -17,6 +17,9 @@ import {
   type Order,
   type OrderDiscount,
   type OrderItem,
+  type PaymentMethodConfig,
+  type PaymentMethodWithProviders,
+  type PaymentProviderConfig,
 } from "@/lib/types";
 import { paymentColor, statusColor } from "@/lib/status";
 import { PaymentPanel } from "./payment-panel";
@@ -41,15 +44,40 @@ export default async function CashierOrderPage({ params }: Props) {
   let discountsQuery = adminDb.from("discounts").select("*").eq("is_active", true);
   if (rid) discountsQuery = discountsQuery.eq("restaurant_id", rid);
 
+  let paymentMethodsQuery = adminDb
+    .from("payment_methods")
+    .select("*")
+    .eq("is_active", true);
+  let paymentProvidersQuery = adminDb
+    .from("payment_providers")
+    .select("*")
+    .eq("is_active", true);
+  if (rid) {
+    paymentMethodsQuery = paymentMethodsQuery.eq("restaurant_id", rid);
+    paymentProvidersQuery = paymentProvidersQuery.eq("restaurant_id", rid);
+  }
+  let orderChannelsQuery = adminDb.from("order_channels").select("id, name");
+  if (rid) orderChannelsQuery = orderChannelsQuery.eq("restaurant_id", rid);
+
   // autoApplyDailyDiscounts writes to order_discounts + orders. The menu and
   // discount-catalog reads don't touch those rows, so they're safe to run in
   // parallel with it. The order-scoped reads have to wait for the write to
   // complete (otherwise we'd miss the newly inserted daily discount and read
   // a stale total).
-  const [, { data: menuItems }, { data: catalogRaw }] = await Promise.all([
+  const [
+    ,
+    { data: menuItems },
+    { data: catalogRaw },
+    { data: paymentMethodsRaw },
+    { data: paymentProvidersRaw },
+    { data: orderChannelsRaw },
+  ] = await Promise.all([
     autoApplyDailyDiscounts(orderId),
     menuQuery.order("name"),
     discountsQuery.order("name"),
+    paymentMethodsQuery.order("sort_order"),
+    paymentProvidersQuery.order("sort_order"),
+    orderChannelsQuery,
   ]);
 
   const [orderRes, { data: items }, { data: appliedRaw }] = await Promise.all([
@@ -71,6 +99,21 @@ export default async function CashierOrderPage({ params }: Props) {
   const itemsTyped = (items ?? []) as OrderItem[];
   const menuTyped = (menuItems ?? []) as MenuItem[];
   const applied = (appliedRaw ?? []) as OrderDiscount[];
+  const paymentMethods = (paymentMethodsRaw ?? []) as PaymentMethodConfig[];
+  const paymentProviders = (paymentProvidersRaw ?? []) as PaymentProviderConfig[];
+  const paymentMethodsWithProviders: PaymentMethodWithProviders[] = paymentMethods.map(
+    (method) => ({
+      ...method,
+      providers: paymentProviders.filter(
+        (provider) => provider.payment_method_id === method.id,
+      ),
+    }),
+  );
+  const channelNameById = new Map(
+    ((orderChannelsRaw ?? []) as Array<{ id: string; name: string }>).map(
+      (channel) => [channel.id, channel.name],
+    ),
+  );
   const today = new Date().toISOString().slice(0, 10);
   const catalog = ((catalogRaw ?? []) as Discount[]).filter((d) => {
     if (d.scope !== "daily") return true;
@@ -131,7 +174,14 @@ export default async function CashierOrderPage({ params }: Props) {
               label="Tipe"
               value={typed.service_type === "takeaway" ? "Bungkus" : "Makan di tempat"}
             />
-            <Field label="Channel" value={typed.order_channel ?? "—"} />
+            <Field
+              label="Channel"
+              value={
+                typed.order_channel
+                  ? channelNameById.get(typed.order_channel) ?? typed.order_channel
+                  : "—"
+              }
+            />
           </div>
 
           {isPaid ? (
@@ -210,7 +260,10 @@ export default async function CashierOrderPage({ params }: Props) {
         </Card>
 
         <div className="min-w-0 md:sticky md:top-4 md:self-start">
-          <PaymentPanel order={typed} />
+          <PaymentPanel
+            order={typed}
+            paymentMethods={paymentMethodsWithProviders}
+          />
         </div>
       </div>
     </div>

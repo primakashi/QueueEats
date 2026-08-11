@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Printer, Wallet } from "lucide-react";
 import { toast } from "sonner";
@@ -19,39 +19,95 @@ import {
 } from "@/components/ui/select";
 import { formatIDR } from "@/lib/format";
 import { PAYMENT_DESTINATION_GROUPS } from "@/lib/types";
-import type { Order } from "@/lib/types";
+import type { Order, PaymentMethodWithProviders } from "@/lib/types";
 import { confirmPayment } from "../actions";
 import { FullScreenLoading } from "@/components/full-screen-loading";
 import { openPrintWindow } from "@/lib/print";
 
-function methodFromDestination(destination: string): "cash" | "edc" {
-  return destination === "Tunai" ? "cash" : "edc";
-}
+type PaymentOption = {
+  value: string;
+  label: string;
+  group: string;
+  destination: string;
+  method: "cash" | "edc";
+};
 
-export function PaymentPanel({ order }: { order: Order }) {
+export function PaymentPanel({
+  order,
+  paymentMethods,
+}: {
+  order: Order;
+  paymentMethods: PaymentMethodWithProviders[];
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [paymentDestination, setPaymentDestination] = useState<string>("");
+  const [selectedOption, setSelectedOption] = useState<string>("");
   const [payError, setPayError] = useState<string | null>(null);
+  const [paidLocally, setPaidLocally] = useState(false);
+  const [paidDestination, setPaidDestination] = useState<string | null>(null);
 
-  const isPaid = order.payment_status === "paid";
+  const configuredOptions = useMemo<PaymentOption[]>(() => {
+    return paymentMethods.flatMap((method) => {
+      const paymentMethod = method.slug === "cash" ? "cash" : "edc";
+      if (method.kind === "provider") {
+        return method.providers.map((provider) => ({
+          value: `provider:${provider.id}`,
+          label: provider.name,
+          group: method.name,
+          destination: provider.name,
+          method: paymentMethod,
+        }));
+      }
+      return [{
+        value: `method:${method.id}`,
+        label: method.name,
+        group: "Metode pembayaran",
+        destination: method.name,
+        method: paymentMethod,
+      }];
+    });
+  }, [paymentMethods]);
+
+  const fallbackOptions = useMemo<PaymentOption[]>(
+    () =>
+      PAYMENT_DESTINATION_GROUPS.flatMap((group) =>
+        group.options.map((destination) => ({
+          value: `fallback:${destination}`,
+          label: destination,
+          group: group.label,
+          destination,
+          method: destination === "Tunai" ? "cash" : "edc",
+        })),
+      ),
+    [],
+  );
+  const options = configuredOptions.length > 0 ? configuredOptions : fallbackOptions;
+  const groups = Array.from(new Set(options.map((option) => option.group)));
+
+  const isPaid = order.payment_status === "paid" || paidLocally;
 
   function pay() {
-    if (!paymentDestination) {
+    const option = options.find((candidate) => candidate.value === selectedOption);
+    if (!option) {
       setPayError("Pilih sumber pembayaran dulu");
       return;
     }
-    const method = methodFromDestination(paymentDestination);
     setPayError(null);
     start(async () => {
       try {
-        const res = await confirmPayment(order.id, method, paymentDestination);
+        const res = await confirmPayment(
+          order.id,
+          option.method,
+          option.destination,
+        );
         if (!res.ok) {
           toast.error(res.error);
           setPayError(res.error);
           return;
         }
         toast.success("Pembayaran diterima!");
+        setPaidDestination(option.destination);
+        setPaidLocally(true);
         router.refresh();
       } catch (err) {
         console.error("[payment] confirmPayment threw", err);
@@ -70,7 +126,8 @@ export function PaymentPanel({ order }: { order: Order }) {
         </div>
         <div className="text-lg font-semibold">Pembayaran diterima</div>
         <div className="text-sm text-muted-foreground">
-          {order.payment_method === "edc" ? "Dibayar via EDC / Kartu" : "Dibayar tunai"}
+          {paidDestination ?? order.payment_destination ??
+            (order.payment_method === "edc" ? "Dibayar via EDC / Kartu" : "Dibayar tunai")}
         </div>
         <div className="text-3xl font-semibold tabular-nums pt-2">
           {formatIDR(order.total)}
@@ -104,18 +161,20 @@ export function PaymentPanel({ order }: { order: Order }) {
       <div className="space-y-1.5">
         <Label htmlFor="pay-destination">Pembayaran Dari</Label>
         <Select
-          value={paymentDestination}
-          onValueChange={(v) => setPaymentDestination(v === "__none__" || !v ? "" : v)}
+          value={selectedOption}
+          onValueChange={(v) => setSelectedOption(v === "__none__" || !v ? "" : v)}
         >
           <SelectTrigger id="pay-destination" className="w-full">
             <SelectValue placeholder="Pilih sumber pembayaran" />
           </SelectTrigger>
           <SelectContent>
-            {PAYMENT_DESTINATION_GROUPS.map((g) => (
-              <SelectGroup key={g.label}>
-                <SelectLabel>{g.label}</SelectLabel>
-                {g.options.map((d) => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
+            {groups.map((group) => (
+              <SelectGroup key={group}>
+                <SelectLabel>{group}</SelectLabel>
+                {options.filter((option) => option.group === group).map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
                 ))}
               </SelectGroup>
             ))}
@@ -126,7 +185,7 @@ export function PaymentPanel({ order }: { order: Order }) {
         size="lg"
         className="h-14 text-base gap-3"
         onClick={pay}
-        disabled={pending || !paymentDestination}
+        disabled={pending || !selectedOption}
         aria-busy={pending}
       >
         {pending ? (

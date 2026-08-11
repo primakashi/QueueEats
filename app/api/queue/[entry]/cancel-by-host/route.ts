@@ -5,11 +5,11 @@ import { requireHostApiAuth } from "@/lib/queue/api-auth";
 type Props = { params: Promise<{ entry: string }> };
 
 export async function POST(_: Request, { params }: Props) {
-  const unauthorized = await requireHostApiAuth();
-  if (unauthorized) return unauthorized;
+  const auth = await requireHostApiAuth();
+  if (!auth.ok) return auth.response;
 
   const { entry } = await params;
-  const result = await cancelByHost(entry);
+  const result = await cancelByHost(entry, auth.profile.restaurant_id);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.code });
   }

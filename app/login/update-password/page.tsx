@@ -51,7 +51,8 @@ export default function UpdatePasswordPage() {
       return;
     }
 
-    setTokenError(true);
+    const invalidTokenTimer = window.setTimeout(() => setTokenError(true), 0);
+    return () => window.clearTimeout(invalidTokenTimer);
   }, [searchParams]);
 
   function submit(formData: FormData) {

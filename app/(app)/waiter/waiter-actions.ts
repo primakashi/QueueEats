@@ -1,10 +1,15 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath as invalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import type { OrderStatus } from "@/lib/types";
 import { ORDER_STATUS_LABEL } from "@/lib/types";
+
+function revalidatePath(path: string): void {
+  invalidatePath(path);
+  refresh();
+}
 
 async function restoreStockForOrder(
   supabase: Awaited<ReturnType<typeof createClient>>,

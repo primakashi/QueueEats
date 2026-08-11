@@ -1,13 +1,23 @@
 import { NextResponse } from "next/server";
-import { getProfile } from "@/lib/auth";
+import { getVerifiedProfile } from "@/lib/auth";
+import type { Profile } from "@/lib/types";
 
-export async function requireHostApiAuth() {
-  const profile = await getProfile();
+export async function requireHostApiAuth(): Promise<
+  | { ok: true; profile: Profile }
+  | { ok: false; response: NextResponse }
+> {
+  const profile = await getVerifiedProfile();
   if (!profile) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
   }
   if (profile.role !== "waiter" && profile.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
   }
-  return null;
+  return { ok: true, profile };
 }

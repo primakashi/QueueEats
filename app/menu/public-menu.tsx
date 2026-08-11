@@ -61,7 +61,7 @@ export function PublicMenu({
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const suppressObserverUntil = useRef<number>(0);
+  const suppressObserver = useRef(false);
 
   const registerSection = useCallback(
     (id: string) => (node: HTMLElement | null) => {
@@ -80,7 +80,7 @@ export function PublicMenu({
     if (sections.length === 0) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (Date.now() < suppressObserverUntil.current) return;
+        if (suppressObserver.current) return;
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
@@ -125,7 +125,10 @@ export function PublicMenu({
     if (!el) return;
     // Temporarily ignore the IntersectionObserver so the smooth-scroll
     // doesn't fight with scroll-based activation
-    suppressObserverUntil.current = Date.now() + 700;
+    suppressObserver.current = true;
+    window.setTimeout(() => {
+      suppressObserver.current = false;
+    }, 700);
     setActiveId(id);
     const y = el.getBoundingClientRect().top + window.scrollY - 72;
     window.scrollTo({ top: y, behavior: "smooth" });

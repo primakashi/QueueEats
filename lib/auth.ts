@@ -67,6 +67,27 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   }
 });
 
+/**
+ * Resolve the profile from the authenticated Supabase user instead of the
+ * performance cookie. Use this whenever the result scopes a service-role
+ * query, because the cookie is intentionally not an authorization boundary.
+ */
+export const getVerifiedProfile = cache(async (): Promise<Profile | null> => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, role, outlet_id, restaurant_id, created_at")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (error || !isProfileShape(data)) return null;
+  return data;
+});
+
 export async function setProfileCookie(profile: Profile): Promise<void> {
   const store = await cookies();
   store.set(PROFILE_COOKIE, JSON.stringify(profile), {
@@ -94,6 +115,15 @@ export async function requireRole(
 ): Promise<Profile> {
   const profile = await requireProfile();
   // super_admin bypasses all role gates so they can debug any page.
+  if (profile.role !== "super_admin" && !roles.includes(profile.role)) {
+    redirect("/403");
+  }
+  return profile;
+}
+
+export async function requireVerifiedRole(roles: UserRole[]): Promise<Profile> {
+  const profile = await getVerifiedProfile();
+  if (!profile) redirect("/login");
   if (profile.role !== "super_admin" && !roles.includes(profile.role)) {
     redirect("/403");
   }

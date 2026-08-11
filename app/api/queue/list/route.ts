@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { listQueueEntries } from "@/lib/queue/service";
+import { getVerifiedProfile } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const result = await listQueueEntries();
+    const profile = await getVerifiedProfile();
+    const result = await listQueueEntries(profile?.restaurant_id);
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

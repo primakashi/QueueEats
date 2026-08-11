@@ -115,6 +115,8 @@ export default async function SuperAdminAnalyticsPage({ searchParams }: Props) {
 
   const adminClient = createAdminClient();
 
+  // Current time is intentionally sampled for this live operational report.
+  // eslint-disable-next-line react-hooks/purity
   const cutoffMs = Date.now() - bucketCount * bucketMs;
   const cutoffISO = new Date(cutoffMs).toISOString();
 

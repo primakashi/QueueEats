@@ -1,10 +1,15 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath as invalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole, getRestaurantFilter } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import type { Outlet } from "@/lib/types";
+
+function revalidatePath(path: string): void {
+  invalidatePath(path);
+  refresh();
+}
 
 type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T }))
