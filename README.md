@@ -75,6 +75,10 @@ npm run dev
 
 Open http://localhost:3000 and sign in.
 
+## Product documentation
+
+- [Roles, flows, current UI, and UI/UX revamp recommendations](docs/product-flows-and-ux-revamp.md)
+
 ## Architecture
 
 ```
