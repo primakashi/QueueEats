@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Download, Filter, LayoutList, PanelsTopLeft, X } from "lucide-react";
 import {
   ORDER_CHANNEL_LABEL,
   ORDER_STATUS_LABEL,
@@ -18,14 +19,17 @@ import styles from "./sales.module.css";
 type Granularity = "day" | "hour" | "month";
 type ChartType = "bar" | "line";
 type Preset = "today" | "yesterday" | "7d" | "30d" | "thismonth" | "lastmonth" | "custom";
+type ReportMode = "executive" | "operations";
+type LayoutMode = "scroll" | "sections";
+type ExportFormat = "pdf" | "csv";
 
 const ALL = "ALL";
 
 const SLOTS = [
-  { label: "Pagi (07–11)", from: 7, to: 10, color: "#A7AE86" },
-  { label: "Siang (11–14)", from: 11, to: 13, color: "#6E7B4F" },
-  { label: "Sore (14–17)", from: 14, to: 16, color: "#454E2F" },
-  { label: "Malam (17–21)", from: 17, to: 23, color: "#241C15" },
+  { label: "Pagi (07–11)", from: 7, to: 10, color: "#FFD3A1" },
+  { label: "Siang (11–14)", from: 11, to: 13, color: "#FFAD4F" },
+  { label: "Sore (14–17)", from: 14, to: 16, color: "#FF8A00" },
+  { label: "Malam (17–21)", from: 17, to: 23, color: "#24211D" },
 ] as const;
 
 const DOW_SHORT = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
@@ -270,6 +274,15 @@ export function SalesDashboard({
   const [channelKind, setChannelKind] = useState<string>(ALL);
   const [channel, setChannel] = useState<string>(ALL);
   const [outletF, setOutletF] = useState<string>(initialOutlet ?? ALL);
+  const [mode, setMode] = useState<ReportMode>("executive");
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("scroll");
+  const [activeSection, setActiveSection] = useState("summary");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("pdf");
+  const [txSearch, setTxSearch] = useState("");
+  const [txPay, setTxPay] = useState(ALL);
+  const [txStatus, setTxStatus] = useState(ALL);
 
   function applyPreset(p: Preset) {
     setPreset(p);
@@ -304,6 +317,9 @@ export function SalesDashboard({
     if (!lockedOutletId) setOutletF(ALL);
     setGran("day");
     setChartType("bar");
+    setTxSearch("");
+    setTxPay(ALL);
+    setTxStatus(ALL);
     applyPreset("30d");
   }
 
@@ -365,6 +381,44 @@ export function SalesDashboard({
     return [...set].sort();
   }, [orders]);
 
+  const txStatusOptions = useMemo(() => {
+    const set = new Set(sales.map((o) => o.status).filter(Boolean));
+    return [...set].sort();
+  }, [sales]);
+
+  const transactionSales = useMemo(() => {
+    const query = txSearch.trim().toLocaleLowerCase("id-ID");
+    return sales.filter((o) => {
+      const searchable = `${o.order_number} ${o.items.map((item) => item.name).join(" ")}`.toLocaleLowerCase("id-ID");
+      if (query && !searchable.includes(query)) return false;
+      if (txPay !== ALL && o.payment_method !== txPay) return false;
+      if (txStatus !== ALL && o.status !== txStatus) return false;
+      return true;
+    });
+  }, [sales, txPay, txSearch, txStatus]);
+
+  const sections = mode === "executive"
+    ? [
+        { id: "summary", label: "Ringkasan" },
+        { id: "trend", label: "Tren" },
+        { id: "breakdown", label: "Breakdown" },
+      ]
+    : [
+        { id: "cash", label: "Kas" },
+        { id: "menu", label: "Menu" },
+        { id: "transactions", label: "Transaksi" },
+      ];
+
+  function changeMode(nextMode: ReportMode) {
+    setMode(nextMode);
+    setActiveSection(nextMode === "executive" ? "summary" : "cash");
+  }
+
+  function sectionClass(id: string): string {
+    if (layoutMode === "scroll" || activeSection === id) return styles.reportSection;
+    return `${styles.reportSection} ${styles.sectionHidden}`;
+  }
+
   function exportPDF() {
     doExport({
       sales,
@@ -386,282 +440,219 @@ export function SalesDashboard({
     });
   }
 
+  function exportCSV() {
+    const header = ["No. Pesanan", "Tanggal", "Waktu", "Outlet", "Channel", "Item", "Status", "Metode", "Total"];
+    const escape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+    const rows = transactionSales.map((o) => {
+      const date = new Date(o.created_at);
+      return [
+        o.order_number,
+        toInput(date),
+        `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+        o.outlet_name ?? "—",
+        channelLabelOf(o.order_channel),
+        o.items.map((item) => `${item.name} ×${item.quantity}`).join(", "),
+        ORDER_STATUS_LABEL[o.status as OrderStatus] ?? o.status,
+        (o.payment_method ?? "—").toUpperCase(),
+        o.total,
+      ];
+    });
+    const csv = `\uFEFF${[header, ...rows].map((row) => row.map(escape).join(",")).join("\r\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `laporan-penjualan-${toInput(from)}-${toInput(to)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function runExport() {
+    if (exportFormat === "csv") exportCSV();
+    else exportPDF();
+    setExportOpen(false);
+  }
+
   return (
     <div className={styles.root}>
-      <header className={styles.header}>
-        <div className={styles.mast}>
-          <div className={styles.brand}>solusi<b>saji</b></div>
-          <div className={styles.ctx}>
-            <span className={styles.role}>Laporan Penjualan</span>
-            {lockedOutletName && (
-              <span className={styles.lock}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="5" y="11" width="14" height="9" rx="2" />
-                  <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-                </svg>
-                <span>{lockedOutletName}</span>
-              </span>
-            )}
+      <div className={styles.wrap}>
+        <div className={styles.pageHead}>
+          <div>
+            <div className={styles.eyebrow}>Manajemen · Laporan</div>
+            <h1 className={styles.h1}>Penjualan</h1>
+            <p className={styles.sub}>
+              {mode === "executive"
+                ? "Ringkasan untuk pemilik dan manajemen"
+                : "Data rinci untuk kontrol operasional harian"}
+            </p>
+          </div>
+          <div className={styles.headActions}>
+            <div className={styles.switcher} aria-label="Tampilan laporan">
+              <button type="button" className={mode === "executive" ? styles.switchOn : ""} onClick={() => changeMode("executive")}>Executive</button>
+              <button type="button" className={mode === "operations" ? styles.switchOn : ""} onClick={() => changeMode("operations")}>Operations</button>
+            </div>
+            <div className={styles.switcher} aria-label="Susunan laporan">
+              <button type="button" className={layoutMode === "scroll" ? styles.switchOn : ""} onClick={() => setLayoutMode("scroll")}><LayoutList aria-hidden="true" /> Scroll</button>
+              <button type="button" className={layoutMode === "sections" ? styles.switchOn : ""} onClick={() => setLayoutMode("sections")}><PanelsTopLeft aria-hidden="true" /> Sections</button>
+            </div>
+            <button type="button" className={styles.exportButton} onClick={() => setExportOpen(true)}><Download aria-hidden="true" /> Export</button>
           </div>
         </div>
-      </header>
 
-      <div className={styles.wrap}>
-        <div className={styles.h1 + " " + styles.serif}>Penjualan Outlet</div>
-        <p className={styles.sub}>
-          {lockedOutletName
-            ? "Akses terkunci ke satu outlet · laporan harian & bulanan untuk diserahkan ke pemilik"
-            : "Rekap penjualan lintas outlet · filter periode, channel, metode, dan produk"}
-        </p>
-
-        {/* FILTER CARD */}
-        <div className={styles.filtercard}>
-          <div className={styles.frow}>
-            <div>
+        <section className={styles.scopeCard} aria-label="Scope laporan">
+          <div className={styles.scopeHeading}>
+            <div><strong>Scope laporan</strong><span>Berlaku ke semua bagian</span></div>
+            <button type="button" className={styles.filterToggle} onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}>
+              {filtersOpen ? <X aria-hidden="true" /> : <Filter aria-hidden="true" />}
+              {filtersOpen ? "Tutup filter" : "Filter lainnya"}
+            </button>
+          </div>
+          <div className={styles.scopeGrid}>
+            <div className={styles.periodScope}>
               <span className={styles.flabel}>Periode</span>
               <div className={styles.presets}>
                 {([
-                  ["today", "Hari ini"],
-                  ["yesterday", "Kemarin"],
-                  ["7d", "7 hari"],
-                  ["30d", "30 hari"],
-                  ["thismonth", "Bulan ini"],
-                  ["lastmonth", "Bulan lalu"],
+                  ["today", "Hari ini"], ["yesterday", "Kemarin"], ["7d", "7 hari"],
+                  ["30d", "30 hari"], ["thismonth", "Bulan ini"], ["lastmonth", "Bulan lalu"],
                 ] as [Preset, string][]).map(([p, label]) => (
-                  <button
-                    key={p}
-                    type="button"
-                    className={`${styles.chip} ${preset === p ? styles.chipOn : ""}`}
-                    onClick={() => applyPreset(p)}
-                  >
-                    {label}
-                  </button>
+                  <button key={p} type="button" className={`${styles.chip} ${preset === p ? styles.chipOn : ""}`} onClick={() => applyPreset(p)}>{label}</button>
                 ))}
               </div>
             </div>
-            <div className={styles.daterange}>
-              <div className={styles.field}>
-                <span className={styles.flabel}>Dari</span>
-                <input
-                  type="date"
-                  className={styles.input}
-                  value={toInput(from)}
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    setPreset("custom");
-                    setFrom(fromInput(e.target.value));
-                  }}
-                />
-              </div>
-              <div className={styles.field}>
-                <span className={styles.flabel}>Sampai</span>
-                <input
-                  type="date"
-                  className={styles.input}
-                  value={toInput(to)}
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    setPreset("custom");
-                    setTo(fromInput(e.target.value));
-                  }}
-                />
-              </div>
-            </div>
-            <div className={styles.activelabel}>
-              <b>{single ? prettyDate(from) : `${shortDate(from)} – ${shortDate(to)}`}</b> · {days} hari
-            </div>
-          </div>
-
-          <div className={styles.frow}>
-            <div>
-              <span className={styles.flabel}>Kelompok grafik</span>
-              <div className={styles.seg}>
-                {([["day", "Per hari"], ["hour", "Per jam"], ["month", "Per bulan"]] as [Granularity, string][]).map(([g, label]) => (
-                  <button
-                    key={g}
-                    type="button"
-                    className={gran === g ? styles.segOn : ""}
-                    onClick={() => setGran(g)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <span className={styles.flabel}>Tipe grafik</span>
-              <div className={styles.seg}>
-                {([["bar", "Batang"], ["line", "Garis"]] as [ChartType, string][]).map(([t, label]) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={chartType === t ? styles.segOn : ""}
-                    onClick={() => setChartType(t)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {!lockedOutletId && outlets.length > 0 && (
-              <div className={styles.field}>
+            {!lockedOutletId && outlets.length > 0 ? (
+              <label className={styles.field}>
                 <span className={styles.flabel}>Outlet</span>
                 <select className={styles.select} value={outletF} onChange={(e) => setOutletF(e.target.value)}>
                   <option value={ALL}>Semua outlet</option>
-                  {outlets.map((o) => (
-                    <option key={o.id} value={o.id}>{o.name}</option>
-                  ))}
+                  {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
-              </div>
+              </label>
+            ) : (
+              <div className={styles.lockedScope}><span className={styles.flabel}>Outlet</span><strong>{lockedOutletName ?? "Outlet terkunci"}</strong></div>
             )}
-            <div className={styles.field}>
-              <span className={styles.flabel}>Produk</span>
-              <select className={styles.select} value={product} onChange={(e) => setProduct(e.target.value)}>
-                <option value={ALL}>Semua produk</option>
-                {menuItems.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.flabel}>Metode bayar</span>
-              <select className={styles.select} value={pay} onChange={(e) => setPay(e.target.value)}>
-                <option value={ALL}>Semua metode</option>
-                {payOptions.map((p) => (
-                  <option key={p} value={p}>{p.toUpperCase()}</option>
-                ))}
-              </select>
-            </div>
             <div>
-              <span className={styles.flabel}>Tipe channel</span>
+              <span className={styles.flabel}>Sumber pesanan</span>
               <div className={styles.seg}>
-                {([
-                  [ALL, "Semua"],
-                  ["direct", "Direct"],
-                  ["online", "Online"],
-                  ["popup", "Pop-up"],
-                ] as [string, string][]).map(([k, label]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    className={channelKind === k ? styles.segOn : ""}
-                    onClick={() => { setChannelKind(k); setChannel(ALL); }}
-                  >
-                    {label}
-                  </button>
+                {([[ALL, "Semua"], ["direct", "Direct"], ["online", "Online"], ["popup", "Pop-up"]] as [string, string][]).map(([k, label]) => (
+                  <button key={k} type="button" className={channelKind === k ? styles.segOn : ""} onClick={() => { setChannelKind(k); setChannel(ALL); }}>{label}</button>
                 ))}
               </div>
             </div>
-            <div className={styles.field}>
-              <span className={styles.flabel}>Saluran</span>
-              <select
-                className={styles.select}
-                value={channel}
-                onChange={(e) => setChannel(e.target.value)}
-              >
-                <option value={ALL}>Semua saluran</option>
-                {channelOptionsFiltered.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+          </div>
+          {filtersOpen && (
+            <div className={styles.advancedFilters}>
+              <div className={styles.daterange}>
+                <label className={styles.field}><span className={styles.flabel}>Dari</span><input type="date" className={styles.input} value={toInput(from)} onChange={(e) => { if (e.target.value) { setPreset("custom"); setFrom(fromInput(e.target.value)); } }} /></label>
+                <label className={styles.field}><span className={styles.flabel}>Sampai</span><input type="date" className={styles.input} value={toInput(to)} onChange={(e) => { if (e.target.value) { setPreset("custom"); setTo(fromInput(e.target.value)); } }} /></label>
+              </div>
+              <label className={styles.field}><span className={styles.flabel}>Produk</span><select className={styles.select} value={product} onChange={(e) => setProduct(e.target.value)}><option value={ALL}>Semua produk</option>{menuItems.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+              <label className={styles.field}><span className={styles.flabel}>Metode bayar</span><select className={styles.select} value={pay} onChange={(e) => setPay(e.target.value)}><option value={ALL}>Semua metode</option>{payOptions.map((p) => <option key={p} value={p}>{p.toUpperCase()}</option>)}</select></label>
+              <label className={styles.field}><span className={styles.flabel}>Saluran spesifik</span><select className={styles.select} value={channel} onChange={(e) => setChannel(e.target.value)}><option value={ALL}>Semua saluran</option>{channelOptionsFiltered.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+              <button type="button" className={styles.reset} onClick={reset}>Reset filter</button>
             </div>
-            <button type="button" className={styles.reset} onClick={reset}>Reset</button>
-            <button type="button" className={`${styles.reset} ${styles.resetPrimary}`} onClick={exportPDF}>
-              ⇣ Export PDF
-            </button>
+          )}
+        </section>
+
+        <div className={styles.activeScope}>
+          <span>Menampilkan</span>
+          <b>{single ? prettyDate(from) : `${shortDate(from)} – ${shortDate(to)}`} · {days} hari</b>
+          <b>{lockedOutletName ?? outlets.find((o) => o.id === outletF)?.name ?? "Semua outlet"}</b>
+          <b>{channelKind === ALL ? "Semua sumber" : channelKind === "popup" ? "Pop-up" : channelKind[0]!.toUpperCase() + channelKind.slice(1)}</b>
+          {fset && <span className={styles.filteredBadge}>Filter aktif</span>}
+        </div>
+
+        {layoutMode === "sections" && (
+          <nav className={styles.sectionTabs} aria-label="Bagian laporan">
+            {sections.map((section) => <button key={section.id} type="button" className={activeSection === section.id ? styles.sectionTabOn : ""} onClick={() => setActiveSection(section.id)}>{section.label}</button>)}
+          </nav>
+        )}
+
+        {mode === "executive" && (
+          <div className={styles.modeContent}>
+            <section className={sectionClass("summary")}>
+              <SectionHeading title="Ringkasan penjualan" detail={fset ? "berdasarkan filter aktif" : "gambaran utama periode"} />
+              <div className={styles.kpis}>
+                <Kpi k="Omzet" n={fmt(omzet)} d={`${fmt(perDay)}/hari rata-rata`} />
+                <Kpi k="Total pesanan" n={fmtN(orderCount)} d="transaksi" />
+                <Kpi k="Item terjual" n={fmtN(itemCount)} d="qty" />
+                <Kpi k="Rata-rata order" n={fmt(aov)} d="per pesanan" />
+              </div>
+            </section>
+
+            <section className={sectionClass("trend")}>
+              <div className={styles.chartcard}>
+                <div className={styles.chartHeader}>
+                  <div><h4>{gran === "hour" ? "Tren penjualan per jam" : gran === "day" ? "Tren penjualan harian" : "Tren penjualan bulanan"}</h4><p>{bk.length} {gran === "hour" ? "jam" : gran === "day" ? "hari" : "bulan"} · total {fmt(bk.reduce((sum, bucket) => sum + bucket.v, 0))}</p></div>
+                  <div className={styles.chartControls}>
+                    <div className={styles.seg}>{([["day", "Per hari"], ["hour", "Per jam"], ["month", "Per bulan"]] as [Granularity, string][]).map(([value, label]) => <button key={value} type="button" className={gran === value ? styles.segOn : ""} onClick={() => setGran(value)}>{label}</button>)}</div>
+                    <div className={styles.seg}>{([["line", "Garis"], ["bar", "Batang"]] as [ChartType, string][]).map(([value, label]) => <button key={value} type="button" className={chartType === value ? styles.segOn : ""} onClick={() => setChartType(value)}>{label}</button>)}</div>
+                  </div>
+                </div>
+                <TrendChart bk={bk} type={chartType} gran={gran} />
+              </div>
+            </section>
+
+            <section className={sectionClass("breakdown")}>
+              <SectionHeading title="Komposisi penjualan" detail="metode pembayaran dan channel pesanan" />
+              <div className={styles.grid2}>
+                <div className={styles.rcard}><h4>Per metode bayar</h4><div className={styles.csub}>Rupiah & jumlah transaksi</div><Bars data={aggByPay(sales, filter.product)} /></div>
+                <div className={styles.rcard}><h4>Per channel pesanan</h4><div className={styles.csub}>Rupiah & jumlah pesanan</div><Bars data={aggByChannel(sales, filter.product, channelLabelOf)} /></div>
+              </div>
+            </section>
           </div>
-        </div>
+        )}
 
-        {/* SUMMARY KPIs */}
-        <div className={styles.note}>
-          Ringkasan penjualan <span className={styles.noteSm}>{fset ? "· terfilter" : ""}</span>
-        </div>
-        <div className={styles.kpis}>
-          <Kpi k="Omzet" n={fmt(omzet)} d={`${fmt(perDay)}/hari rata-rata`} />
-          <Kpi k="Total pesanan" n={fmtN(orderCount)} d="transaksi" />
-          <Kpi k="Item terjual" n={fmtN(itemCount)} d="qty" />
-          <Kpi k="Rata-rata order" n={fmt(aov)} d="per pesanan" />
-        </div>
-
-        {/* CHART */}
-        <div className={styles.chartcard}>
-          <div className={styles.chartHeader}>
-            <h4>
-              {gran === "hour" ? "Tren penjualan per jam"
-                : gran === "day" ? "Tren penjualan harian"
-                : "Tren penjualan bulanan"}
-            </h4>
-            <div className={`${styles.charttools} ${styles.mono}`}>
-              {bk.length} {gran === "hour" ? "jam" : gran === "day" ? "hari" : "bulan"} · total {fmt(bk.reduce((s, b) => s + b.v, 0))}
+        {mode === "operations" && (
+          <div className={styles.modeContent}>
+            <div className={styles.opsKpis}>
+              <Kpi k="Gross sales" n={fmt(omzet)} d={`${fmtN(orderCount)} paid orders`} />
+              <Kpi k="Items sold" n={fmtN(itemCount)} d="seluruh produk" />
+              <Kpi k="Average order" n={fmt(aov)} d="per pesanan" />
             </div>
+
+            <section className={sectionClass("cash")}>
+              <SectionHeading title="Rekap kas" detail={single ? "rekap laci kasir untuk tanggal ini" : "akumulasi seluruh shift pada periode"} />
+              <div className={styles.cashcard}><CashRecap sessions={sessions} from={from} to={to} outlet={filter.outlet} single={single} /></div>
+            </section>
+
+            <section className={sectionClass("menu")}>
+              <MenuSection
+                sales={sales}
+                categoryNameOf={categoryNameOf}
+              />
+            </section>
+
+            <section className={sectionClass("transactions")}>
+              <SectionHeading title="Daftar transaksi" detail={`${fmtN(transactionSales.length)} dari ${fmtN(sales.length)} transaksi sesuai filter lokal`} />
+              <div className={styles.transactionTools}>
+                <label className={styles.field}><span className={styles.flabel}>Cari</span><input className={styles.input} value={txSearch} onChange={(event) => setTxSearch(event.target.value)} placeholder="Nomor pesanan atau item…" /></label>
+                <label className={styles.field}><span className={styles.flabel}>Pembayaran</span><select className={styles.select} value={txPay} onChange={(event) => setTxPay(event.target.value)}><option value={ALL}>Semua metode</option>{payOptions.map((method) => <option key={method} value={method}>{method.toUpperCase()}</option>)}</select></label>
+                <label className={styles.field}><span className={styles.flabel}>Status</span><select className={styles.select} value={txStatus} onChange={(event) => setTxStatus(event.target.value)}><option value={ALL}>Semua status</option>{txStatusOptions.map((status) => <option key={status} value={status}>{ORDER_STATUS_LABEL[status as OrderStatus] ?? status}</option>)}</select></label>
+                <button type="button" className={styles.csvShortcut} onClick={() => { setExportFormat("csv"); setExportOpen(true); }}><Download aria-hidden="true" /> Download CSV</button>
+              </div>
+              <div className={styles.tcard}>
+                <table className={styles.table}>
+                  <thead><tr><th>No. Pesanan</th><th>Tanggal</th><th>Waktu</th><th>Channel</th><th>Item</th><th>Status</th><th>Metode</th><th className={styles.num}>Total</th></tr></thead>
+                  <tbody><TxRows sales={transactionSales} channelLabelOf={channelLabelOf} /></tbody>
+                </table>
+              </div>
+            </section>
           </div>
-          <TrendChart bk={bk} type={chartType} gran={gran} />
-        </div>
+        )}
 
-        {/* BREAKDOWNS */}
-        <div className={styles.grid2} style={{ marginTop: 11 }}>
-          <div className={styles.rcard}>
-            <h4>Per metode bayar</h4>
-            <div className={styles.csub}>Rupiah & jumlah transaksi</div>
-            <Bars data={aggByPay(sales, filter.product)} />
+        {exportOpen && (
+          <div className={styles.dialogBackdrop} role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setExportOpen(false); }}>
+            <section className={styles.exportDialog} role="dialog" aria-modal="true" aria-labelledby="export-title">
+              <div className={styles.dialogHead}><div><h2 id="export-title">Export laporan</h2><p>File dibuat dari scope laporan yang sedang aktif.</p></div><button type="button" onClick={() => setExportOpen(false)} aria-label="Tutup"><X aria-hidden="true" /></button></div>
+              <div className={styles.dialogBody}>
+                <div><span className={styles.flabel}>Format</span><div className={styles.formatGrid}><button type="button" className={exportFormat === "pdf" ? styles.formatOn : ""} onClick={() => setExportFormat("pdf")}><strong>PDF</strong><span>Ringkasan siap dibagikan</span></button><button type="button" className={exportFormat === "csv" ? styles.formatOn : ""} onClick={() => setExportFormat("csv")}><strong>CSV</strong><span>{fmtN(transactionSales.length)} transaksi terfilter</span></button></div></div>
+                <div className={styles.exportSummary}><span>Periode</span><strong>{periodLabel}</strong><span>Outlet</span><strong>{lockedOutletName ?? outlets.find((outlet) => outlet.id === outletF)?.name ?? "Semua outlet"}</strong><span>Sumber</span><strong>{channelKind === ALL ? "Semua sumber" : channelKind}</strong><span>Data</span><strong>{exportFormat === "csv" ? `${fmtN(transactionSales.length)} transaksi / seluruh kolom` : "Ringkasan lengkap"}</strong></div>
+              </div>
+              <div className={styles.dialogFoot}><button type="button" className={styles.reset} onClick={() => setExportOpen(false)}>Batal</button><button type="button" className={styles.exportButton} onClick={runExport}><Download aria-hidden="true" /> Download {exportFormat.toUpperCase()}</button></div>
+            </section>
           </div>
-          <div className={styles.rcard}>
-            <h4>Per channel pesanan</h4>
-            <div className={styles.csub}>Rupiah & jumlah pesanan</div>
-            <Bars data={aggByChannel(sales, filter.product, channelLabelOf)} />
-          </div>
-        </div>
-
-        {/* CASH RECAP */}
-        <div className={styles.note}>
-          Rekap kas
-          <span className={styles.noteSm}>
-            {single ? "— rekap laci kasir untuk tanggal ini" : "— akumulasi seluruh shift pada periode"}
-          </span>
-        </div>
-        <div className={styles.cashcard}>
-          <CashRecap sessions={sessions} from={from} to={to} outlet={filter.outlet} single={single} />
-        </div>
-
-        {/* PER MENU */}
-        <MenuSection
-          sales={sales}
-          outlets={outlets}
-          outletF={outletF}
-          setOutletF={setOutletF}
-          channelKind={channelKind}
-          setChannelKind={(k) => { setChannelKind(k); setChannel(ALL); }}
-          channel={channel}
-          setChannel={setChannel}
-          channelOptionsFiltered={channelOptionsFiltered}
-          lockedOutletId={lockedOutletId}
-          categoryNameOf={categoryNameOf}
-        />
-
-        {/* TRANSACTIONS */}
-        <div className={styles.note}>
-          Daftar transaksi <span className={styles.noteSm}>· {fmtN(sales.length)} transaksi{sales.length > 120 ? ` (menampilkan 120 teratas)` : ""}</span>
-        </div>
-        <div className={styles.tcard}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>No. Pesanan</th>
-                <th>Tanggal</th>
-                <th>Waktu</th>
-                <th>Channel</th>
-                <th>Item</th>
-                <th>Status</th>
-                <th>Metode</th>
-                <th className={styles.num}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <TxRows sales={sales} channelLabelOf={channelLabelOf} />
-            </tbody>
-          </table>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -673,6 +664,16 @@ function Kpi({ k, n, d }: { k: string; n: string; d: string }) {
       <div className={styles.kpiK}>{k}</div>
       <div className={`${styles.kpiN} ${styles.serif}`}>{n}</div>
       <div className={styles.kpiD}>{d}</div>
+    </div>
+  );
+}
+
+function SectionHeading({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className={styles.sectionHeading}>
+      <span aria-hidden="true" />
+      <strong>{title}</strong>
+      <p>{detail}</p>
     </div>
   );
 }
@@ -729,7 +730,7 @@ function TrendChart({ bk, type, gran }: { bk: Bucket[]; type: ChartType; gran: G
           width={w.toFixed(1)}
           height={Math.max(0, h).toFixed(1)}
           rx="2.5"
-          fill="#6E7B4F"
+          fill="#FF8A00"
         >
           <title>{`${b.full} — ${fmt(b.v)} · ${b.n} pesanan`}</title>
         </rect>
@@ -740,12 +741,12 @@ function TrendChart({ bk, type, gran }: { bk: Bucket[]; type: ChartType; gran: G
     const area = `${pl + bw / 2},${pt + plotH} ${pts} ${pl + (n - 1) * bw + bw / 2},${pt + plotH}`;
     body = (
       <>
-        <polygon points={area} fill="rgba(110,123,79,.12)" />
-        <polyline points={pts} fill="none" stroke="#6E7B4F" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+        <polygon points={area} fill="rgba(255,138,0,.12)" />
+        <polyline points={pts} fill="none" stroke="#FF8A00" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
         {bk.map((b, i) => {
           const x = pl + i * bw + bw / 2;
           return (
-            <circle key={i} cx={x.toFixed(1)} cy={y(b.v).toFixed(1)} r={n > 40 ? 2 : 3.4} fill="#6E7B4F">
+            <circle key={i} cx={x.toFixed(1)} cy={y(b.v).toFixed(1)} r={n > 40 ? 2 : 3.4} fill="#FF8A00">
               <title>{`${b.full} — ${fmt(b.v)} · ${b.n} pesanan`}</title>
             </circle>
           );
@@ -997,76 +998,15 @@ function CashRecap({
 
 function MenuSection({
   sales,
-  outlets,
-  outletF,
-  setOutletF,
-  channelKind,
-  setChannelKind,
-  channel,
-  setChannel,
-  channelOptionsFiltered,
-  lockedOutletId,
   categoryNameOf,
 }: {
   sales: SalesOrder[];
-  outlets: Pick<Outlet, "id" | "name">[];
-  outletF: string;
-  setOutletF: (v: string) => void;
-  channelKind: string;
-  setChannelKind: (k: string) => void;
-  channel: string;
-  setChannel: (c: string) => void;
-  channelOptionsFiltered: string[];
-  lockedOutletId: string | null;
   categoryNameOf: (id: string | null) => string;
 }) {
-  // Sales is already outlet-filtered upstream when outletF is set.
-  const filtered = sales;
-
   return (
     <>
-      <div className={styles.note}>
-        Rekap penjualan per menu <span className={styles.noteSm}>— per item menu, berdasarkan filter aktif</span>
-      </div>
+      <SectionHeading title="Rekap penjualan per menu" detail="per item menu, berdasarkan scope aktif" />
       <div className={styles.tcard}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-          {!lockedOutletId && outlets.length > 0 && (
-            <div className={styles.field}>
-              <span className={styles.flabel}>Outlet</span>
-              <select className={styles.select} value={outletF} onChange={(e) => setOutletF(e.target.value)}>
-                <option value={ALL}>Semua outlet</option>
-                {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </select>
-            </div>
-          )}
-          <div>
-            <span className={styles.flabel}>Tipe channel</span>
-            <div className={styles.seg}>
-              {([
-                [ALL, "Semua"],
-                ["direct", "Direct"],
-                ["online", "Online"],
-                ["popup", "Pop-up"],
-              ] as [string, string][]).map(([k, label]) => (
-                <button
-                  key={k}
-                  type="button"
-                  className={channelKind === k ? styles.segOn : ""}
-                  onClick={() => setChannelKind(k)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className={styles.field}>
-            <span className={styles.flabel}>Saluran</span>
-            <select className={styles.select} value={channel} onChange={(e) => setChannel(e.target.value)}>
-              <option value={ALL}>Semua saluran</option>
-              {channelOptionsFiltered.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-        </div>
         <table className={styles.table}>
           <thead>
             <tr>
@@ -1080,7 +1020,7 @@ function MenuSection({
             </tr>
           </thead>
           <tbody>
-            <MenuRows sales={filtered} categoryNameOf={categoryNameOf} />
+            <MenuRows sales={sales} categoryNameOf={categoryNameOf} />
           </tbody>
         </table>
       </div>
@@ -1268,19 +1208,19 @@ function doExport(args: {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;color:#241C15;line-height:1.5;padding:28px 32px;max-width:800px;margin:0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #241C15;padding-bottom:14px;margin-bottom:16px}
+body{font-family:'Inter',sans-serif;color:#24211D;line-height:1.5;padding:28px 32px;max-width:800px;margin:0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #24211D;padding-bottom:14px;margin-bottom:16px}
 .brand{font-family:'Fraunces',serif;font-size:20px;font-weight:500}
-.brand b{color:#6E7B4F}
-.meta{text-align:right;font-size:11px;color:#6E665B;font-family:'Space Mono',monospace}
+.brand b{color:#FF8A00}
+.meta{text-align:right;font-size:11px;color:#6C675F;font-family:'Space Mono',monospace}
 h1{font-family:'Fraunces',serif;font-weight:400;font-size:22px;margin:0 0 4px}
-.period{font-size:13px;color:#6E665B;margin-bottom:16px}
+.period{font-size:13px;color:#6C675F;margin-bottom:16px}
 .section{margin-top:20px}
-.stitle{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#B56A1C;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-.stitle::before{content:"";width:14px;height:2px;background:#B56A1C}
+.stitle{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#FF8A00;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.stitle::before{content:"";width:14px;height:2px;background:#FF8A00}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
 .kpi{border:1px solid rgba(36,28,21,.13);border-radius:8px;padding:10px 12px}
-.kpi .k{font-size:10px;color:#6E665B}.kpi .n{font-family:'Fraunces',serif;font-size:20px;margin-top:2px}.kpi .d{font-size:10px;color:#6E665B;margin-top:1px}
+.kpi .k{font-size:10px;color:#6C675F}.kpi .n{font-family:'Fraunces',serif;font-size:20px;margin-top:2px}.kpi .d{font-size:10px;color:#6C675F;margin-top:1px}
 table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
 th{text-align:left;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:#6E665B;font-weight:400;padding:4px 6px 4px 0;border-bottom:1px solid rgba(36,28,21,.13)}
 td{padding:5px 6px 5px 0;border-bottom:1px solid rgba(36,28,21,.06);vertical-align:top}
@@ -1291,18 +1231,18 @@ td{padding:5px 6px 5px 0;border-bottom:1px solid rgba(36,28,21,.06);vertical-ali
 .card h4{font-size:12px;font-weight:600;margin-bottom:6px}
 .bar-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px}
 .bar-row .lab{width:90px;flex-shrink:0;color:#4a4137;font-size:11px}
-.bar-row .track{flex:1;height:12px;background:#EDE7D9;border-radius:3px;position:relative;overflow:hidden}
-.bar-row .fill{position:absolute;inset:0 auto 0 0;border-radius:3px;background:#6E7B4F}
+.bar-row .track{flex:1;height:12px;background:#F5F7F4;border-radius:3px;position:relative;overflow:hidden}
+.bar-row .fill{position:absolute;inset:0 auto 0 0;border-radius:3px;background:#FF8A00}
 .bar-row .val{min-width:80px;text-align:right;font-family:'Space Mono',monospace;font-size:10px}
 .stamp{font-family:'Space Mono',monospace;font-size:9px;color:#6E665B;text-align:center;margin-top:24px;padding-top:10px;border-top:1px solid rgba(36,28,21,.13)}
 @media print{body{padding:20px}@page{margin:16mm 14mm;size:A4}}
-.highlight{background:#F7F3EA;border-radius:8px;padding:12px 14px;margin-bottom:12px;display:flex;gap:20px;flex-wrap:wrap}
+.highlight{background:#FFF8F0;border-radius:8px;padding:12px 14px;margin-bottom:12px;display:flex;gap:20px;flex-wrap:wrap}
 .highlight .hlabel{font-size:10px;color:#6E665B;text-transform:uppercase;letter-spacing:.04em;font-family:'Space Mono',monospace}
 .highlight .hval{font-family:'Fraunces',serif;font-size:26px;letter-spacing:-.01em}
 .highlight .hsub{font-size:11px;color:#6E665B}
 .pbreak{page-break-before:always}
 .txitems{font-size:10px;color:#6E665B;line-height:1.3;max-width:200px}
-.paytag{font-size:9px;background:#EDE7D9;padding:1px 6px;border-radius:4px;white-space:nowrap}
+.paytag{font-size:9px;background:#F5F7F4;padding:1px 6px;border-radius:4px;white-space:nowrap}
 </style></head><body>
 <div class="header">
   <div><div class="brand">solusi<b>saji</b></div><div style="font-size:11px;color:#6E665B;margin-top:2px">Laporan Penjualan</div></div>
