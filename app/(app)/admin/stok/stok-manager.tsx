@@ -4,13 +4,18 @@ import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
+  CalendarDays,
   Check,
   CircleDot,
   Image as ImageIcon,
   Loader2,
+  LockKeyhole,
   Minus,
+  PackageCheck,
   Plus,
   Lock,
+  Search,
+  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -85,28 +90,66 @@ export function StokManager({ snapshot }: { snapshot: StockSnapshot }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700 gap-1.5">
-            <CircleDot className="size-3" />
-            Sesi · {dayLabel(snapshot.date)}
-          </Badge>
-          {snapshot.outlet_name && (
-            <span className="text-xs text-muted-foreground">· {snapshot.outlet_name}</span>
-          )}
+      <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700">
+                <CalendarDays className="size-3" /> {dayLabel(snapshot.date)}
+              </Badge>
+              {snapshot.outlet_name && (
+                <Badge variant="outline" className="font-normal text-muted-foreground">
+                  {snapshot.outlet_name}
+                </Badge>
+              )}
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight">
+                {allConfirmed ? "Stok hari ini siap dipantau" : "Siapkan stok sebelum mulai jualan"}
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                {allConfirmed
+                  ? "Penjualan mengurangi stok secara otomatis. Catat penerimaan, kerusakan, atau koreksi selama operasional."
+                  : "Hitung stok fisik setiap menu, masukkan jumlah aktual, lalu konfirmasi sebagai titik awal hari ini."}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:min-w-[360px]">
+            <SummaryStat value={counts.available} label="Tersedia" tone="emerald" />
+            <SummaryStat value={counts.low} label="Menipis" tone="amber" />
+            <SummaryStat value={counts.outOrDisabled} label="Habis" tone="rose" />
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <StatusChip color="emerald" label={`${counts.available} Tersedia`} />
-          <StatusChip color="amber" label={`${counts.low} Hampir habis`} />
-          <StatusChip color="rose" label={`${counts.outOrDisabled} Habis / nonaktif`} />
+        <div className={cn(
+          "flex items-center gap-2 border-t px-5 py-3 text-xs sm:px-6",
+          allConfirmed ? "bg-emerald-50/70 text-emerald-800" : "bg-amber-50/70 text-amber-900",
+        )}>
+          {allConfirmed ? <PackageCheck className="size-4 shrink-0" /> : <CircleDot className="size-4 shrink-0" />}
+          <span className="font-medium">
+            {allConfirmed ? "Stok awal sudah dikonfirmasi" : "Stok awal belum dikonfirmasi"}
+          </span>
+          <span className="hidden text-current/70 sm:inline">· {snapshot.items.length} menu tercatat</span>
         </div>
-      </div>
+      </section>
 
       <StageTabs stage={stage} setStage={setStage} allConfirmed={allConfirmed} />
 
       {stage === "default" && <DefaultStage snapshot={snapshot} />}
-      {stage === "opening" && <OpeningStage snapshot={snapshot} allConfirmed={allConfirmed} />}
-      {stage === "ops" && <OperationalStage snapshot={snapshot} allConfirmed={allConfirmed} />}
+      {stage === "opening" && (
+        <OpeningStage
+          snapshot={snapshot}
+          allConfirmed={allConfirmed}
+          onConfirmed={() => setStage("ops")}
+        />
+      )}
+      {stage === "ops" && (
+        <OperationalStage
+          snapshot={snapshot}
+          allConfirmed={allConfirmed}
+          onOpenChecklist={() => setStage("opening")}
+        />
+      )}
     </div>
   );
 }
@@ -124,62 +167,57 @@ function StageTabs({
   setStage: (s: StageKey) => void;
   allConfirmed: boolean;
 }) {
-  const tabs: Array<{ id: StageKey; n: number; label: string; hint: string; state: "done" | "active" | "todo" }> = [
-    {
-      id: "default",
-      n: 1,
-      label: "Default Stok",
-      hint: "Patokan harian per outlet",
-      state: stage === "default" ? "active" : "done",
-    },
+  const tabs: Array<{ id: StageKey; label: string; hint: string; icon: typeof CircleDot }> = [
     {
       id: "opening",
-      n: 2,
-      label: "Stok Awal Hari Ini",
-      hint: allConfirmed ? "Sudah dikonfirmasi" : "Konfirmasi stok aktual",
-      state: stage === "opening" ? "active" : allConfirmed ? "done" : "todo",
+      label: "Stok awal",
+      hint: allConfirmed ? "Sudah dikonfirmasi" : "Isi jumlah aktual",
+      icon: allConfirmed ? Check : CircleDot,
     },
     {
       id: "ops",
-      n: 3,
-      label: "Operasional",
-      hint: "Tambah/kurangi & pantau sisa",
-      state: stage === "ops" ? "active" : "todo",
+      label: "Pantau hari ini",
+      hint: "Sisa, tambahan, dan koreksi",
+      icon: PackageCheck,
+    },
+    {
+      id: "default",
+      label: "Pengaturan default",
+      hint: "Patokan stok harian",
+      icon: Settings2,
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          onClick={() => setStage(t.id)}
-          className={`group text-left rounded-xl border px-4 py-3 transition-colors ${
-            stage === t.id
-              ? "border-primary bg-primary/5"
-              : t.state === "done"
-              ? "border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50"
-              : "bg-card hover:bg-muted"
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <span
-              className={`inline-flex size-6 items-center justify-center rounded-full text-[11px] font-semibold ${
-                stage === t.id
-                  ? "bg-primary text-primary-foreground"
-                  : t.state === "done"
-                  ? "bg-emerald-100 text-emerald-700"
-                  : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {t.state === "done" && stage !== t.id ? <Check className="size-3.5" /> : t.n}
+    <div className="grid grid-cols-1 gap-1.5 rounded-xl bg-muted/60 p-1.5 sm:grid-cols-3">
+      {tabs.map((t) => {
+        const Icon = t.icon;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setStage(t.id)}
+            aria-current={stage === t.id ? "page" : undefined}
+            className={cn(
+              "flex min-h-14 items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
+              stage === t.id
+                ? "bg-card text-foreground shadow-sm ring-1 ring-foreground/10"
+                : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
+            )}
+          >
+            <span className={cn(
+              "grid size-8 shrink-0 place-items-center rounded-lg",
+              stage === t.id ? "bg-primary text-primary-foreground" : "bg-background",
+            )}>
+              <Icon className="size-4" />
             </span>
-            <div className="font-medium text-sm">{t.label}</div>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground pl-8">{t.hint}</p>
-        </button>
-      ))}
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">{t.label}</span>
+              <span className="block truncate text-xs text-muted-foreground">{t.hint}</span>
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -281,15 +319,38 @@ function DefaultRow({
 function OpeningStage({
   snapshot,
   allConfirmed,
+  onConfirmed,
 }: {
   snapshot: StockSnapshot;
   allConfirmed: boolean;
+  onConfirmed: () => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [query, setQuery] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [savingIds, setSavingIds] = useState<Set<string>>(() => new Set());
 
   const sumOpening = snapshot.items.reduce((s, it) => s + it.daily_stock.opening_stock, 0);
-  const sumDefault = snapshot.items.reduce((s, it) => s + (it.effective_quota ?? 0), 0);
+  const zeroCount = snapshot.items.filter((it) => it.daily_stock.opening_stock === 0).length;
+  const filteredItems = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("id-ID");
+    if (!needle) return snapshot.items;
+    return snapshot.items.filter((item) =>
+      `${item.menu_item.name} ${item.category_name ?? ""}`
+        .toLocaleLowerCase("id-ID")
+        .includes(needle),
+    );
+  }, [query, snapshot.items]);
+
+  function handleSavingChange(itemId: string, saving: boolean) {
+    setSavingIds((current) => {
+      const next = new Set(current);
+      if (saving) next.add(itemId);
+      else next.delete(itemId);
+      return next;
+    });
+  }
 
   function handleConfirm() {
     start(async () => {
@@ -298,7 +359,9 @@ function OpeningStage({
         if (!res.ok) toast.error(res.error);
         else {
           toast.success("Stok hari ini dikonfirmasi");
+          setConfirmOpen(false);
           router.refresh();
+          onConfirmed();
         }
       } catch (err) {
         console.error("[stok] confirmDailyStock threw", err);
@@ -308,83 +371,165 @@ function OpeningStage({
   }
 
   return (
-    <Card className="p-0 overflow-hidden gap-0">
-      <div className="p-4 border-b flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h3 className="font-semibold">Stok awal hari ini</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Catat stok aktual saat buka. Default dipakai jika tidak diubah. Konfirmasi mengunci nilai ini.
-          </p>
+    <div className="space-y-4">
+      <Card className={cn(
+        "gap-0 p-0",
+        allConfirmed ? "bg-emerald-50/40 ring-emerald-200" : "bg-amber-50/40 ring-amber-200",
+      )}>
+        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className={cn(
+              "grid size-10 shrink-0 place-items-center rounded-xl",
+              allConfirmed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800",
+            )}>
+              {allConfirmed ? <LockKeyhole className="size-5" /> : <CalendarDays className="size-5" />}
+            </span>
+            <div>
+              <h3 className="font-semibold">
+                {allConfirmed ? "Stok awal sudah dikunci" : "Hitung stok fisik sebelum outlet dibuka"}
+              </h3>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                {allConfirmed
+                  ? "Nilai ini menjadi titik awal laporan hari ini. Perubahan berikutnya dicatat di Pantau hari ini."
+                  : "Masukkan total yang benar-benar tersedia sekarang. Sisa kemarin dan default hanya sebagai referensi."}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-6 rounded-xl bg-background/80 px-4 py-3 ring-1 ring-foreground/10">
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total awal</div>
+              <div className="mt-0.5 text-xl font-semibold tabular-nums">{sumOpening}</div>
+            </div>
+            <div className="h-8 w-px bg-border" />
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Stok 0</div>
+              <div className={cn("mt-0.5 text-xl font-semibold tabular-nums", zeroCount > 0 && "text-rose-600")}>
+                {zeroCount}
+              </div>
+            </div>
+          </div>
         </div>
-        <Button
-          size="sm"
-          onClick={handleConfirm}
-          disabled={pending || allConfirmed}
-          aria-busy={pending}
-        >
-          {allConfirmed ? (
-            <>
-              <Lock className="size-4 mr-1" /> Sudah dikonfirmasi
-            </>
-          ) : (
-            <>
-              <Check className="size-4 mr-1" /> Konfirmasi stok hari ini
-            </>
-          )}
-        </Button>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b">
-              <th className="px-4 py-3 font-medium">Item menu</th>
-              <th className="px-3 py-3 font-medium text-center text-muted-foreground/80">Default</th>
-              <th className="px-3 py-3 font-medium text-center text-muted-foreground/80">
-                Kemarin (sisa)
-              </th>
-              <th className="px-3 py-3 font-medium text-center">Tambahan stok hari ini</th>
-              <th className="px-3 py-3 font-medium text-center">Stok awal hari ini</th>
-              <th className="px-3 py-3 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {snapshot.items.map((it) => (
-              <OpeningRow key={it.menu_item.id} item={it} />
+      </Card>
+
+      <Card className="gap-0 p-0">
+        <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-semibold">Daftar menu</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {snapshot.items.length} menu · perubahan tersimpan otomatis
+            </p>
+          </div>
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Cari menu atau kategori"
+              aria-label="Cari menu atau kategori"
+              className="h-9 pl-9"
+            />
+          </div>
+        </div>
+
+        {filteredItems.length === 0 ? (
+          <div className="px-4 py-14 text-center text-sm text-muted-foreground">
+            Menu yang dicari tidak ditemukan.
+          </div>
+        ) : (
+          <div className="grid gap-3 p-3 md:grid-cols-2 md:p-4">
+            {filteredItems.map((item) => (
+              <OpeningItemCard
+                key={item.menu_item.id}
+                item={item}
+                onSavingChange={handleSavingChange}
+              />
             ))}
-          </tbody>
-          <tfoot>
-            <tr className="bg-muted/30 border-t text-sm font-medium">
-              <td className="px-4 py-3">{snapshot.items.length} item</td>
-              <td className="px-3 py-3 text-center tabular-nums">{sumDefault}</td>
-              <td />
-              <td />
-              <td className="px-3 py-3 text-center tabular-nums">{sumOpening}</td>
-              <td />
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </Card>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 border-t bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-muted-foreground">
+            {allConfirmed ? (
+              <span className="inline-flex items-center gap-1.5 text-emerald-700">
+                <Lock className="size-3.5" /> Dikonfirmasi untuk {snapshot.outlet_name ?? "outlet ini"}
+              </span>
+            ) : zeroCount > 0 ? (
+              <span><strong className="text-foreground">{zeroCount} menu bernilai 0.</strong> Pastikan memang habis sebelum konfirmasi.</span>
+            ) : (
+              <span>Periksa kembali semua jumlah sebelum dikunci.</span>
+            )}
+          </div>
+          <Button
+            size="lg"
+            className="w-full sm:w-auto"
+            onClick={() => setConfirmOpen(true)}
+            disabled={pending || allConfirmed || snapshot.items.length === 0 || savingIds.size > 0}
+          >
+            {savingIds.size > 0 ? (
+              <><Loader2 className="size-4 animate-spin" /> Menyimpan {savingIds.size} perubahan…</>
+            ) : allConfirmed ? (
+              <><Lock className="size-4" /> Stok awal sudah dikunci</>
+            ) : (
+              <><Check className="size-4" /> Konfirmasi stok awal</>
+            )}
+          </Button>
+        </div>
+      </Card>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Konfirmasi stok awal hari ini?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Setelah dikonfirmasi, stok awal tidak dapat diedit. Penerimaan atau koreksi berikutnya tetap bisa dicatat dari Pantau hari ini.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <ConfirmStat label="Menu" value={snapshot.items.length} />
+              <ConfirmStat label="Total stok" value={sumOpening} />
+              <ConfirmStat label="Stok 0" value={zeroCount} attention={zeroCount > 0} />
+            </div>
+            {zeroCount > 0 && (
+              <div className="rounded-lg bg-rose-50 px-3 py-2.5 text-xs text-rose-800 ring-1 ring-rose-200">
+                {zeroCount} menu akan dimulai dengan stok 0 dan tidak dapat dipesan.
+              </div>
+            )}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={pending}>
+                Periksa lagi
+              </Button>
+              <Button onClick={handleConfirm} disabled={pending || savingIds.size > 0} aria-busy={pending}>
+                {pending ? (
+                  <><Loader2 className="size-4 animate-spin" /> Mengonfirmasi…</>
+                ) : (
+                  <><Check className="size-4" /> Ya, konfirmasi stok</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
-function OpeningRow({ item }: { item: StockSnapshot["items"][number] }) {
+function OpeningItemCard({
+  item,
+  onSavingChange,
+}: {
+  item: StockSnapshot["items"][number];
+  onSavingChange: (itemId: string, saving: boolean) => void;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const kemarin = item.yesterday_closing ?? 0;
-  // Tambahan = how much stock is being added today on top of yesterday's remainder.
-  // Reverse-calculate from any previously saved opening_stock.
-  const initialTambahan = item.daily_stock.opening_stock > 0
-    ? Math.max(0, item.daily_stock.opening_stock - kemarin)
-    : (item.effective_quota ?? 0);
-  const [tambahanStr, setTambahanStr] = useState<string>(initialTambahan.toString());
+  const [openingStr, setOpeningStr] = useState<string>(item.daily_stock.opening_stock.toString());
   const confirmed = !!item.daily_stock.confirmed_at;
-  const stokAwal = kemarin + (Number(tambahanStr) || 0);
 
   function persist(next: string) {
-    const tambahan = Math.max(0, Math.floor(Number(next) || 0));
-    const opening = kemarin + tambahan;
+    const opening = Math.max(0, Math.floor(Number(next) || 0));
     start(async () => {
+      onSavingChange(item.menu_item.id, true);
       try {
         const res = await updateOpeningStock(
           item.daily_stock.id,
@@ -396,50 +541,121 @@ function OpeningRow({ item }: { item: StockSnapshot["items"][number] }) {
       } catch (err) {
         console.error("[stok] updateOpeningStock threw", err);
         toast.error("Gagal menyimpan stok awal. Coba lagi.");
+      } finally {
+        onSavingChange(item.menu_item.id, false);
       }
     });
   }
 
+  function applyReference(value: number | null) {
+    if (value == null) return;
+    const next = Math.max(0, value).toString();
+    setOpeningStr(next);
+    persist(next);
+  }
+
+  const opening = Math.max(0, Number(openingStr) || 0);
+  const difference = item.yesterday_closing == null ? null : opening - item.yesterday_closing;
+
   return (
-    <tr className="border-b last:border-0">
-      <td className="px-4 py-3">
+    <article className={cn(
+      "rounded-xl border bg-card p-4 transition-colors",
+      opening === 0 ? "border-rose-200" : "border-border",
+    )}>
+      <div className="flex items-start justify-between gap-3">
         <MenuCell item={item} />
-      </td>
-      <td className="px-3 py-3 text-center text-xs text-muted-foreground tabular-nums">
-        {item.effective_quota ?? "—"}
-      </td>
-      <td className="px-3 py-3 text-center text-xs text-muted-foreground tabular-nums">
-        {item.yesterday_closing ?? "—"}
-      </td>
-      <td className="px-3 py-3 text-center">
+        {confirmed ? (
+          <Badge variant="outline" className="shrink-0 gap-1 border-emerald-200 bg-emerald-50 text-emerald-700">
+            <Lock className="size-3" /> Terkunci
+          </Badge>
+        ) : opening === 0 ? (
+          <Badge variant="outline" className="shrink-0 border-rose-200 bg-rose-50 text-rose-700">Stok 0</Badge>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <ReferenceButton
+          label="Sisa kemarin"
+          value={item.yesterday_closing}
+          onClick={() => applyReference(item.yesterday_closing)}
+          disabled={confirmed || pending || item.yesterday_closing == null}
+        />
+        <ReferenceButton
+          label="Default harian"
+          value={item.effective_quota}
+          onClick={() => applyReference(item.effective_quota)}
+          disabled={confirmed || pending || item.effective_quota == null}
+        />
+      </div>
+
+      <div className="mt-4 flex items-end justify-between gap-3 border-t pt-4">
+        <div>
+          <Label className="text-xs text-muted-foreground">Stok awal aktual</Label>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {difference == null
+              ? "Belum ada data kemarin"
+              : difference === 0
+              ? "Sama dengan sisa kemarin"
+              : `${difference > 0 ? "+" : ""}${difference} dari sisa kemarin`}
+          </p>
+        </div>
         <Stepper
-          value={tambahanStr}
-          onChange={setTambahanStr}
+          value={openingStr}
+          onChange={setOpeningStr}
           onCommit={persist}
           onDelta={(d) => {
-            const next = Math.max(0, (Number(tambahanStr) || 0) + d).toString();
-            setTambahanStr(next);
+            const next = Math.max(0, (Number(openingStr) || 0) + d).toString();
+            setOpeningStr(next);
             persist(next);
           }}
           disabled={confirmed}
           loading={pending}
+          prominent
         />
-      </td>
-      <td className="px-3 py-3 text-center font-semibold tabular-nums text-sm">
-        {stokAwal}
-      </td>
-      <td className="px-3 py-3">
-        {confirmed ? (
-          <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200 gap-1">
-            <Lock className="size-3" /> Dikonfirmasi
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="text-amber-700 bg-amber-50 border-amber-200">
-            Menunggu konfirmasi
-          </Badge>
-        )}
-      </td>
-    </tr>
+      </div>
+    </article>
+  );
+}
+
+function ConfirmStat({
+  label,
+  value,
+  attention,
+}: {
+  label: string;
+  value: number;
+  attention?: boolean;
+}) {
+  return (
+    <div className={cn("rounded-lg bg-muted/60 px-3 py-3 text-center", attention && "bg-rose-50 text-rose-800")}>
+      <div className="text-lg font-semibold tabular-nums">{value}</div>
+      <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function ReferenceButton({
+  label,
+  value,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  value: number | null;
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-lg bg-muted/60 px-3 py-2 text-left transition-colors enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-70"
+      title={value == null ? `${label} belum tersedia` : `Gunakan ${label.toLocaleLowerCase("id-ID")}`}
+    >
+      <span className="block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="mt-0.5 block text-sm font-semibold tabular-nums">{value ?? "—"}</span>
+    </button>
   );
 }
 
@@ -450,9 +666,11 @@ function OpeningRow({ item }: { item: StockSnapshot["items"][number] }) {
 function OperationalStage({
   snapshot,
   allConfirmed,
+  onOpenChecklist,
 }: {
   snapshot: StockSnapshot;
   allConfirmed: boolean;
+  onOpenChecklist: () => void;
 }) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [showAllLog, setShowAllLog] = useState(false);
@@ -472,8 +690,14 @@ function OperationalStage({
   return (
     <div className="space-y-6">
       {!allConfirmed && (
-        <Card className="p-3 bg-amber-50/60 border-amber-200 text-amber-900 text-xs">
-          Stok hari ini belum dikonfirmasi. Selesaikan tahap 2 terlebih dahulu untuk hasil yang konsisten.
+        <Card className="flex-row items-center justify-between gap-3 bg-amber-50/60 p-3 text-amber-900 ring-amber-200">
+          <div className="flex items-center gap-2 text-xs">
+            <CircleDot className="size-4 shrink-0" />
+            Stok awal belum dikonfirmasi. Selesaikan hitung fisik agar laporan hari ini akurat.
+          </div>
+          <Button size="sm" variant="outline" onClick={onOpenChecklist} className="shrink-0 bg-background">
+            Isi stok awal
+          </Button>
         </Card>
       )}
 
@@ -798,22 +1022,25 @@ function MenuCell({ item }: { item: StockSnapshot["items"][number] }) {
   );
 }
 
-function StatusChip({ color, label }: { color: "emerald" | "amber" | "rose"; label: string }) {
+function SummaryStat({
+  value,
+  label,
+  tone,
+}: {
+  value: number;
+  label: string;
+  tone: "emerald" | "amber" | "rose";
+}) {
   const colorClass = {
-    emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    amber: "bg-amber-50 text-amber-700 border-amber-200",
-    rose: "bg-rose-50 text-rose-700 border-rose-200",
-  }[color];
-  const dot = {
-    emerald: "bg-emerald-500",
-    amber: "bg-amber-500",
-    rose: "bg-rose-500",
-  }[color];
+    emerald: "bg-emerald-50 text-emerald-800 ring-emerald-200",
+    amber: "bg-amber-50 text-amber-800 ring-amber-200",
+    rose: "bg-rose-50 text-rose-800 ring-rose-200",
+  }[tone];
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 border ${colorClass}`}>
-      <span className={`size-1.5 rounded-full ${dot}`} />
-      {label}
-    </span>
+    <div className={cn("rounded-xl px-3 py-3 text-center ring-1", colorClass)}>
+      <div className="text-xl font-semibold tabular-nums">{value}</div>
+      <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide opacity-80">{label}</div>
+    </div>
   );
 }
 
@@ -853,6 +1080,7 @@ function Stepper({
   onDelta,
   disabled,
   loading,
+  prominent,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -860,14 +1088,15 @@ function Stepper({
   onDelta: (delta: number) => void;
   disabled?: boolean;
   loading?: boolean;
+  prominent?: boolean;
 }) {
   return (
     <div className="inline-flex items-center gap-1">
       <Button
         type="button"
-        size="icon"
+        size={prominent ? "icon-lg" : "icon"}
         variant="outline"
-        className="h-7 w-7"
+        className={prominent ? "size-9" : "h-7 w-7"}
         onClick={() => onDelta(-1)}
         disabled={disabled || loading}
         aria-label="Kurangi"
@@ -882,7 +1111,12 @@ function Stepper({
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           }}
-          className={cn("h-7 w-14 text-center px-1 tabular-nums", loading && "opacity-0")}
+          className={cn(
+            "text-center px-1 tabular-nums",
+            prominent ? "h-9 w-16 text-base font-semibold" : "h-7 w-14",
+            loading && "opacity-0",
+          )}
+          aria-label="Jumlah stok"
           inputMode="numeric"
           disabled={disabled || loading}
         />
@@ -894,9 +1128,9 @@ function Stepper({
       </div>
       <Button
         type="button"
-        size="icon"
+        size={prominent ? "icon-lg" : "icon"}
         variant="outline"
-        className="h-7 w-7"
+        className={prominent ? "size-9" : "h-7 w-7"}
         onClick={() => onDelta(1)}
         disabled={disabled || loading}
         aria-label="Tambah"

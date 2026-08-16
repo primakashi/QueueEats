@@ -14,10 +14,10 @@ export default async function AdminStokPage({ searchParams }: Props) {
   const res = await getStockSnapshot(outlet);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6">
       <PageHeader
-        title="Stok"
-        description="Kelola ketersediaan stok item menu harian"
+        title="Stok Menu"
+        description="Catat stok awal dan pantau ketersediaan menu sepanjang hari"
       />
       {res.ok ? (
         <StokManager snapshot={res.data} />
