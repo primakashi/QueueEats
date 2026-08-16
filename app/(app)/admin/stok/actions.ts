@@ -261,6 +261,9 @@ export async function updateOpeningStock(
     .eq("id", dailyStockId)
     .maybeSingle();
   if (!row) return { ok: false, error: "Stok harian tidak ditemukan" };
+  if (row.confirmed_at) {
+    return { ok: false, error: "Stok awal sudah dikonfirmasi dan tidak dapat diubah" };
+  }
 
   // Move current_stock by the same delta that opening_stock moves.
   const delta = safeOpening - (row.opening_stock as number);
