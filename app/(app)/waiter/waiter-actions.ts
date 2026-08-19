@@ -71,7 +71,13 @@ export async function updateOrderStatus(
   id: string,
   next: OrderStatus,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const profile = await requireRole(["waiter", "kitchen", "cashier", "admin"]);
+  const profile = await requireRole([
+    "waiter",
+    "kitchen",
+    "cashier",
+    "admin",
+    "branch_manager",
+  ]);
 
   const supabase = await createClient();
   const { data: current, error: readErr } = await supabase
