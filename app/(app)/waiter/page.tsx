@@ -69,7 +69,7 @@ export default async function WaiterHome() {
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       <PageHeader
         title="Pesanan"
-        description="Semua pesanan hari ini"
+        description="Pantau pesanan, handoff dapur, dan pembayaran hari ini"
       />
       <WaiterBoard
         initialOrders={orders}
