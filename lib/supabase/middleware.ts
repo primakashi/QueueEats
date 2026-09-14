@@ -2,6 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { PROFILE_COOKIE } from "@/lib/auth";
 
 function isPublicPath(pathname: string): boolean {
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.DEV_UI_PLAYGROUND === "true" &&
+    (pathname === "/dev/ui" || pathname.startsWith("/dev/ui/"))
+  ) return true;
   if (pathname.startsWith("/login")) return true;
   if (pathname === "/") return true;
   if (pathname === "/menu" || pathname.startsWith("/menu/")) return true;

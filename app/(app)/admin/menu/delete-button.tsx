@@ -27,7 +27,7 @@ export function DeleteMenuItemButton({
   const [pending, start] = useTransition();
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" variant="outline" />}>
+      <DialogTrigger render={<Button size="icon-sm" variant="outline" aria-label={`Hapus ${name}`} />}>
         <Trash2 className="h-3.5 w-3.5" />
       </DialogTrigger>
       <DialogContent>

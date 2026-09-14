@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,12 +16,12 @@ export default async function AdminMenuPage() {
   const rid = getRestaurantFilter(profile);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-10">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
       <PageHeader
         title="Menu"
-        description="Kelompokkan per kategori dan seret untuk mengatur urutan tampil."
+        description="Atur katalog, harga, dan ketersediaan menu dari satu tempat."
         actions={
-          <Button render={<Link href="/admin/menu/new" />}>
+          <Button size="lg" className="shadow-sm" render={<Link href="/admin/menu/new" />}>
             <Plus className="h-4 w-4 mr-2" /> Item baru
           </Button>
         }
@@ -48,23 +48,26 @@ async function MenuContent({ rid }: { rid: string | null }) {
   const cats = (categories ?? []) as MenuCategory[];
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
       <MenuItemsBoard items={menuItems} categories={cats} />
 
-      <div>
+      <section className="scroll-mt-6" id="kategori">
         <div className="mb-4 flex items-end justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="text-lg font-semibold">Kategori</h2>
-            <p className="text-sm text-muted-foreground">Kelola kategori item menu — seret untuk mengurutkan</p>
+            <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <Sparkles className="h-3.5 w-3.5" /> Struktur katalog
+            </div>
+            <h2 className="text-xl font-semibold tracking-tight">Kategori menu</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Buat, ubah, dan urutkan kategori yang dilihat pelanggan.</p>
           </div>
-          <div className="text-xs text-muted-foreground">
-            {cats.length} kategori
+          <div className="rounded-full border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+            {cats.length} kategori aktif
           </div>
         </div>
-        <Card className="p-5 max-w-3xl">
+        <Card className="max-w-4xl overflow-hidden border-border/70 p-4 shadow-sm sm:p-6">
           <CategoriesManager categories={cats} />
         </Card>
-      </div>
+      </section>
     </div>
   );
 }
